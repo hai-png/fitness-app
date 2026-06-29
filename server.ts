@@ -40,6 +40,7 @@ async function startServer() {
 ${JSON.stringify(assessment, null, 2)}
 
 Ensure the workouts match their fitness level, preferences, equipment availability, and weekly frequency.
+If they chose a commercial gym and logged available machines (under 'availableMachines' and 'selectedGymName'), tailor their gym exercises to utilize those specific machines as much as possible, and avoid using machines that are not listed as available. If no machines are logged, default to standard barbell & dumbbell gym exercises.
 Ensure the nutrition recommendations strictly respect their diet type (e.g. Vegetarian, Vegan, Keto, etc.) and any allergies or food restrictions.
 Make the instructions extremely actionable, highly detailed, and encouraging.`;
 

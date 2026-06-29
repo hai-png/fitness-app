@@ -14,7 +14,11 @@ import {
   CreditCard,
   MapPin,
   CheckCircle,
-  Truck
+  Truck,
+  Shirt,
+  Package,
+  Activity,
+  SlidersHorizontal
 } from "lucide-react";
 
 interface MarketplaceTabProps {
@@ -38,6 +42,7 @@ export default function MarketplaceTab({
   const [searchQuery, setSearchQuery] = useState<string>("all");
   const [typedQuery, setTypedQuery] = useState<string>("");
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
+  const [sortBy, setSortBy] = useState<string>("default");
 
   // Checkout states
   const [isCheckoutOpen, setIsCheckoutOpen] = useState<boolean>(false);
@@ -52,6 +57,13 @@ export default function MarketplaceTab({
                           prod.name.toLowerCase().includes(typedQuery.toLowerCase()) || 
                           prod.description.toLowerCase().includes(typedQuery.toLowerCase());
     return matchesCategory && matchesSearch;
+  });
+
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    if (sortBy === "price-asc") return a.price - b.price;
+    if (sortBy === "price-desc") return b.price - a.price;
+    if (sortBy === "rating") return b.rating - a.rating;
+    return 0;
   });
 
   const cartItems = cart.filter(item => item.type === "marketplace");
@@ -155,7 +167,7 @@ export default function MarketplaceTab({
           <input
             id="input-search-mkt"
             type="text"
-            placeholder="Search equipment, powders, gear..."
+            placeholder="Search equipment, apparel, supplements..."
             value={typedQuery}
             onChange={(e) => setTypedQuery(e.target.value)}
             className="w-full bg-white border border-[#1A1A1A]/15 rounded-none pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-[#1A1A1A] text-[#1A1A1A]"
@@ -164,85 +176,124 @@ export default function MarketplaceTab({
 
         <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
           {[
-            { id: "all", label: "All Items" },
-            { id: "supplements", label: "Supplements" },
-            { id: "equipment", label: "Fitness Equipment" },
-            { id: "accessories", label: "Trackers & Gear" }
+            { id: "all", label: "All Items", icon: <Package className="w-3.5 h-3.5" /> },
+            { id: "apparel", label: "Apparel", icon: <Shirt className="w-3.5 h-3.5" /> },
+            { id: "supplements", label: "Supplements", icon: <Sparkles className="w-3.5 h-3.5" /> },
+            { id: "equipment", label: "Equipment", icon: <Dumbbell className="w-3.5 h-3.5" /> },
+            { id: "accessories", label: "Accessories", icon: <ShoppingBagIcon className="w-3.5 h-3.5" /> }
           ].map((cat) => (
             <button
               key={cat.id}
               id={`btn-mkt-cat-${cat.id}`}
               onClick={() => setSelectedCategory(cat.id)}
-              className={`flex-shrink-0 px-3.5 py-1.5 rounded-none border text-xs font-bold uppercase tracking-wider transition-all ${
+              className={`flex-shrink-0 px-3 py-1.5 rounded-none border text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
                 selectedCategory === cat.id
                   ? "bg-[#1A1A1A] text-white border-[#1A1A1A]"
                   : "bg-white border-[#1A1A1A]/10 text-[#1A1A1A]/70 hover:border-[#1A1A1A]/30"
               }`}
             >
-              {cat.label}
+              {cat.icon}
+              <span>{cat.label}</span>
             </button>
           ))}
+        </div>
+
+        <div className="flex items-center justify-between mt-1 pt-2 border-t border-[#1A1A1A]/5">
+          <span className="text-[10px] uppercase font-bold text-[#1A1A1A]/50 tracking-wider">
+            {sortedProducts.length} {sortedProducts.length === 1 ? "Product" : "Products"} found
+          </span>
+          <div className="flex items-center gap-1.5">
+            <SlidersHorizontal className="w-3 h-3 text-[#1A1A1A]/50" />
+            <select
+              id="mkt-sort-select"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="bg-transparent text-[10px] font-bold uppercase tracking-wider text-[#1A1A1A]/70 focus:outline-none cursor-pointer border-none p-0 pr-1"
+            >
+              <option value="default">Sort: Default</option>
+              <option value="price-asc">Price: Low to High</option>
+              <option value="price-desc">Price: High to Low</option>
+              <option value="rating">Rating: Highest First</option>
+            </select>
+          </div>
         </div>
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-2 gap-3.5">
-        {filteredProducts.map((prod) => (
-          <div key={prod.id} className="bg-white border border-[#1A1A1A]/10 rounded-none overflow-hidden flex flex-col justify-between shadow-sm">
-            {/* Image section */}
-            <div className="relative h-28 bg-[#F9F8F6]">
-              <img
-                referrerPolicy="no-referrer"
-                src={prod.image}
-                alt={prod.name}
-                className="w-full h-full object-cover"
-              />
-              {prod.badge && (
-                <span className="absolute top-2 left-2 bg-[#E63946] text-white text-[8px] font-bold uppercase px-2 py-0.5 rounded-none tracking-widest">
-                  {prod.badge}
-                </span>
-              )}
-            </div>
-
-            {/* Meta */}
-            <div className="p-3 flex-grow flex flex-col justify-between">
-              <div>
-                <span className="text-[9px] uppercase font-bold text-[#1A1A1A]/40 tracking-wider">
-                  {prod.category}
-                </span>
-                <h4 className="text-xs font-bold uppercase tracking-tight text-[#1A1A1A] mt-0.5 line-clamp-1">
-                  {prod.name}
-                </h4>
-                <p className="text-[10px] text-[#1A1A1A]/60 mt-1 font-serif italic leading-relaxed line-clamp-2">
-                  {prod.description}
-                </p>
+      {sortedProducts.length === 0 ? (
+        <div className="bg-white border border-[#1A1A1A]/10 p-8 text-center flex flex-col items-center justify-center">
+          <Package className="w-10 h-10 text-[#1A1A1A]/30 mb-2 animate-pulse" />
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A]/80">No Products Found</h4>
+          <p className="text-[10px] text-[#1A1A1A]/60 mt-1 font-serif italic max-w-xs">
+            We couldn't find any products matching "{typedQuery}". Try clearing your filters or search keywords.
+          </p>
+          <button
+            id="btn-clear-search-mkt"
+            onClick={() => { setTypedQuery(""); setSelectedCategory("all"); }}
+            className="mt-4 px-4 py-1.5 border border-[#1A1A1A] hover:bg-[#1A1A1A] hover:text-white transition-all text-[10px] font-bold uppercase tracking-widest"
+          >
+            Reset Filters
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3.5">
+          {sortedProducts.map((prod) => (
+            <div key={prod.id} className="bg-white border border-[#1A1A1A]/10 rounded-none overflow-hidden flex flex-col justify-between shadow-sm hover:border-[#1A1A1A]/30 transition-all group">
+              {/* Image section */}
+              <div className="relative h-28 bg-[#F9F8F6] overflow-hidden">
+                <img
+                  referrerPolicy="no-referrer"
+                  src={prod.image}
+                  alt={prod.name}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+                {prod.badge && (
+                  <span className="absolute top-2 left-2 bg-[#E63946] text-white text-[8px] font-bold uppercase px-2 py-0.5 rounded-none tracking-widest">
+                    {prod.badge}
+                  </span>
+                )}
               </div>
 
-              <div className="mt-3">
-                {/* Rating & Price */}
-                <div className="flex justify-between items-center mb-2.5">
-                  <span className="text-xs text-[#E63946] font-black">
-                    ${prod.price}
+              {/* Meta */}
+              <div className="p-3 flex-grow flex flex-col justify-between">
+                <div>
+                  <span className="text-[9px] uppercase font-bold text-[#1A1A1A]/40 tracking-wider">
+                    {prod.category}
                   </span>
-                  <div className="flex items-center gap-0.5 text-[10px] text-amber-500 font-bold">
-                    <Star className="w-3 h-3 fill-current" />
-                    <span>{prod.rating}</span>
-                  </div>
+                  <h4 className="text-xs font-bold uppercase tracking-tight text-[#1A1A1A] mt-0.5 line-clamp-1">
+                    {prod.name}
+                  </h4>
+                  <p className="text-[10px] text-[#1A1A1A]/60 mt-1 font-serif italic leading-relaxed line-clamp-2">
+                    {prod.description}
+                  </p>
                 </div>
 
-                <button
-                  id={`btn-add-prod-${prod.id}`}
-                  onClick={() => handleAddProduct(prod)}
-                  className="w-full py-2 bg-[#1A1A1A] hover:opacity-90 text-white rounded-none text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-1 transition-all"
-                >
-                  <Plus className="w-3.5 h-3.5 text-[#E63946]" />
-                  Add to Cart
-                </button>
+                <div className="mt-3">
+                  {/* Rating & Price */}
+                  <div className="flex justify-between items-center mb-2.5">
+                    <span className="text-xs text-[#E63946] font-black">
+                      ${prod.price}
+                    </span>
+                    <div className="flex items-center gap-0.5 text-[10px] text-amber-500 font-bold">
+                      <Star className="w-3 h-3 fill-current" />
+                      <span>{prod.rating}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    id={`btn-add-prod-${prod.id}`}
+                    onClick={() => handleAddProduct(prod)}
+                    className="w-full py-2 bg-[#1A1A1A] hover:opacity-90 text-white rounded-none text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-1 transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-[#E63946]" />
+                    Add to Cart
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Cart Drawer */}
       {isCartOpen && (

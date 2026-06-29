@@ -10,6 +10,8 @@ export interface Assessment {
   frequency: number; // days per week: 2, 3, 4, 5
   dietType: "anything" | "vegetarian" | "vegan" | "keto" | "low-carb" | "gluten-free" | "mediterranean";
   allergies: string;
+  selectedGymName?: string;
+  availableMachines?: string[];
 }
 
 export interface Exercise {

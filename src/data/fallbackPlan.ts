@@ -129,7 +129,155 @@ export function generateLocalPlan(assessment: Assessment): PersonalPlan {
   };
 
   const isGym = workoutPreference === "gym" || workoutPreference === "hybrid";
-  const pool = isGym ? exercisePoolGym : exercisePoolHome;
+  let pool = isGym ? JSON.parse(JSON.stringify(exercisePoolGym)) : exercisePoolHome;
+
+  // Let's tune the gym exercise pool if availableMachines is specified
+  if (isGym && assessment.availableMachines && assessment.availableMachines.length > 0) {
+    const machines = assessment.availableMachines;
+
+    // 1. Lat Pulldown Machine
+    if (!machines.includes("Lat Pulldown")) {
+      pool.back = pool.back.map((ex: any) => 
+        ex.name.includes("Lat Pulldown") 
+          ? {
+              name: "Dumbbell Pull-Over",
+              sets: 4,
+              reps: "10-12 reps",
+              restSeconds: 90,
+              instruction: "Lie across bench, lower dumbbell behind head under control, pull back with lats.",
+              targetMuscle: "Lats",
+              videoUrl: "dumbbell-pullover",
+              steps: [
+                "Lie perpendicular to a flat bench, upper back supported by the cushion.",
+                "Hold a dumbbell with both hands directly above your chest.",
+                "Lower the dumbbell in a backward arc behind your head while keeping elbows slightly bent.",
+                "Pull the dumbbell back up to the starting position, contracting your lats."
+              ]
+            }
+          : ex
+      );
+    }
+
+    // 2. Cable Crossover
+    if (!machines.includes("Cable Crossover")) {
+      pool.chest = pool.chest.map((ex: any) => 
+        ex.name.includes("Cable Chest") 
+          ? {
+              name: "Flat Dumbbell Flys",
+              sets: 3,
+              reps: "12-15 reps",
+              restSeconds: 60,
+              instruction: "Maintain soft elbows, expand chest in a wide arc, squeeze at the peak.",
+              targetMuscle: "Chest",
+              videoUrl: "dumbbell-fly",
+              steps: [
+                "Lie flat on a bench holding dumbbells above your chest, palms facing each other.",
+                "Lower the dumbbells out to the sides in a wide arc, maintaining a slight bend in your elbows.",
+                "Feel a deep stretch across your pectorals.",
+                "Reverse the movement to bring the dumbbells back to the top, squeezing your chest."
+              ]
+            }
+          : ex
+      );
+      pool.arms = pool.arms.map((ex: any) => 
+        ex.name.includes("Cable") 
+          ? {
+              name: "Dumbbell Overhead Tricep Extension",
+              sets: 3,
+              reps: "12-15 reps",
+              restSeconds: 60,
+              instruction: "Hold a dumbbell with both hands overhead, lower behind neck, extend fully.",
+              targetMuscle: "Triceps",
+              videoUrl: "dumbbell-overhead-extension",
+              steps: [
+                "Stand tall or sit on a bench with back support.",
+                "Grasp a single dumbbell with both hands, lifting it straight overhead.",
+                "Lower the weight behind your head by bending at the elbows, keeping upper arms vertical.",
+                "Extend elbows to press the dumbbell back overhead, contracting triceps."
+              ]
+            }
+          : ex
+      );
+    }
+
+    // 3. Leg Extension Machine
+    if (!machines.includes("Leg Extension Machine")) {
+      pool.legs = pool.legs.map((ex: any) => 
+        ex.name.includes("Leg Extensions") 
+          ? {
+              name: "Dumbbell Goblet Squats",
+              sets: 3,
+              reps: "12-15 reps",
+              restSeconds: 60,
+              instruction: "Hold a dumbbell vertically at your chest, squat deep, drive up vertically.",
+              targetMuscle: "Quads",
+              videoUrl: "goblet-squat",
+              steps: [
+                "Stand with feet slightly wider than shoulder-width, toes flared out.",
+                "Hold a dumbbell vertically by one end close to your chest.",
+                "Hinge at the hips and bend knees to lower your body into a deep squat.",
+                "Drive through your heels to return to the starting standing position."
+              ]
+            }
+          : ex
+      );
+    }
+
+    // Swaps and enhancements based on logged machines
+    if (machines.includes("Leg Press Machine")) {
+      pool.legs[0] = {
+        name: "Linear Leg Press",
+        sets: 4,
+        reps: "8-10 reps",
+        restSeconds: 90,
+        instruction: "Place feet shoulder-width on sled, lower to 90 degrees, press without locking knees.",
+        targetMuscle: "Quads",
+        videoUrl: "leg-press",
+        steps: [
+          "Sit on the leg press machine, placing feet flat on the sled platform.",
+          "Release safety handles and lower the platform slowly towards your chest.",
+          "Stop once knees are bent to 90 degrees.",
+          "Press the platform back up forcefully, avoiding locking your knees out at the top."
+        ]
+      };
+    }
+    
+    if (machines.includes("Smith Machine")) {
+      pool.chest[0] = {
+        name: "Smith Machine Incline Press",
+        sets: 4,
+        reps: "8-10 reps",
+        restSeconds: 90,
+        instruction: "Adjust incline bench to 30 degrees inside Smith machine. Press barbell smoothly.",
+        targetMuscle: "Chest",
+        videoUrl: "smith-incline-press",
+        steps: [
+          "Position an incline bench in the center of the Smith Machine.",
+          "Lie back and align the barbell with your upper collarbone.",
+          "Unrack the bar and lower it under control to your chest.",
+          "Press upward smoothly, squeezing your upper chest at the top."
+        ]
+      };
+    }
+
+    if (machines.includes("Seated Row Machine")) {
+      pool.back[1] = {
+        name: "Plate-Loaded Seated Row Machine",
+        sets: 3,
+        reps: "10-12 reps",
+        restSeconds: 90,
+        instruction: "Chest supported against pad, pull handles back, squeeze shoulder blades.",
+        targetMuscle: "Mid Back",
+        videoUrl: "machine-row",
+        steps: [
+          "Adjust seat height so hands align with mid-chest.",
+          "Firmly plant chest against the support cushion and grip handles.",
+          "Pull elbows back, drawing shoulder blades tightly together.",
+          "Extend arms forward under control to feel the mid-back stretch."
+        ]
+      };
+    }
+  }
 
   // Let's build a schedule depending on how many days they workout
   if (frequency === 2) {
