@@ -179,6 +179,7 @@ export default function App() {
               {activeTab === "meals" && (
                 <MealOrderingTab
                   assessment={assessment}
+                  personalPlan={personalPlan}
                   cart={cart}
                   onAddToCart={handleAddToCart}
                   onRemoveFromCart={handleRemoveFromCart}
