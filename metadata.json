@@ -1,0 +1,6 @@
+{
+  "name": "FitLife Hub",
+  "description": "An all-in-one mobile fitness app featuring personalized AI-generated training & nutritional plans, premium meal delivery ordering, a curated fitness marketplace, and detailed progress logging.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
