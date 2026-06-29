@@ -75,9 +75,11 @@ Make the instructions extremely actionable, highly detailed, and encouraging.`;
                               sets: { type: Type.INTEGER },
                               reps: { type: Type.STRING, description: "e.g., '10-12 reps' or '45 seconds duration'" },
                               restSeconds: { type: Type.INTEGER, description: "Rest time between sets in seconds" },
-                              instruction: { type: Type.STRING }
+                              instruction: { type: Type.STRING },
+                              targetMuscle: { type: Type.STRING, description: "Primary targeted muscle group, e.g., 'Chest', 'Back', 'Quads', 'Hamstrings', 'Shoulders', 'Biceps', 'Triceps', 'Core', 'Cardio'" },
+                              videoUrl: { type: Type.STRING, description: "Mock exercise tutorial identifier or search query term, e.g., 'bench-press' or 'barbell-squat'" }
                             },
-                            required: ["name", "sets", "reps", "restSeconds", "instruction"]
+                            required: ["name", "sets", "reps", "restSeconds", "instruction", "targetMuscle", "videoUrl"]
                           }
                         }
                       },

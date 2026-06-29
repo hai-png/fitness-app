@@ -18,6 +18,9 @@ export interface Exercise {
   reps: string;
   restSeconds: number;
   instruction: string;
+  targetMuscle?: string;
+  videoUrl?: string;
+  steps?: string[];
 }
 
 export interface WeeklyScheduleDay {
@@ -33,6 +36,9 @@ export interface WorkoutPlan {
   difficulty: string;
   weeklySchedule: WeeklyScheduleDay[];
   tips: string[];
+  durationWeeks?: number;
+  currentWeek?: number;
+  goalType?: string;
 }
 
 export interface Macros {

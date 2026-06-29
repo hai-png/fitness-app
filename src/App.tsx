@@ -6,7 +6,7 @@ import ProgressTab from "./components/ProgressTab";
 import MarketplaceTab from "./components/MarketplaceTab";
 import ProfileTab from "./components/ProfileTab";
 
-import { Assessment, PersonalPlan, CartItem, Order, WeightLog, WaterLog, WorkoutLog } from "./types";
+import { Assessment, PersonalPlan, CartItem, Order, WeightLog, WaterLog, WorkoutLog, WorkoutPlan } from "./types";
 import { 
   Dumbbell, 
   UtensilsCrossed, 
@@ -136,6 +136,10 @@ export default function App() {
     setWorkoutLogs((prev) => [log, ...prev]);
   };
 
+  const handleUpdateWorkoutPlan = (updatedPlan: WorkoutPlan) => {
+    setPersonalPlan((prev) => prev ? { ...prev, workoutPlan: updatedPlan } : null);
+  };
+
   const handleResetOnboarding = () => {
     setAssessment(null);
     setPersonalPlan(null);
@@ -174,6 +178,7 @@ export default function App() {
                 <TrainingTab 
                   workoutPlan={personalPlan.workoutPlan} 
                   onLogWorkout={handleLogWorkout}
+                  onUpdateWorkoutPlan={handleUpdateWorkoutPlan}
                 />
               )}
               {activeTab === "meals" && (
