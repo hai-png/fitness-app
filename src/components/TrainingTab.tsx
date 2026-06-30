@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
 import { WorkoutPlan, WeeklyScheduleDay, WorkoutLog, Exercise } from "../types";
-import { 
-  Calendar, 
-  Flame, 
-  Clock, 
-  CheckCircle2, 
-  Play, 
-  HelpCircle, 
-  ChevronDown, 
-  ChevronUp, 
+import { toast } from "./Toast";
+import {
+  Calendar,
+  Flame,
+  Clock,
+  CheckCircle2,
+  Play,
+  HelpCircle,
+  ChevronDown,
+  ChevronUp,
   Award,
   Circle,
   Timer,
@@ -23,14 +24,14 @@ import {
   TrendingUp,
   Check,
   RotateCcw,
-  BookOpen
+  BookOpen,
 } from "lucide-react";
-import { 
-  EXERCISE_DATABASE, 
-  SPLIT_TEMPLATES, 
-  DURATION_PROGRAMS, 
-  ExerciseDBItem, 
-  ProgramPreset 
+import {
+  EXERCISE_DATABASE,
+  SPLIT_TEMPLATES,
+  DURATION_PROGRAMS,
+  ExerciseDBItem,
+  ProgramPreset,
 } from "../data/workoutTemplates";
 
 interface TrainingTabProps {
@@ -39,12 +40,16 @@ interface TrainingTabProps {
   onUpdateWorkoutPlan?: (plan: WorkoutPlan) => void;
 }
 
-export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkoutPlan }: TrainingTabProps) {
+export default function TrainingTab({
+  workoutPlan,
+  onLogWorkout,
+  onUpdateWorkoutPlan,
+}: TrainingTabProps) {
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
   const [expandedExerciseIndex, setExpandedExerciseIndex] = useState<number | null>(null);
   const [isWorkoutActive, setIsWorkoutActive] = useState<boolean>(false);
   const [completedExercises, setCompletedExercises] = useState<Record<number, boolean>>({});
-  
+
   // Rest Timer State
   const [timerSeconds, setTimerSeconds] = useState<number>(0);
   const [timerActive, setTimerActive] = useState<boolean>(false);
@@ -69,7 +74,8 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
   const [selectedDBCategory, setSelectedDBCategory] = useState<string>("Chest");
   const [selectedDBExerciseName, setSelectedDBExerciseName] = useState<string>("");
 
-  const selectedDay: WeeklyScheduleDay = workoutPlan.weeklySchedule[selectedDayIndex] || workoutPlan.weeklySchedule[0];
+  const selectedDay: WeeklyScheduleDay =
+    workoutPlan.weeklySchedule[selectedDayIndex] || workoutPlan.weeklySchedule[0];
 
   // Initialize duration-based programs values if not set
   const planDuration = workoutPlan.durationWeeks || 8;
@@ -79,7 +85,7 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
   // Synchronize builder local state when split builder opens
   useEffect(() => {
     if (isSplitBuilderOpen) {
-      setBuilderSchedule(JSON.parse(JSON.stringify(workoutPlan.weeklySchedule)));
+      setBuilderSchedule(structuredClone(workoutPlan.weeklySchedule));
       setBuilderTitle(workoutPlan.title);
       setBuilderDescription(workoutPlan.description);
       setBuilderDifficulty(workoutPlan.difficulty);
@@ -89,10 +95,15 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
 
   // Set default exercise in builder category dropdown
   useEffect(() => {
-    const filtered = EXERCISE_DATABASE.filter(e => e.targetMuscle.toLowerCase() === selectedDBCategory.toLowerCase() || 
-      (selectedDBCategory === "Core" && ["Core", "Lower Abs", "Obliques"].includes(e.targetMuscle)) ||
-      (selectedDBCategory === "Back" && ["Lats", "Mid Back", "Upper Back", "Lower Back"].includes(e.targetMuscle)) ||
-      (selectedDBCategory === "Legs" && ["Quads", "Hamstrings", "Glutes"].includes(e.targetMuscle))
+    const filtered = EXERCISE_DATABASE.filter(
+      (e) =>
+        e.targetMuscle.toLowerCase() === selectedDBCategory.toLowerCase() ||
+        (selectedDBCategory === "Core" &&
+          ["Core", "Lower Abs", "Obliques"].includes(e.targetMuscle)) ||
+        (selectedDBCategory === "Back" &&
+          ["Lats", "Mid Back", "Upper Back", "Lower Back"].includes(e.targetMuscle)) ||
+        (selectedDBCategory === "Legs" &&
+          ["Quads", "Hamstrings", "Glutes"].includes(e.targetMuscle)),
     );
     if (filtered.length > 0) {
       setSelectedDBExerciseName(filtered[0].name);
@@ -156,13 +167,16 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
       date: new Date().toISOString().split("T")[0],
       workoutTitle: `${selectedDay.day} (Week ${currentWeekNum})`,
       durationMinutes: selectedDay.durationMinutes,
-      caloriesBurned
+      caloriesBurned,
     };
 
     onLogWorkout(newLog);
     setIsWorkoutActive(false);
     setCompletedExercises({});
-    alert(`🎉 Magnificent work! You completed Week ${currentWeekNum}, Day: "${selectedDay.day.split(" - ")[1] || selectedDay.day}"! Logged ${caloriesBurned} kcal burned.`);
+    toast.success(
+      "Workout complete!",
+      `Week ${currentWeekNum}, Day: "${selectedDay.day.split(" - ")[1] || selectedDay.day}" — ${caloriesBurned} kcal burned.`,
+    );
   };
 
   // Switch weeks in the duration-based plan
@@ -170,7 +184,7 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
     if (onUpdateWorkoutPlan) {
       onUpdateWorkoutPlan({
         ...workoutPlan,
-        currentWeek: weekNum
+        currentWeek: weekNum,
       });
     }
   };
@@ -186,7 +200,7 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
         tips: preset.tips,
         durationWeeks: preset.durationWeeks,
         currentWeek: 1,
-        goalType: preset.goal
+        goalType: preset.goal,
       });
       setSelectedDayIndex(0);
       setIsProgramSelectorOpen(false);
@@ -196,7 +210,7 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
   // Apply visual split templates directly in builder
   const handleBuilderApplyTemplate = (templateIndex: number) => {
     const temp = SPLIT_TEMPLATES[templateIndex];
-    setBuilderSchedule(JSON.parse(JSON.stringify(temp.weeklySchedule)));
+    setBuilderSchedule(structuredClone(temp.weeklySchedule));
     setBuilderTitle(temp.name);
     setBuilderDescription(temp.description);
     setBuilderDifficulty(temp.difficulty);
@@ -209,7 +223,7 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
       day: `Day ${builderSchedule.length + 1} - Custom Split`,
       activityType: "Strength",
       durationMinutes: 45,
-      exercises: []
+      exercises: [],
     };
     setBuilderSchedule([...builderSchedule, newDay]);
     setSelectedBuilderDayIndex(builderSchedule.length);
@@ -225,14 +239,14 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
     const next = [...builderSchedule];
     next[selectedBuilderDayIndex] = {
       ...next[selectedBuilderDayIndex],
-      [field]: val
+      [field]: val,
     };
     setBuilderSchedule(next);
   };
 
   const handleBuilderAddExerciseToDay = () => {
     if (!selectedDBExerciseName) return;
-    const dbItem = EXERCISE_DATABASE.find(e => e.name === selectedDBExerciseName);
+    const dbItem = EXERCISE_DATABASE.find((e) => e.name === selectedDBExerciseName);
     if (!dbItem) return;
 
     const newEx: Exercise = {
@@ -243,7 +257,7 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
       instruction: dbItem.instruction,
       targetMuscle: dbItem.targetMuscle,
       videoUrl: dbItem.videoUrl,
-      steps: dbItem.steps
+      steps: dbItem.steps,
     };
 
     const next = [...builderSchedule];
@@ -253,7 +267,9 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
 
   const handleBuilderRemoveExerciseFromDay = (exIdx: number) => {
     const next = [...builderSchedule];
-    next[selectedBuilderDayIndex].exercises = next[selectedBuilderDayIndex].exercises.filter((_, i) => i !== exIdx);
+    next[selectedBuilderDayIndex].exercises = next[selectedBuilderDayIndex].exercises.filter(
+      (_, i) => i !== exIdx,
+    );
     setBuilderSchedule(next);
   };
 
@@ -261,23 +277,25 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
     const next = [...builderSchedule];
     next[selectedBuilderDayIndex].exercises[exIdx] = {
       ...next[selectedBuilderDayIndex].exercises[exIdx],
-      [field]: val
+      [field]: val,
     };
     setBuilderSchedule(next);
   };
 
   const handleSaveBuilderPlan = () => {
     if (builderSchedule.length === 0) {
-      alert("Please add at least one day to your custom training split.");
+      toast.warning("Empty split", "Please add at least one day to your custom training split.");
       return;
     }
     if (onUpdateWorkoutPlan) {
       onUpdateWorkoutPlan({
         ...workoutPlan,
         title: builderTitle || "My Custom Workout Split",
-        description: builderDescription || "A custom tailored physical splitting schedule designed from scratch.",
+        description:
+          builderDescription ||
+          "A custom tailored physical splitting schedule designed from scratch.",
         difficulty: builderDifficulty,
-        weeklySchedule: builderSchedule
+        weeklySchedule: builderSchedule,
       });
       setSelectedDayIndex(0);
       setIsSplitBuilderOpen(false);
@@ -291,7 +309,9 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
     setCompletedFormSteps({});
   };
 
-  const isAllCompleted = selectedDay && selectedDay.exercises.length > 0 && 
+  const isAllCompleted =
+    selectedDay &&
+    selectedDay.exercises.length > 0 &&
     selectedDay.exercises.every((_, idx) => completedExercises[idx]);
 
   // Categories list for exercise DB lookup
@@ -299,7 +319,6 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
 
   return (
     <div className="flex flex-col h-full bg-[#F9F8F6] text-[#1A1A1A] overflow-y-auto p-4 md:p-6 pb-24">
-      
       {/* 1. Duration-Based Plan Header & Weekly Timeline Progress */}
       <div className="bg-white border border-[#1A1A1A]/10 p-4 mb-6 rounded-none shadow-sm relative overflow-hidden">
         <div className="absolute right-0 top-0 w-24 h-24 bg-[#E63946]/5 rounded-full blur-xl pointer-events-none" />
@@ -312,10 +331,18 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
               {workoutPlan.title}
             </h3>
             <p className="text-[11px] text-[#1A1A1A]/60 mt-1 font-serif italic">
-              Goal: {goalType === "weight-loss" ? "Fat Loss" : goalType === "muscle-gain" ? "Hypertrophy" : goalType === "strength" ? "Strength Peak" : "Wellness"} • {planDuration}-Week Plan
+              Goal:{" "}
+              {goalType === "weight-loss"
+                ? "Fat Loss"
+                : goalType === "muscle-gain"
+                  ? "Hypertrophy"
+                  : goalType === "strength"
+                    ? "Strength Peak"
+                    : "Wellness"}{" "}
+              • {planDuration}-Week Plan
             </p>
           </div>
-          <button 
+          <button
             id="btn-trigger-preset-selector"
             onClick={() => setIsProgramSelectorOpen(true)}
             className="text-[9px] font-bold uppercase tracking-widest border border-[#1A1A1A]/15 bg-[#F9F8F6] hover:bg-[#1A1A1A] hover:text-white transition-all px-2.5 py-1.5 font-mono"
@@ -328,7 +355,9 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
         <div className="mt-4 border-t border-[#1A1A1A]/5 pt-3">
           <div className="flex justify-between items-center text-[10px] uppercase font-bold text-[#1A1A1A]/50 tracking-wider mb-2">
             <span>Cycle Timeline</span>
-            <span className="text-[#E63946] font-mono text-[9px]">Week {currentWeekNum} of {planDuration}</span>
+            <span className="text-[#E63946] font-mono text-[9px]">
+              Week {currentWeekNum} of {planDuration}
+            </span>
           </div>
           <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
             {Array.from({ length: planDuration }).map((_, i) => {
@@ -342,10 +371,10 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
                   id={`btn-select-week-${weekIdx}`}
                   onClick={() => handleSelectWeek(weekIdx)}
                   className={`flex-shrink-0 w-9 h-8 rounded-none border flex flex-col items-center justify-center transition-all ${
-                    isActive 
-                      ? "bg-[#1A1A1A] text-white border-[#1A1A1A]" 
-                      : isPast 
-                        ? "bg-[#E63946]/5 text-[#E63946] border-[#E63946]/20 font-bold" 
+                    isActive
+                      ? "bg-[#1A1A1A] text-white border-[#1A1A1A]"
+                      : isPast
+                        ? "bg-[#E63946]/5 text-[#E63946] border-[#E63946]/20 font-bold"
                         : "bg-[#F9F8F6] text-[#1A1A1A]/40 border-[#1A1A1A]/5 hover:border-[#1A1A1A]/30"
                   }`}
                 >
@@ -363,7 +392,7 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
         <h2 className="text-[10px] uppercase tracking-widest font-bold text-[#1A1A1A]/50 flex items-center gap-1.5">
           <Sliders className="w-3.5 h-3.5 text-[#1A1A1A]/40" /> Active Splits Schedule
         </h2>
-        <button 
+        <button
           id="btn-open-customizer"
           onClick={() => setIsSplitBuilderOpen(true)}
           className="text-[9px] font-bold uppercase tracking-wider text-[#E63946] flex items-center gap-1 hover:underline"
@@ -390,13 +419,17 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
                     : "bg-white border-[#1A1A1A]/10 text-[#1A1A1A]/75 hover:border-[#1A1A1A]/30"
                 }`}
               >
-                <div className={`text-[9px] uppercase font-bold tracking-widest ${isSelected ? "text-white/60" : "text-[#1A1A1A]/40"}`}>
+                <div
+                  className={`text-[9px] uppercase font-bold tracking-widest ${isSelected ? "text-white/60" : "text-[#1A1A1A]/40"}`}
+                >
                   Day {idx + 1}
                 </div>
                 <div className="text-xs font-bold mt-1 truncate uppercase tracking-tight">
                   {sched.day.split(" - ")[1] || sched.day}
                 </div>
-                <div className={`text-[10px] mt-1 font-serif italic font-semibold ${isSelected ? "text-white/80" : isRest ? "text-[#E63946]" : "text-[#1A1A1A]/60"}`}>
+                <div
+                  className={`text-[10px] mt-1 font-serif italic font-semibold ${isSelected ? "text-white/80" : isRest ? "text-[#E63946]" : "text-[#1A1A1A]/60"}`}
+                >
                   {sched.activityType}
                 </div>
               </button>
@@ -439,9 +472,11 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E63946] opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-[#E63946]"></span>
               </span>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[#E63946]">Workout Active</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#E63946]">
+                Workout Active
+              </span>
             </div>
-            
+
             {timerSeconds > 0 && (
               <div className="flex items-center gap-1.5 text-xs bg-[#E63946]/10 text-[#E63946] border border-[#E63946]/20 px-2.5 py-1 font-mono">
                 <Timer className="w-3.5 h-3.5 animate-pulse" />
@@ -454,8 +489,8 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
               onClick={handleFinishWorkout}
               disabled={!isAllCompleted}
               className={`text-[10px] font-bold uppercase tracking-widest px-3.5 py-1.5 transition-all ${
-                isAllCompleted 
-                  ? "bg-[#1A1A1A] text-white hover:bg-[#E63946] shadow-sm" 
+                isAllCompleted
+                  ? "bg-[#1A1A1A] text-white hover:bg-[#E63946] shadow-sm"
                   : "bg-[#1A1A1A]/5 text-[#1A1A1A]/30 cursor-not-allowed"
               }`}
             >
@@ -476,11 +511,11 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
               const isExpanded = expandedExerciseIndex === idx;
 
               return (
-                <div 
+                <div
                   key={idx}
                   className={`border rounded-none transition-all ${
-                    isCompleted 
-                      ? "bg-[#1A1A1A]/5 border-[#1A1A1A]/5 opacity-60" 
+                    isCompleted
+                      ? "bg-[#1A1A1A]/5 border-[#1A1A1A]/5 opacity-60"
                       : "bg-white border-[#1A1A1A]/10"
                   }`}
                 >
@@ -544,7 +579,11 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
                         onClick={() => setExpandedExerciseIndex(isExpanded ? null : idx)}
                         className="text-[#1A1A1A]/40 hover:text-[#1A1A1A] transition-all p-1"
                       >
-                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        {isExpanded ? (
+                          <ChevronUp className="w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -553,16 +592,22 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
                   {isExpanded && (
                     <div className="px-3 pb-3 pt-1 border-t border-[#1A1A1A]/5 text-xs text-[#1A1A1A]/60 leading-relaxed">
                       <div className="bg-[#F9F8F6]/80 p-2.5 border-l-2 border-[#1A1A1A] text-xs font-serif italic mb-2">
-                        <strong className="text-[#1A1A1A] font-bold block mb-0.5 font-sans not-italic text-[9px] uppercase tracking-wider">Coach Guidelines:</strong>
+                        <strong className="text-[#1A1A1A] font-bold block mb-0.5 font-sans not-italic text-[9px] uppercase tracking-wider">
+                          Coach Guidelines:
+                        </strong>
                         {ex.instruction}
                       </div>
-                      
+
                       {ex.steps && ex.steps.length > 0 && (
                         <div className="mt-2.5">
-                          <strong className="text-[#1A1A1A]/70 text-[9px] uppercase tracking-wider font-sans block mb-1">Form Cues Check:</strong>
+                          <strong className="text-[#1A1A1A]/70 text-[9px] uppercase tracking-wider font-sans block mb-1">
+                            Form Cues Check:
+                          </strong>
                           <ul className="space-y-1 font-sans text-[11px] list-disc list-inside">
                             {ex.steps.map((st, sidx) => (
-                              <li key={sidx} className="text-[#1A1A1A]/60">{st}</li>
+                              <li key={sidx} className="text-[#1A1A1A]/60">
+                                {st}
+                              </li>
                             ))}
                           </ul>
                         </div>
@@ -583,14 +628,16 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
         </h3>
         <div className="space-y-2.5">
           {workoutPlan.tips.map((tip, idx) => (
-            <div key={idx} className="flex gap-2.5 text-xs text-[#1A1A1A]/70 bg-white border border-[#1A1A1A]/10 p-4 rounded-none leading-relaxed font-serif italic shadow-sm">
+            <div
+              key={idx}
+              className="flex gap-2.5 text-xs text-[#1A1A1A]/70 bg-white border border-[#1A1A1A]/10 p-4 rounded-none leading-relaxed font-serif italic shadow-sm"
+            >
               <span className="text-[#E63946] font-bold select-none">•</span>
               <span>{tip}</span>
             </div>
           ))}
         </div>
       </div>
-
 
       {/* MODAL 1: DURATION-BASED PROGRAM PRESETS SELECTOR */}
       {isProgramSelectorOpen && (
@@ -599,9 +646,11 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
             <div className="bg-[#1A1A1A] text-white p-4 flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-[#E63946]" />
-                <h3 className="font-serif italic font-bold text-base uppercase tracking-wider">Select Goal-Specific Plan</h3>
+                <h3 className="font-serif italic font-bold text-base uppercase tracking-wider">
+                  Select Goal-Specific Plan
+                </h3>
               </div>
-              <button 
+              <button
                 id="btn-close-presets"
                 onClick={() => setIsProgramSelectorOpen(false)}
                 className="text-white/60 hover:text-white"
@@ -609,14 +658,15 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="p-4 overflow-y-auto space-y-4 flex-grow">
               <p className="text-xs text-[#1A1A1A]/60 font-serif italic mb-2 leading-relaxed">
-                Choose a structured, duration-based athletic program designed with target sets, reps and progressions mapped for your direct goal:
+                Choose a structured, duration-based athletic program designed with target sets, reps
+                and progressions mapped for your direct goal:
               </p>
 
               {DURATION_PROGRAMS.map((prog) => (
-                <div 
+                <div
                   key={prog.id}
                   className="bg-white border border-[#1A1A1A]/10 p-4 relative overflow-hidden group hover:border-[#1A1A1A]/30 transition-all cursor-pointer"
                   onClick={() => handleApplyPresetProgram(prog)}
@@ -624,28 +674,30 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
                   <div className="absolute right-3 top-3 bg-[#E63946] text-white text-[8px] font-bold px-2 py-0.5 uppercase tracking-widest font-mono">
                     {prog.durationWeeks} Weeks
                   </div>
-                  
+
                   <h4 className="text-sm font-bold uppercase tracking-tight text-[#1A1A1A] group-hover:text-[#E63946] transition-colors">
                     {prog.name}
                   </h4>
                   <p className="text-[11px] text-[#1A1A1A]/50 uppercase tracking-widest font-mono font-semibold mt-0.5">
                     Goal: {prog.goal.replace("-", " ")}
                   </p>
-                  
+
                   <p className="text-xs mt-2 text-[#1A1A1A]/70 leading-relaxed font-serif italic">
                     {prog.description}
                   </p>
 
                   <div className="mt-3 pt-2.5 border-t border-[#1A1A1A]/5 flex justify-between items-center text-[10px] uppercase font-bold text-[#1A1A1A]/50">
                     <span>Split: {prog.splitTemplate.name}</span>
-                    <span className="text-[#E63946] flex items-center gap-1 font-mono">Apply Program →</span>
+                    <span className="text-[#E63946] flex items-center gap-1 font-mono">
+                      Apply Program →
+                    </span>
                   </div>
                 </div>
               ))}
             </div>
-            
+
             <div className="p-4 bg-white border-t border-[#1A1A1A]/10 flex justify-end">
-              <button 
+              <button
                 id="btn-close-presets-footer"
                 onClick={() => setIsProgramSelectorOpen(false)}
                 className="text-xs uppercase font-bold bg-[#1A1A1A]/5 text-[#1A1A1A]/60 border border-[#1A1A1A]/10 px-4 py-2 hover:bg-[#1A1A1A] hover:text-white transition-all"
@@ -657,12 +709,10 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
         </div>
       )}
 
-
       {/* MODAL 2: INTERACTIVE FORM TUTORIAL PLAYER */}
       {activeTutorialExercise && (
         <div className="fixed inset-0 bg-[#1A1A1A]/65 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-[#1A1A1A] text-white border border-white/10 w-full max-w-sm rounded-none overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-            
             {/* Header */}
             <div className="p-4 border-b border-white/5 flex justify-between items-center bg-black/40">
               <div>
@@ -673,7 +723,7 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
                   {activeTutorialExercise.name}
                 </h3>
               </div>
-              <button 
+              <button
                 id="btn-close-tutorial"
                 onClick={() => setActiveTutorialExercise(null)}
                 className="text-white/40 hover:text-white bg-white/5 hover:bg-white/10 p-1.5 rounded-full transition-all"
@@ -684,10 +734,9 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
 
             {/* Simulated Active Video Screen */}
             <div className="relative aspect-video bg-neutral-900 border-b border-white/5 overflow-hidden flex items-center justify-center group">
-              
               {/* Dynamic Muscle Target Grid background */}
               <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]" />
-              
+
               {/* Looping animation representing concentric mechanical tension */}
               <div className="relative flex flex-col items-center justify-center p-6 text-center z-10">
                 {isVideoPlaying ? (
@@ -699,7 +748,7 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
                 ) : (
                   <Play className="w-10 h-10 text-white/50 fill-current" />
                 )}
-                
+
                 <span className="text-[10px] mt-4 font-mono uppercase tracking-[0.15em] text-white/50">
                   {isVideoPlaying ? `Form Simulation Loop: ${videoProgress}%` : "Coach Paused"}
                 </span>
@@ -710,27 +759,31 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
 
               {/* Video Timeline controls overlay */}
               <div className="absolute bottom-0 left-0 right-0 p-2.5 bg-gradient-to-t from-black/80 to-transparent flex items-center justify-between gap-3 text-white/80 text-[10px] font-mono">
-                <button 
+                <button
                   id="btn-play-pause-video"
                   onClick={() => setIsVideoPlaying(!isVideoPlaying)}
                   className="hover:text-[#E63946] transition-colors"
                 >
                   {isVideoPlaying ? "PAUSE" : "PLAY"}
                 </button>
-                
+
                 <div className="flex-grow h-1.5 bg-white/15 relative overflow-hidden">
-                  <div 
-                    className="h-full bg-[#E63946] transition-all duration-300" 
+                  <div
+                    className="h-full bg-[#E63946] transition-all duration-300"
                     style={{ width: `${videoProgress}%` }}
                   />
                 </div>
-                
-                <button 
+
+                <button
                   id="btn-toggle-mute"
                   onClick={() => setTutorialMuted(!tutorialMuted)}
                   className="hover:text-white"
                 >
-                  {tutorialMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 text-[#E63946]" />}
+                  {tutorialMuted ? (
+                    <VolumeX className="w-3.5 h-3.5" />
+                  ) : (
+                    <Volume2 className="w-3.5 h-3.5 text-[#E63946]" />
+                  )}
                 </button>
               </div>
             </div>
@@ -738,16 +791,21 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
             {/* Instruction Checklist & Coach Guidelines */}
             <div className="p-4 overflow-y-auto space-y-4 flex-grow">
               <div className="bg-white/5 p-3 border-l-2 border-[#E63946]">
-                <span className="text-[8px] font-bold uppercase tracking-wider text-white/40 block mb-0.5"> COACH COMMENT:</span>
+                <span className="text-[8px] font-bold uppercase tracking-wider text-white/40 block mb-0.5">
+                  {" "}
+                  COACH COMMENT:
+                </span>
                 <p className="text-xs text-white/80 font-serif italic leading-relaxed">
-                  "{activeTutorialExercise.instruction}"
+                  &quot;{activeTutorialExercise.instruction}&quot;
                 </p>
               </div>
 
               {/* Form cues interactive checklist */}
               {activeTutorialExercise.steps && activeTutorialExercise.steps.length > 0 && (
                 <div>
-                  <h4 className="text-[9px] uppercase tracking-wider font-bold text-white/40 mb-2">Form Cues & Movement Checklist</h4>
+                  <h4 className="text-[9px] uppercase tracking-wider font-bold text-white/40 mb-2">
+                    Form Cues & Movement Checklist
+                  </h4>
                   <div className="space-y-1.5">
                     {activeTutorialExercise.steps.map((step, sidx) => {
                       const checked = completedFormSteps[sidx];
@@ -755,15 +813,23 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
                         <button
                           key={sidx}
                           id={`btn-form-step-${sidx}`}
-                          onClick={() => setCompletedFormSteps(prev => ({ ...prev, [sidx]: !prev[sidx] }))}
+                          onClick={() =>
+                            setCompletedFormSteps((prev) => ({ ...prev, [sidx]: !prev[sidx] }))
+                          }
                           className="w-full flex items-start gap-2.5 text-left p-2 rounded bg-white/[0.02] border border-white/5 hover:border-white/15 transition-all text-xs"
                         >
-                          <span className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 mt-0.5 transition-all ${
-                            checked ? "bg-[#E63946] border-[#E63946] text-white" : "border-white/20"
-                          }`}>
+                          <span
+                            className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 mt-0.5 transition-all ${
+                              checked
+                                ? "bg-[#E63946] border-[#E63946] text-white"
+                                : "border-white/20"
+                            }`}
+                          >
                             {checked && <Check className="w-3 h-3" />}
                           </span>
-                          <span className={checked ? "text-white/40 line-through" : "text-white/80"}>
+                          <span
+                            className={checked ? "text-white/40 line-through" : "text-white/80"}
+                          >
                             {step}
                           </span>
                         </button>
@@ -776,7 +842,7 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
 
             {/* Footer action */}
             <div className="p-4 border-t border-white/5 bg-black/20 flex gap-2">
-              <button 
+              <button
                 id="btn-close-tutorial-footer"
                 onClick={() => setActiveTutorialExercise(null)}
                 className="w-full py-3 bg-[#E63946] hover:bg-[#d62828] text-white text-xs font-bold uppercase tracking-widest transition-all text-center"
@@ -784,24 +850,23 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
                 Understood, Got Form!
               </button>
             </div>
-
           </div>
         </div>
       )}
-
 
       {/* MODAL 3: GRANULAR WORKOUT SPLIT BUILDER & SCRATCH CREATOR */}
       {isSplitBuilderOpen && (
         <div className="fixed inset-0 bg-[#1A1A1A]/45 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-[#F9F8F6] border border-[#1A1A1A]/20 w-full max-w-lg max-h-[90vh] flex flex-col rounded-none overflow-hidden shadow-2xl">
-            
             {/* Header */}
             <div className="bg-[#1A1A1A] text-white p-4 flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <Sliders className="w-4 h-4 text-[#E63946]" />
-                <h3 className="font-serif italic font-bold text-base uppercase tracking-wider">Aether Workout Split Builder</h3>
+                <h3 className="font-serif italic font-bold text-base uppercase tracking-wider">
+                  Aether Workout Split Builder
+                </h3>
               </div>
-              <button 
+              <button
                 id="btn-close-builder"
                 onClick={() => setIsSplitBuilderOpen(false)}
                 className="text-white/60 hover:text-white"
@@ -812,10 +877,11 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
 
             {/* Body */}
             <div className="p-4 overflow-y-auto space-y-4 flex-grow">
-              
               {/* Quick Config templates */}
               <div className="bg-white border border-[#1A1A1A]/10 p-3 mb-2">
-                <span className="text-[9px] uppercase tracking-wider font-bold text-[#1A1A1A]/50 block mb-2">Load Preset Split Configuration</span>
+                <span className="text-[9px] uppercase tracking-wider font-bold text-[#1A1A1A]/50 block mb-2">
+                  Load Preset Split Configuration
+                </span>
                 <div className="grid grid-cols-2 gap-2">
                   {SPLIT_TEMPLATES.map((t, idx) => (
                     <button
@@ -825,8 +891,12 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
                       type="button"
                       className="p-2 border border-[#1A1A1A]/10 bg-[#F9F8F6] hover:bg-[#1A1A1A] hover:text-white transition-all text-left rounded-none text-xs"
                     >
-                      <strong className="block uppercase tracking-tight text-[10px]">{t.name}</strong>
-                      <span className="text-[9px] opacity-70 italic font-serif block mt-0.5 truncate">{t.description}</span>
+                      <strong className="block uppercase tracking-tight text-[10px]">
+                        {t.name}
+                      </strong>
+                      <span className="text-[9px] opacity-70 italic font-serif block mt-0.5 truncate">
+                        {t.description}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -835,10 +905,12 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
               {/* Global Metadata Inputs */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1">Routine Title</label>
-                  <input 
+                  <label className="block text-[9px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1">
+                    Routine Title
+                  </label>
+                  <input
                     id="input-builder-title"
-                    type="text" 
+                    type="text"
                     value={builderTitle}
                     onChange={(e) => setBuilderTitle(e.target.value)}
                     className="w-full bg-white border border-[#1A1A1A]/15 px-3 py-2 text-xs focus:border-[#1A1A1A] focus:outline-none"
@@ -846,8 +918,10 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1">Workout Difficulty</label>
-                  <select 
+                  <label className="block text-[9px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1">
+                    Workout Difficulty
+                  </label>
+                  <select
                     id="select-builder-difficulty"
                     value={builderDifficulty}
                     onChange={(e) => setBuilderDifficulty(e.target.value)}
@@ -862,8 +936,10 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
               </div>
 
               <div>
-                <label className="block text-[9px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1">Split Description</label>
-                <textarea 
+                <label className="block text-[9px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1">
+                  Split Description
+                </label>
+                <textarea
                   id="textarea-builder-desc"
                   rows={2}
                   value={builderDescription}
@@ -876,7 +952,9 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
               {/* Days Tab Manager */}
               <div className="border-t border-[#1A1A1A]/10 pt-3">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-[10px] uppercase tracking-wider font-bold text-[#1A1A1A]/60">Customize Specific Split Days</span>
+                  <span className="text-[10px] uppercase tracking-wider font-bold text-[#1A1A1A]/60">
+                    Customize Specific Split Days
+                  </span>
                   <button
                     id="btn-builder-add-day"
                     type="button"
@@ -890,7 +968,8 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
                 {/* Day Buttons Tabs */}
                 {builderSchedule.length === 0 ? (
                   <div className="text-center py-6 text-[#1A1A1A]/30 text-xs italic font-serif">
-                    No training days are scheduled. Click "Add Day" or load a template split above to start from scratch!
+                    No training days are scheduled. Click &quot;Add Day&quot; or load a template
+                    split above to start from scratch!
                   </div>
                 ) : (
                   <>
@@ -902,8 +981,8 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
                           type="button"
                           onClick={() => setSelectedBuilderDayIndex(dIdx)}
                           className={`flex-shrink-0 px-3 py-2 text-xs font-mono font-bold uppercase tracking-tight border ${
-                            selectedBuilderDayIndex === dIdx 
-                              ? "bg-[#1A1A1A] text-white border-[#1A1A1A]" 
+                            selectedBuilderDayIndex === dIdx
+                              ? "bg-[#1A1A1A] text-white border-[#1A1A1A]"
                               : "bg-white text-[#1A1A1A]/50 border-[#1A1A1A]/10 hover:border-[#1A1A1A]/20"
                           }`}
                         >
@@ -915,12 +994,13 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
                     {/* Active Builder Day Editor */}
                     {builderSchedule[selectedBuilderDayIndex] && (
                       <div className="bg-white border border-[#1A1A1A]/10 p-3 mt-2.5 space-y-3.5">
-                        
                         {/* Day fields */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 items-end">
                           <div className="md:col-span-2">
-                            <label className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/40 mb-1">Day Name</label>
-                            <input 
+                            <label className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/40 mb-1">
+                              Day Name
+                            </label>
+                            <input
                               id={`input-builder-day-name-${selectedBuilderDayIndex}`}
                               type="text"
                               value={builderSchedule[selectedBuilderDayIndex].day}
@@ -929,12 +1009,19 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
                             />
                           </div>
                           <div>
-                            <label className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/40 mb-1">Duration (Min)</label>
-                            <input 
+                            <label className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/40 mb-1">
+                              Duration (Min)
+                            </label>
+                            <input
                               id={`input-builder-day-duration-${selectedBuilderDayIndex}`}
                               type="number"
                               value={builderSchedule[selectedBuilderDayIndex].durationMinutes}
-                              onChange={(e) => handleBuilderUpdateDayField("durationMinutes", parseInt(e.target.value) || 45)}
+                              onChange={(e) =>
+                                handleBuilderUpdateDayField(
+                                  "durationMinutes",
+                                  parseInt(e.target.value) || 45,
+                                )
+                              }
                               className="w-full bg-white border border-[#1A1A1A]/15 px-2.5 py-1.5 text-xs focus:border-[#1A1A1A]"
                             />
                           </div>
@@ -942,11 +1029,15 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                           <div>
-                            <label className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/40 mb-1">Split Focus</label>
+                            <label className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/40 mb-1">
+                              Split Focus
+                            </label>
                             <select
                               id={`select-builder-day-focus-${selectedBuilderDayIndex}`}
                               value={builderSchedule[selectedBuilderDayIndex].activityType}
-                              onChange={(e) => handleBuilderUpdateDayField("activityType", e.target.value)}
+                              onChange={(e) =>
+                                handleBuilderUpdateDayField("activityType", e.target.value)
+                              }
                               className="w-full bg-white border border-[#1A1A1A]/15 px-2.5 py-1.5 text-xs"
                             >
                               <option value="Strength">Strength / Hypertrophy</option>
@@ -962,79 +1053,120 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
                               onClick={() => handleBuilderRemoveDay(selectedBuilderDayIndex)}
                               className="flex items-center gap-1 text-[10px] font-bold text-red-600 hover:text-white hover:bg-red-600 px-2.5 py-1.5 border border-red-600/20 transition-all font-mono"
                             >
-                              <Trash2 className="w-3.5 h-3.5" /> Delete Day {selectedBuilderDayIndex + 1}
+                              <Trash2 className="w-3.5 h-3.5" /> Delete Day{" "}
+                              {selectedBuilderDayIndex + 1}
                             </button>
                           </div>
                         </div>
 
                         {/* Exercise List Editor */}
                         <div className="border-t border-[#1A1A1A]/5 pt-3">
-                          <span className="text-[9px] uppercase tracking-wider font-bold text-[#1A1A1A]/40 block mb-2">Exercises in this split day</span>
-                          
+                          <span className="text-[9px] uppercase tracking-wider font-bold text-[#1A1A1A]/40 block mb-2">
+                            Exercises in this split day
+                          </span>
+
                           {builderSchedule[selectedBuilderDayIndex].exercises.length === 0 ? (
                             <div className="text-center py-5 text-[#1A1A1A]/30 text-xs italic font-serif bg-[#F9F8F6]">
                               No exercises loaded. Add from the exercise database below!
                             </div>
                           ) : (
                             <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-1">
-                              {builderSchedule[selectedBuilderDayIndex].exercises.map((ex, exIdx) => (
-                                <div key={exIdx} className="bg-[#F9F8F6] border border-[#1A1A1A]/5 p-2 flex flex-col gap-2 relative">
-                                  
-                                  {/* Top line Name & Delete */}
-                                  <div className="flex justify-between items-center gap-2">
-                                    <span className="text-xs font-bold text-[#1A1A1A] uppercase tracking-tight">{exIdx + 1}. {ex.name}</span>
-                                    <button 
-                                      id={`btn-builder-delete-ex-${exIdx}`}
-                                      type="button"
-                                      onClick={() => handleBuilderRemoveExerciseFromDay(exIdx)}
-                                      className="text-[#1A1A1A]/40 hover:text-red-600 transition-colors"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-
-                                  {/* Inputs sets, reps, rest, instruction */}
-                                  <div className="grid grid-cols-3 gap-1.5 text-[10px]">
-                                    <div>
-                                      <label className="block text-[8px] text-[#1A1A1A]/40 font-bold uppercase mb-0.5">Sets</label>
-                                      <input 
-                                        type="number"
-                                        value={ex.sets}
-                                        onChange={(e) => handleBuilderUpdateExerciseField(exIdx, "sets", parseInt(e.target.value) || 3)}
-                                        className="w-full bg-white border border-[#1A1A1A]/10 px-2 py-1"
-                                      />
+                              {builderSchedule[selectedBuilderDayIndex].exercises.map(
+                                (ex, exIdx) => (
+                                  <div
+                                    key={exIdx}
+                                    className="bg-[#F9F8F6] border border-[#1A1A1A]/5 p-2 flex flex-col gap-2 relative"
+                                  >
+                                    {/* Top line Name & Delete */}
+                                    <div className="flex justify-between items-center gap-2">
+                                      <span className="text-xs font-bold text-[#1A1A1A] uppercase tracking-tight">
+                                        {exIdx + 1}. {ex.name}
+                                      </span>
+                                      <button
+                                        id={`btn-builder-delete-ex-${exIdx}`}
+                                        type="button"
+                                        onClick={() => handleBuilderRemoveExerciseFromDay(exIdx)}
+                                        className="text-[#1A1A1A]/40 hover:text-red-600 transition-colors"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
                                     </div>
+
+                                    {/* Inputs sets, reps, rest, instruction */}
+                                    <div className="grid grid-cols-3 gap-1.5 text-[10px]">
+                                      <div>
+                                        <label className="block text-[8px] text-[#1A1A1A]/40 font-bold uppercase mb-0.5">
+                                          Sets
+                                        </label>
+                                        <input
+                                          type="number"
+                                          value={ex.sets}
+                                          onChange={(e) =>
+                                            handleBuilderUpdateExerciseField(
+                                              exIdx,
+                                              "sets",
+                                              parseInt(e.target.value) || 3,
+                                            )
+                                          }
+                                          className="w-full bg-white border border-[#1A1A1A]/10 px-2 py-1"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[8px] text-[#1A1A1A]/40 font-bold uppercase mb-0.5">
+                                          Reps
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={ex.reps}
+                                          onChange={(e) =>
+                                            handleBuilderUpdateExerciseField(
+                                              exIdx,
+                                              "reps",
+                                              e.target.value,
+                                            )
+                                          }
+                                          className="w-full bg-white border border-[#1A1A1A]/10 px-2 py-1 font-mono"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[8px] text-[#1A1A1A]/40 font-bold uppercase mb-0.5">
+                                          Rest (Sec)
+                                        </label>
+                                        <input
+                                          type="number"
+                                          value={ex.restSeconds}
+                                          onChange={(e) =>
+                                            handleBuilderUpdateExerciseField(
+                                              exIdx,
+                                              "restSeconds",
+                                              parseInt(e.target.value) || 60,
+                                            )
+                                          }
+                                          className="w-full bg-white border border-[#1A1A1A]/10 px-2 py-1"
+                                        />
+                                      </div>
+                                    </div>
+
                                     <div>
-                                      <label className="block text-[8px] text-[#1A1A1A]/40 font-bold uppercase mb-0.5">Reps</label>
-                                      <input 
+                                      <label className="block text-[8px] text-[#1A1A1A]/40 font-bold uppercase mb-0.5">
+                                        Instruction Notes
+                                      </label>
+                                      <input
                                         type="text"
-                                        value={ex.reps}
-                                        onChange={(e) => handleBuilderUpdateExerciseField(exIdx, "reps", e.target.value)}
-                                        className="w-full bg-white border border-[#1A1A1A]/10 px-2 py-1 font-mono"
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="block text-[8px] text-[#1A1A1A]/40 font-bold uppercase mb-0.5">Rest (Sec)</label>
-                                      <input 
-                                        type="number"
-                                        value={ex.restSeconds}
-                                        onChange={(e) => handleBuilderUpdateExerciseField(exIdx, "restSeconds", parseInt(e.target.value) || 60)}
-                                        className="w-full bg-white border border-[#1A1A1A]/10 px-2 py-1"
+                                        value={ex.instruction}
+                                        onChange={(e) =>
+                                          handleBuilderUpdateExerciseField(
+                                            exIdx,
+                                            "instruction",
+                                            e.target.value,
+                                          )
+                                        }
+                                        className="w-full bg-white border border-[#1A1A1A]/10 px-2 py-1 text-[11px]"
                                       />
                                     </div>
                                   </div>
-
-                                  <div>
-                                    <label className="block text-[8px] text-[#1A1A1A]/40 font-bold uppercase mb-0.5">Instruction Notes</label>
-                                    <input 
-                                      type="text"
-                                      value={ex.instruction}
-                                      onChange={(e) => handleBuilderUpdateExerciseField(exIdx, "instruction", e.target.value)}
-                                      className="w-full bg-white border border-[#1A1A1A]/10 px-2 py-1 text-[11px]"
-                                    />
-                                  </div>
-                                </div>
-                              ))}
+                                ),
+                              )}
                             </div>
                           )}
 
@@ -1044,10 +1176,11 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
                               <BookOpen className="w-3.5 h-3.5" /> Exercise Database Search / Filter
                             </span>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                              
                               {/* Category Filter */}
                               <div>
-                                <label className="block text-[8px] uppercase font-semibold text-[#1A1A1A]/40 mb-0.5">Filter Muscles</label>
+                                <label className="block text-[8px] uppercase font-semibold text-[#1A1A1A]/40 mb-0.5">
+                                  Filter Muscles
+                                </label>
                                 <select
                                   id="select-builder-muscle-category"
                                   value={selectedDBCategory}
@@ -1055,32 +1188,47 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
                                   className="w-full bg-white border border-[#1A1A1A]/15 px-2 py-1 text-xs"
                                 >
                                   {categories.map((cat) => (
-                                    <option key={cat} value={cat}>{cat}</option>
+                                    <option key={cat} value={cat}>
+                                      {cat}
+                                    </option>
                                   ))}
                                 </select>
                               </div>
 
                               {/* Target Exercise select */}
                               <div>
-                                <label className="block text-[8px] uppercase font-semibold text-[#1A1A1A]/40 mb-0.5">Select Exercise</label>
+                                <label className="block text-[8px] uppercase font-semibold text-[#1A1A1A]/40 mb-0.5">
+                                  Select Exercise
+                                </label>
                                 <select
                                   id="select-builder-exercise-name"
                                   value={selectedDBExerciseName}
                                   onChange={(e) => setSelectedDBExerciseName(e.target.value)}
                                   className="w-full bg-white border border-[#1A1A1A]/15 px-2 py-1 text-xs font-bold"
                                 >
-                                  {EXERCISE_DATABASE.filter(e => e.targetMuscle.toLowerCase() === selectedDBCategory.toLowerCase() || 
-                                    (selectedDBCategory === "Core" && ["Core", "Lower Abs", "Obliques"].includes(e.targetMuscle)) ||
-                                    (selectedDBCategory === "Back" && ["Lats", "Mid Back", "Upper Back", "Lower Back"].includes(e.targetMuscle)) ||
-                                    (selectedDBCategory === "Legs" && ["Quads", "Hamstrings", "Glutes"].includes(e.targetMuscle))
+                                  {EXERCISE_DATABASE.filter(
+                                    (e) =>
+                                      e.targetMuscle.toLowerCase() ===
+                                        selectedDBCategory.toLowerCase() ||
+                                      (selectedDBCategory === "Core" &&
+                                        ["Core", "Lower Abs", "Obliques"].includes(
+                                          e.targetMuscle,
+                                        )) ||
+                                      (selectedDBCategory === "Back" &&
+                                        ["Lats", "Mid Back", "Upper Back", "Lower Back"].includes(
+                                          e.targetMuscle,
+                                        )) ||
+                                      (selectedDBCategory === "Legs" &&
+                                        ["Quads", "Hamstrings", "Glutes"].includes(e.targetMuscle)),
                                   ).map((e) => (
-                                    <option key={e.name} value={e.name}>{e.name} ({e.targetMuscle})</option>
+                                    <option key={e.name} value={e.name}>
+                                      {e.name} ({e.targetMuscle})
+                                    </option>
                                   ))}
                                 </select>
                               </div>
-
                             </div>
-                            
+
                             <button
                               id="btn-builder-add-ex"
                               type="button"
@@ -1091,27 +1239,24 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
                               Add Selected Exercise to Day {selectedBuilderDayIndex + 1}
                             </button>
                           </div>
-
                         </div>
-
                       </div>
                     )}
                   </>
                 )}
               </div>
-
             </div>
 
             {/* Footer */}
             <div className="p-4 bg-white border-t border-[#1A1A1A]/10 flex justify-between gap-3">
-              <button 
+              <button
                 id="btn-builder-cancel"
                 onClick={() => setIsSplitBuilderOpen(false)}
                 className="text-xs uppercase font-bold bg-[#1A1A1A]/5 text-[#1A1A1A]/60 border border-[#1A1A1A]/10 px-5 py-3 hover:bg-[#1A1A1A] hover:text-white transition-all"
               >
                 Cancel
               </button>
-              <button 
+              <button
                 id="btn-builder-save"
                 onClick={handleSaveBuilderPlan}
                 className="text-xs uppercase font-bold bg-[#E63946] hover:bg-[#d62828] text-white px-6 py-3 transition-all font-mono"
@@ -1119,11 +1264,9 @@ export default function TrainingTab({ workoutPlan, onLogWorkout, onUpdateWorkout
                 Save New Splitting Routine
               </button>
             </div>
-
           </div>
         </div>
       )}
-
     </div>
   );
 }

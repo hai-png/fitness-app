@@ -1,15 +1,16 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Assessment, PersonalPlan } from "../types";
+import { toast } from "./Toast";
 import { generateLocalPlan } from "../data/fallbackPlan";
-import { 
-  Activity, 
-  ChevronRight, 
-  ChevronLeft, 
-  Sparkles, 
-  User, 
-  Dumbbell, 
-  Utensils, 
+import {
+  Activity,
+  ChevronRight,
+  ChevronLeft,
+  Sparkles,
+  User,
+  Dumbbell,
+  Utensils,
   ShieldAlert,
   Compass,
   ArrowRight,
@@ -17,7 +18,7 @@ import {
   Search,
   Check,
   Map,
-  SlidersHorizontal
+  SlidersHorizontal,
 } from "lucide-react";
 
 interface GymOption {
@@ -39,10 +40,20 @@ const NEARBY_GYMS: GymOption[] = [
     distance: "0.4 miles away",
     rating: 4.9,
     address: "244 Heavy Metal Lane, District 4",
-    description: "Hardcore powerlifting & bodybuilding sanctuary. Famous for its pristine equipment.",
-    image: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=300&auto=format&fit=crop&q=80",
-    defaultMachines: ["Smith Machine", "Leg Press Machine", "Hack Squat", "Seated Row Machine", "Lat Pulldown", "Cable Crossover", "Pec Deck / Rear Delt Fly"],
-    coordinates: { x: 35, y: 40 }
+    description:
+      "Hardcore powerlifting & bodybuilding sanctuary. Famous for its pristine equipment.",
+    image:
+      "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=300&auto=format&fit=crop&q=80",
+    defaultMachines: [
+      "Smith Machine",
+      "Leg Press Machine",
+      "Hack Squat",
+      "Seated Row Machine",
+      "Lat Pulldown",
+      "Cable Crossover",
+      "Pec Deck / Rear Delt Fly",
+    ],
+    coordinates: { x: 35, y: 40 },
   },
   {
     id: "gym-2",
@@ -50,10 +61,19 @@ const NEARBY_GYMS: GymOption[] = [
     distance: "1.2 miles away",
     rating: 4.7,
     address: "902 Wellness Blvd, Aether Plaza",
-    description: "Luxury modern athletic center focusing on functional performance and high-end selectors.",
-    image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=300&auto=format&fit=crop&q=80",
-    defaultMachines: ["Smith Machine", "Cable Crossover", "Lat Pulldown", "Leg Extension Machine", "Lying Leg Curl Machine", "Chest Press Machine"],
-    coordinates: { x: 75, y: 25 }
+    description:
+      "Luxury modern athletic center focusing on functional performance and high-end selectors.",
+    image:
+      "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=300&auto=format&fit=crop&q=80",
+    defaultMachines: [
+      "Smith Machine",
+      "Cable Crossover",
+      "Lat Pulldown",
+      "Leg Extension Machine",
+      "Lying Leg Curl Machine",
+      "Chest Press Machine",
+    ],
+    coordinates: { x: 75, y: 25 },
   },
   {
     id: "gym-3",
@@ -61,10 +81,19 @@ const NEARBY_GYMS: GymOption[] = [
     distance: "2.1 miles away",
     rating: 4.8,
     address: "410 Barbells Way, Industrial Sector",
-    description: "No-nonsense bodybuilding temple equipped with vintage and plate-loaded heavy machinery.",
-    image: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=300&auto=format&fit=crop&q=80",
-    defaultMachines: ["Hack Squat", "Smith Machine", "Leg Press Machine", "Lying Leg Curl Machine", "Seated Row Machine", "Pec Deck / Rear Delt Fly"],
-    coordinates: { x: 20, y: 80 }
+    description:
+      "No-nonsense bodybuilding temple equipped with vintage and plate-loaded heavy machinery.",
+    image:
+      "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=300&auto=format&fit=crop&q=80",
+    defaultMachines: [
+      "Hack Squat",
+      "Smith Machine",
+      "Leg Press Machine",
+      "Lying Leg Curl Machine",
+      "Seated Row Machine",
+      "Pec Deck / Rear Delt Fly",
+    ],
+    coordinates: { x: 20, y: 80 },
   },
   {
     id: "gym-4",
@@ -72,33 +101,39 @@ const NEARBY_GYMS: GymOption[] = [
     distance: "3.5 miles away",
     rating: 4.6,
     address: "12 Boutique Circle, Green Hills",
-    description: "High-end coaching studio specializing in strength, aesthetics, and high-tech conditioning.",
-    image: "https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=300&auto=format&fit=crop&q=80",
+    description:
+      "High-end coaching studio specializing in strength, aesthetics, and high-tech conditioning.",
+    image:
+      "https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=300&auto=format&fit=crop&q=80",
     defaultMachines: ["Cable Crossover", "Smith Machine", "Lat Pulldown", "Leg Extension Machine"],
-    coordinates: { x: 80, y: 70 }
-  }
+    coordinates: { x: 80, y: 70 },
+  },
 ];
 
 const MACHINE_CATEGORIES = {
   Push: [
     { name: "Smith Machine", desc: "For secure heavy chest presses & controlled squats" },
     { name: "Chest Press Machine", desc: "Isolates the pectoral muscles under stable load" },
-    { name: "Pec Deck / Rear Delt Fly", desc: "For safe chest flyes and posterior deltoid training" }
+    {
+      name: "Pec Deck / Rear Delt Fly",
+      desc: "For safe chest flyes and posterior deltoid training",
+    },
   ],
   Pull: [
     { name: "Lat Pulldown", desc: "Prime compound vertical pull for back widening" },
     { name: "Seated Row Machine", desc: "Isolates the latissimus dorsi & middle back muscles" },
-    { name: "Cable Crossover", desc: "Provides constant cable tension for chest and arm exercises" }
+    {
+      name: "Cable Crossover",
+      desc: "Provides constant cable tension for chest and arm exercises",
+    },
   ],
   Legs: [
     { name: "Leg Press Machine", desc: "Heavy quadriceps and glute compound loading" },
     { name: "Hack Squat", desc: "Decompresses spine while building massive quadricep force" },
     { name: "Leg Extension Machine", desc: "Isolated single-joint quadricep builder" },
-    { name: "Lying Leg Curl Machine", desc: "Isolated single-joint hamstring builder" }
+    { name: "Lying Leg Curl Machine", desc: "Isolated single-joint hamstring builder" },
   ],
-  Arms: [
-    { name: "Preacher Curl Bench", desc: "Pins the biceps for ultimate peak contractions" }
-  ]
+  Arms: [{ name: "Preacher Curl Bench", desc: "Pins the biceps for ultimate peak contractions" }],
 };
 
 interface OnboardingProps {
@@ -110,6 +145,21 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const [loading, setLoading] = useState<boolean>(false);
   const [loadingMsg, setLoadingMsg] = useState<string>("Analyzing your physical baseline...");
   const [error, setError] = useState<string | null>(null);
+
+  // Ref to hold the loading-message interval ID so it can be cleared on
+  // unmount (previously the interval was created inside an event handler with
+  // no cleanup, causing "state update on unmounted component" warnings if the
+  // user navigated away mid-loading).
+  const loadingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (loadingIntervalRef.current) {
+        clearInterval(loadingIntervalRef.current);
+        loadingIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   const [locationSearch, setLocationSearch] = useState<string>("Downtown Aether");
   const [isScanningGyms, setIsScanningGyms] = useState<boolean>(false);
@@ -127,12 +177,12 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     dietType: "anything",
     allergies: "",
     selectedGymName: "",
-    availableMachines: []
+    availableMachines: [],
   });
 
   const nextStep = () => {
     if (step === 0 && !form.name.trim()) {
-      alert("Please enter your name to personalize your plans!");
+      toast.warning("Name required", "Please enter your name to personalize your plans.");
       return;
     }
     setStep((prev) => prev + 1);
@@ -145,7 +195,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const handleFieldChange = (field: keyof Assessment, value: any) => {
     setForm((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
@@ -160,7 +210,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       "Engineering optimal compound workout splits...",
       "Matching macronutrient distributions with dietary targets...",
       "Synthesizing high-protein culinary recommendations...",
-      "Polishing final custom coaching dashboard..."
+      "Polishing final custom coaching dashboard...",
     ];
 
     let msgIdx = 0;
@@ -170,10 +220,14 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         setLoadingMsg(msgs[msgIdx]);
       }
     }, 1200);
+    loadingIntervalRef.current = interval;
 
     if (forceFallback) {
       setTimeout(() => {
-        clearInterval(interval);
+        if (loadingIntervalRef.current) {
+          clearInterval(loadingIntervalRef.current);
+          loadingIntervalRef.current = null;
+        }
         try {
           const plan = generateLocalPlan(form);
           onComplete(plan, form);
@@ -192,7 +246,10 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         body: JSON.stringify(form),
       });
 
-      clearInterval(interval);
+      if (loadingIntervalRef.current) {
+        clearInterval(loadingIntervalRef.current);
+        loadingIntervalRef.current = null;
+      }
 
       if (!response.ok) {
         const errData = await response.json();
@@ -204,8 +261,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     } catch (err: any) {
       console.warn("Gemini generation failed or unconfigured:", err);
       setError(
-        err.message || 
-        "The AI Coach could not connect. This is usually because your GEMINI_API_KEY is not configured yet."
+        err.message ||
+          "The AI Coach could not connect. This is usually because your GEMINI_API_KEY is not configured yet.",
       );
       setLoading(false);
     }
@@ -216,23 +273,23 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     {
       title: "Tell Us About Yourself",
       subtitle: "Let's gather some basic metrics to construct your physical baseline.",
-      icon: <User className="w-5 h-5 text-[#E63946]" />
+      icon: <User className="w-5 h-5 text-[#E63946]" />,
     },
     {
       title: "Define Your Target",
       subtitle: "What is your primary fitness aspiration and weekly commitment?",
-      icon: <Activity className="w-5 h-5 text-[#E63946]" />
+      icon: <Activity className="w-5 h-5 text-[#E63946]" />,
     },
     {
       title: "Your Training Atmosphere",
       subtitle: "Where do you work out and what is your daily movement style?",
-      icon: <Dumbbell className="w-5 h-5 text-[#E63946]" />
+      icon: <Dumbbell className="w-5 h-5 text-[#E63946]" />,
     },
     {
       title: "Nutritional Foundation",
       subtitle: "Your dietary habits and food sensitivities are vital.",
-      icon: <Utensils className="w-5 h-5 text-[#E63946]" />
-    }
+      icon: <Utensils className="w-5 h-5 text-[#E63946]" />,
+    },
   ];
 
   return (
@@ -276,15 +333,15 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
             {/* Steps Progress dots */}
             <div className="flex items-center gap-1.5 mb-6">
               {steps.map((_, i) => (
-                <div 
-                  key={i} 
+                <div
+                  key={i}
                   className={`h-1 rounded-none transition-all duration-300 ${
-                    i === step 
-                      ? "w-8 bg-[#1A1A1A]" 
-                      : i < step 
-                        ? "w-4 bg-[#1A1A1A]/40" 
+                    i === step
+                      ? "w-8 bg-[#1A1A1A]"
+                      : i < step
+                        ? "w-4 bg-[#1A1A1A]/40"
                         : "w-2 bg-[#1A1A1A]/10"
-                  }`} 
+                  }`}
                 />
               ))}
             </div>
@@ -302,7 +359,9 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 <div className="flex items-start gap-3 mb-3">
                   <ShieldAlert className="w-5 h-5 text-[#E63946] flex-shrink-0 mt-0.5" />
                   <div>
-                    <h4 className="text-sm font-serif font-bold text-[#E63946]">Coaching Server Offline</h4>
+                    <h4 className="text-sm font-serif font-bold text-[#E63946]">
+                      Coaching Server Offline
+                    </h4>
                     <p className="text-xs text-[#1A1A1A]/60 mt-1 font-serif italic">{error}</p>
                   </div>
                 </div>
@@ -387,7 +446,9 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                           value={form.weight}
                           min={30}
                           max={250}
-                          onChange={(e) => handleFieldChange("weight", parseFloat(e.target.value) || 70)}
+                          onChange={(e) =>
+                            handleFieldChange("weight", parseFloat(e.target.value) || 70)
+                          }
                           className="w-full bg-white border border-[#1A1A1A]/15 rounded-none px-4 py-3 text-[#1A1A1A] text-sm focus:border-[#1A1A1A] focus:outline-none"
                         />
                       </div>
@@ -401,7 +462,9 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                           value={form.height}
                           min={100}
                           max={250}
-                          onChange={(e) => handleFieldChange("height", parseInt(e.target.value) || 170)}
+                          onChange={(e) =>
+                            handleFieldChange("height", parseInt(e.target.value) || 170)
+                          }
                           className="w-full bg-white border border-[#1A1A1A]/15 rounded-none px-4 py-3 text-[#1A1A1A] text-sm focus:border-[#1A1A1A] focus:outline-none"
                         />
                       </div>
@@ -417,11 +480,31 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                       </label>
                       <div className="grid grid-cols-1 gap-2.5">
                         {[
-                          { id: "weight-loss", title: "Fat Shred & Slimming", desc: "Burn calories, boost metabolism, lose body fat" },
-                          { id: "muscle-gain", title: "Lean Muscle Hypertrophy", desc: "Build size, increase muscle mass, density" },
-                          { id: "strength", title: "Pure Mechanical Strength", desc: "Lift heavier, improve power, core stabilization" },
-                          { id: "endurance", title: "Cardio & Stamina Builder", desc: "Boost VO2 max, endurance, lung capacity" },
-                          { id: "general", title: "Active Wellness & Tonus", desc: "Feel energetic, flexible, overall mobility" }
+                          {
+                            id: "weight-loss",
+                            title: "Fat Shred & Slimming",
+                            desc: "Burn calories, boost metabolism, lose body fat",
+                          },
+                          {
+                            id: "muscle-gain",
+                            title: "Lean Muscle Hypertrophy",
+                            desc: "Build size, increase muscle mass, density",
+                          },
+                          {
+                            id: "strength",
+                            title: "Pure Mechanical Strength",
+                            desc: "Lift heavier, improve power, core stabilization",
+                          },
+                          {
+                            id: "endurance",
+                            title: "Cardio & Stamina Builder",
+                            desc: "Boost VO2 max, endurance, lung capacity",
+                          },
+                          {
+                            id: "general",
+                            title: "Active Wellness & Tonus",
+                            desc: "Feel energetic, flexible, overall mobility",
+                          },
                         ].map((g) => (
                           <button
                             key={g.id}
@@ -434,8 +517,14 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                                 : "bg-white border-[#1A1A1A]/10 text-[#1A1A1A] hover:bg-[#F9F8F6] hover:border-[#1A1A1A]/30"
                             }`}
                           >
-                            <h4 className="text-sm font-bold uppercase tracking-tight">{g.title}</h4>
-                            <p className={`text-xs mt-1 leading-relaxed ${form.goal === g.id ? "text-white/70" : "text-[#1A1A1A]/50"}`}>{g.desc}</p>
+                            <h4 className="text-sm font-bold uppercase tracking-tight">
+                              {g.title}
+                            </h4>
+                            <p
+                              className={`text-xs mt-1 leading-relaxed ${form.goal === g.id ? "text-white/70" : "text-[#1A1A1A]/50"}`}
+                            >
+                              {g.desc}
+                            </p>
                           </button>
                         ))}
                       </div>
@@ -474,10 +563,26 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                       </label>
                       <div className="grid grid-cols-1 gap-2.5">
                         {[
-                          { id: "home", title: "Home Gym (Calisthenics & Minimal Equipment)", desc: "Bodyweight focus, bands, chairs, dumbbells" },
-                          { id: "gym", title: "Commercial Gym (Barbells, Cables & Machines)", desc: "Full power rack access, cables, leg machines" },
-                          { id: "outdoor", title: "Outdoor Arena (Bars, Parks & Running)", desc: "Aerobic base, pullup bars, sprint loops" },
-                          { id: "hybrid", title: "Hybrid Versatility", desc: "A blend of home bodyweight and commercial machinery" }
+                          {
+                            id: "home",
+                            title: "Home Gym (Calisthenics & Minimal Equipment)",
+                            desc: "Bodyweight focus, bands, chairs, dumbbells",
+                          },
+                          {
+                            id: "gym",
+                            title: "Commercial Gym (Barbells, Cables & Machines)",
+                            desc: "Full power rack access, cables, leg machines",
+                          },
+                          {
+                            id: "outdoor",
+                            title: "Outdoor Arena (Bars, Parks & Running)",
+                            desc: "Aerobic base, pullup bars, sprint loops",
+                          },
+                          {
+                            id: "hybrid",
+                            title: "Hybrid Versatility",
+                            desc: "A blend of home bodyweight and commercial machinery",
+                          },
                         ].map((w) => (
                           <button
                             key={w.id}
@@ -491,7 +596,10 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                               } else if (!form.selectedGymName) {
                                 // Default select the first gym
                                 handleFieldChange("selectedGymName", NEARBY_GYMS[0].name);
-                                handleFieldChange("availableMachines", NEARBY_GYMS[0].defaultMachines);
+                                handleFieldChange(
+                                  "availableMachines",
+                                  NEARBY_GYMS[0].defaultMachines,
+                                );
                               }
                             }}
                             className={`w-full p-4 text-left rounded-none border transition-all duration-200 ${
@@ -500,8 +608,14 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                                 : "bg-white border-[#1A1A1A]/10 text-[#1A1A1A] hover:bg-[#F9F8F6] hover:border-[#1A1A1A]/30"
                             }`}
                           >
-                            <h4 className="text-sm font-bold uppercase tracking-tight">{w.title}</h4>
-                            <p className={`text-xs mt-1 leading-relaxed ${form.workoutPreference === w.id ? "text-white/70" : "text-[#1A1A1A]/50"}`}>{w.desc}</p>
+                            <h4 className="text-sm font-bold uppercase tracking-tight">
+                              {w.title}
+                            </h4>
+                            <p
+                              className={`text-xs mt-1 leading-relaxed ${form.workoutPreference === w.id ? "text-white/70" : "text-[#1A1A1A]/50"}`}
+                            >
+                              {w.desc}
+                            </p>
                           </button>
                         ))}
                       </div>
@@ -516,7 +630,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                           </h4>
                         </div>
                         <p className="text-[11px] text-[#1A1A1A]/60 font-serif italic mb-3">
-                          Select a nearby commercial facility or enter your location to automatically load its machine list and fine-tune your workouts.
+                          Select a nearby commercial facility or enter your location to
+                          automatically load its machine list and fine-tune your workouts.
                         </p>
 
                         <div className="flex gap-2">
@@ -560,40 +675,172 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                                   GPS Signal Active
                                 </span>
                               </div>
-                              <svg viewBox="0 0 100 100" className="w-full h-32 bg-[#F9F8F6] border-t border-[#1A1A1A]/5 relative overflow-hidden">
-                                <line x1="10" y1="0" x2="10" y2="100" stroke="rgba(26,26,26,0.03)" strokeWidth="0.5" />
-                                <line x1="30" y1="0" x2="30" y2="100" stroke="rgba(26,26,26,0.03)" strokeWidth="0.5" />
-                                <line x1="50" y1="0" x2="50" y2="100" stroke="rgba(26,26,26,0.03)" strokeWidth="0.5" />
-                                <line x1="70" y1="0" x2="70" y2="100" stroke="rgba(26,26,26,0.03)" strokeWidth="0.5" />
-                                <line x1="90" y1="0" x2="90" y2="100" stroke="rgba(26,26,26,0.03)" strokeWidth="0.5" />
-                                
-                                <line x1="0" y1="10" x2="100" y2="10" stroke="rgba(26,26,26,0.03)" strokeWidth="0.5" />
-                                <line x1="0" y1="30" x2="100" y2="30" stroke="rgba(26,26,26,0.03)" strokeWidth="0.5" />
-                                <line x1="0" y1="50" x2="100" y2="50" stroke="rgba(26,26,26,0.03)" strokeWidth="0.5" />
-                                <line x1="0" y1="70" x2="100" y2="70" stroke="rgba(26,26,26,0.03)" strokeWidth="0.5" />
-                                <line x1="0" y1="90" x2="100" y2="90" stroke="rgba(26,26,26,0.03)" strokeWidth="0.5" />
+                              <svg
+                                viewBox="0 0 100 100"
+                                className="w-full h-32 bg-[#F9F8F6] border-t border-[#1A1A1A]/5 relative overflow-hidden"
+                              >
+                                <line
+                                  x1="10"
+                                  y1="0"
+                                  x2="10"
+                                  y2="100"
+                                  stroke="rgba(26,26,26,0.03)"
+                                  strokeWidth="0.5"
+                                />
+                                <line
+                                  x1="30"
+                                  y1="0"
+                                  x2="30"
+                                  y2="100"
+                                  stroke="rgba(26,26,26,0.03)"
+                                  strokeWidth="0.5"
+                                />
+                                <line
+                                  x1="50"
+                                  y1="0"
+                                  x2="50"
+                                  y2="100"
+                                  stroke="rgba(26,26,26,0.03)"
+                                  strokeWidth="0.5"
+                                />
+                                <line
+                                  x1="70"
+                                  y1="0"
+                                  x2="70"
+                                  y2="100"
+                                  stroke="rgba(26,26,26,0.03)"
+                                  strokeWidth="0.5"
+                                />
+                                <line
+                                  x1="90"
+                                  y1="0"
+                                  x2="90"
+                                  y2="100"
+                                  stroke="rgba(26,26,26,0.03)"
+                                  strokeWidth="0.5"
+                                />
 
-                                <path d="M 0 55 Q 55 25 100 55" fill="none" stroke="rgba(26,26,26,0.08)" strokeWidth="3" />
-                                <path d="M 55 0 Q 25 55 55 100" fill="none" stroke="rgba(26,26,26,0.08)" strokeWidth="3" />
-                                <path d="M 5 5 Q 35 35 95 95" fill="none" stroke="rgba(26,26,26,0.04)" strokeWidth="1.5" />
+                                <line
+                                  x1="0"
+                                  y1="10"
+                                  x2="100"
+                                  y2="10"
+                                  stroke="rgba(26,26,26,0.03)"
+                                  strokeWidth="0.5"
+                                />
+                                <line
+                                  x1="0"
+                                  y1="30"
+                                  x2="100"
+                                  y2="30"
+                                  stroke="rgba(26,26,26,0.03)"
+                                  strokeWidth="0.5"
+                                />
+                                <line
+                                  x1="0"
+                                  y1="50"
+                                  x2="100"
+                                  y2="50"
+                                  stroke="rgba(26,26,26,0.03)"
+                                  strokeWidth="0.5"
+                                />
+                                <line
+                                  x1="0"
+                                  y1="70"
+                                  x2="100"
+                                  y2="70"
+                                  stroke="rgba(26,26,26,0.03)"
+                                  strokeWidth="0.5"
+                                />
+                                <line
+                                  x1="0"
+                                  y1="90"
+                                  x2="100"
+                                  y2="90"
+                                  stroke="rgba(26,26,26,0.03)"
+                                  strokeWidth="0.5"
+                                />
+
+                                <path
+                                  d="M 0 55 Q 55 25 100 55"
+                                  fill="none"
+                                  stroke="rgba(26,26,26,0.08)"
+                                  strokeWidth="3"
+                                />
+                                <path
+                                  d="M 55 0 Q 25 55 55 100"
+                                  fill="none"
+                                  stroke="rgba(26,26,26,0.08)"
+                                  strokeWidth="3"
+                                />
+                                <path
+                                  d="M 5 5 Q 35 35 95 95"
+                                  fill="none"
+                                  stroke="rgba(26,26,26,0.04)"
+                                  strokeWidth="1.5"
+                                />
 
                                 <circle cx="50" cy="50" r="3.5" fill="#E63946" />
-                                <circle cx="50" cy="50" r="8" fill="none" stroke="#E63946" strokeWidth="0.5" strokeDasharray="1,1" />
-                                <text x="50" y="44" textAnchor="middle" className="text-[5px] font-sans font-bold fill-[#E63946] uppercase">You</text>
+                                <circle
+                                  cx="50"
+                                  cy="50"
+                                  r="8"
+                                  fill="none"
+                                  stroke="#E63946"
+                                  strokeWidth="0.5"
+                                  strokeDasharray="1,1"
+                                />
+                                <text
+                                  x="50"
+                                  y="44"
+                                  textAnchor="middle"
+                                  className="text-[5px] font-sans font-bold fill-[#E63946] uppercase"
+                                >
+                                  You
+                                </text>
 
                                 {NEARBY_GYMS.map((g) => {
                                   const isSelected = form.selectedGymName === g.name;
                                   return (
-                                    <g key={g.id} className="cursor-pointer" onClick={() => {
-                                      handleFieldChange("selectedGymName", g.name);
-                                      handleFieldChange("availableMachines", g.defaultMachines);
-                                    }}>
+                                    <g
+                                      key={g.id}
+                                      className="cursor-pointer"
+                                      onClick={() => {
+                                        handleFieldChange("selectedGymName", g.name);
+                                        handleFieldChange("availableMachines", g.defaultMachines);
+                                      }}
+                                    >
                                       {isSelected && (
-                                        <circle cx={g.coordinates.x} cy={g.coordinates.y} r="7" fill="#1A1A1A" className="animate-ping opacity-25" />
+                                        <circle
+                                          cx={g.coordinates.x}
+                                          cy={g.coordinates.y}
+                                          r="7"
+                                          fill="#1A1A1A"
+                                          className="animate-ping opacity-25"
+                                        />
                                       )}
-                                      <circle cx={g.coordinates.x} cy={g.coordinates.y} r={isSelected ? "4" : "3"} fill={isSelected ? "#1A1A1A" : "#1A1A1A" } fillOpacity={isSelected ? "1" : "0.5"} />
-                                      <circle cx={g.coordinates.x} cy={g.coordinates.y} r={isSelected ? "7" : "5"} fill="none" stroke={isSelected ? "#1A1A1A" : "#1A1A1A"} strokeWidth="0.5" strokeOpacity={isSelected ? "1" : "0.3"} />
-                                      <text x={g.coordinates.x} y={g.coordinates.y - (isSelected ? 7 : 5)} textAnchor="middle" className={`text-[4px] font-bold ${isSelected ? "fill-[#1A1A1A] font-black" : "fill-[#1A1A1A]/40"} uppercase`}>
+                                      <circle
+                                        cx={g.coordinates.x}
+                                        cy={g.coordinates.y}
+                                        r={isSelected ? "4" : "3"}
+                                        fill={isSelected ? "#1A1A1A" : "#1A1A1A"}
+                                        fillOpacity={isSelected ? "1" : "0.5"}
+                                      />
+                                      <circle
+                                        cx={g.coordinates.x}
+                                        cy={g.coordinates.y}
+                                        r={isSelected ? "7" : "5"}
+                                        fill="none"
+                                        stroke={isSelected ? "#1A1A1A" : "#1A1A1A"}
+                                        strokeWidth="0.5"
+                                        strokeOpacity={isSelected ? "1" : "0.3"}
+                                      />
+                                      <text
+                                        x={g.coordinates.x}
+                                        y={g.coordinates.y - (isSelected ? 7 : 5)}
+                                        textAnchor="middle"
+                                        className={`text-[4px] font-bold ${isSelected ? "fill-[#1A1A1A] font-black" : "fill-[#1A1A1A]/40"} uppercase`}
+                                      >
                                         {g.name.split(" ")[0]}
                                       </text>
                                     </g>
@@ -622,15 +869,28 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                                     }`}
                                   >
                                     <div className="w-12 h-12 flex-shrink-0 bg-gray-200 overflow-hidden relative border border-[#1A1A1A]/10">
-                                      <img src={g.image} alt={g.name} className="w-full h-full object-cover" />
+                                      <img
+                                        loading="lazy"
+                                        src={g.image}
+                                        alt={g.name}
+                                        className="w-full h-full object-cover"
+                                      />
                                     </div>
                                     <div className="flex-grow min-w-0">
                                       <div className="flex justify-between items-start">
-                                        <h5 className="font-bold uppercase text-[11px] text-[#1A1A1A] truncate">{g.name}</h5>
-                                        <span className="text-[8px] font-bold bg-[#1A1A1A]/5 text-[#1A1A1A]/60 px-1 py-0.5 rounded-none shrink-0">{g.distance}</span>
+                                        <h5 className="font-bold uppercase text-[11px] text-[#1A1A1A] truncate">
+                                          {g.name}
+                                        </h5>
+                                        <span className="text-[8px] font-bold bg-[#1A1A1A]/5 text-[#1A1A1A]/60 px-1 py-0.5 rounded-none shrink-0">
+                                          {g.distance}
+                                        </span>
                                       </div>
-                                      <p className="text-[10px] text-[#1A1A1A]/50 line-clamp-1 mt-0.5 font-serif italic">{g.address}</p>
-                                      <p className="text-[9px] text-[#1A1A1A]/70 line-clamp-1 mt-0.5 leading-snug">{g.description}</p>
+                                      <p className="text-[10px] text-[#1A1A1A]/50 line-clamp-1 mt-0.5 font-serif italic">
+                                        {g.address}
+                                      </p>
+                                      <p className="text-[9px] text-[#1A1A1A]/70 line-clamp-1 mt-0.5 leading-snug">
+                                        {g.description}
+                                      </p>
                                     </div>
                                   </button>
                                 );
@@ -655,7 +915,9 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const all = Object.values(MACHINE_CATEGORIES).flatMap(c => c.map(m => m.name));
+                                    const all = Object.values(MACHINE_CATEGORIES).flatMap((c) =>
+                                      c.map((m) => m.name),
+                                    );
                                     handleFieldChange("availableMachines", all);
                                   }}
                                   className="text-[8px] font-bold uppercase tracking-wider text-[#E63946] hover:underline"
@@ -681,7 +943,9 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                                   </span>
                                   <div className="grid grid-cols-1 gap-1.5">
                                     {machines.map((m) => {
-                                      const isChecked = (form.availableMachines || []).includes(m.name);
+                                      const isChecked = (form.availableMachines || []).includes(
+                                        m.name,
+                                      );
                                       return (
                                         <button
                                           key={m.name}
@@ -689,7 +953,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                                           onClick={() => {
                                             const current = form.availableMachines || [];
                                             const next = isChecked
-                                              ? current.filter(x => x !== m.name)
+                                              ? current.filter((x) => x !== m.name)
                                               : [...current, m.name];
                                             handleFieldChange("availableMachines", next);
                                           }}
@@ -700,13 +964,23 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                                           }`}
                                         >
                                           <div>
-                                            <span className="font-bold uppercase tracking-wide text-[10px]">{m.name}</span>
-                                            <p className="text-[9px] text-[#1A1A1A]/50 font-serif italic mt-0.5">{m.desc}</p>
+                                            <span className="font-bold uppercase tracking-wide text-[10px]">
+                                              {m.name}
+                                            </span>
+                                            <p className="text-[9px] text-[#1A1A1A]/50 font-serif italic mt-0.5">
+                                              {m.desc}
+                                            </p>
                                           </div>
-                                          <div className={`w-4 h-4 rounded-none border flex items-center justify-center shrink-0 ${
-                                            isChecked ? "bg-[#1A1A1A] border-[#1A1A1A] text-white" : "border-[#1A1A1A]/25"
-                                          }`}>
-                                            {isChecked && <Check className="w-3 h-3 text-white stroke-[3px]" />}
+                                          <div
+                                            className={`w-4 h-4 rounded-none border flex items-center justify-center shrink-0 ${
+                                              isChecked
+                                                ? "bg-[#1A1A1A] border-[#1A1A1A] text-white"
+                                                : "border-[#1A1A1A]/25"
+                                            }`}
+                                          >
+                                            {isChecked && (
+                                              <Check className="w-3 h-3 text-white stroke-[3px]" />
+                                            )}
                                           </div>
                                         </button>
                                       );
@@ -721,10 +995,14 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                               <span>
                                 {form.availableMachines && form.availableMachines.length > 0 ? (
                                   <>
-                                    <strong>{form.availableMachines.length} machines</strong> logged. Workout recommendations will be dynamically tuned.
+                                    <strong>{form.availableMachines.length} machines</strong>{" "}
+                                    logged. Workout recommendations will be dynamically tuned.
                                   </>
                                 ) : (
-                                  <>No machines logged. Workouts will default to standard barbell & dumbbell exercises.</>
+                                  <>
+                                    No machines logged. Workouts will default to standard barbell &
+                                    dumbbell exercises.
+                                  </>
                                 )}
                               </span>
                             </div>
@@ -741,8 +1019,16 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                         {[
                           { id: "sedentary", label: "Sedentary", desc: "Desk job, few walks" },
                           { id: "light", label: "Lightly Active", desc: "1-2h light walk/day" },
-                          { id: "moderate", label: "Moderately Active", desc: "Active stands, daily run" },
-                          { id: "active", label: "Very Athlete Active", desc: "Labor work or heavy training" }
+                          {
+                            id: "moderate",
+                            label: "Moderately Active",
+                            desc: "Active stands, daily run",
+                          },
+                          {
+                            id: "active",
+                            label: "Very Athlete Active",
+                            desc: "Labor work or heavy training",
+                          },
                         ].map((act) => (
                           <button
                             key={act.id}
@@ -755,8 +1041,14 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                                 : "bg-white border-[#1A1A1A]/10 text-[#1A1A1A] hover:bg-[#F9F8F6] hover:border-[#1A1A1A]/30"
                             }`}
                           >
-                            <h5 className="text-xs font-bold uppercase tracking-tight">{act.label}</h5>
-                            <p className={`text-[10px] mt-1 leading-snug ${form.activityLevel === act.id ? "text-white/70" : "text-[#1A1A1A]/50"}`}>{act.desc}</p>
+                            <h5 className="text-xs font-bold uppercase tracking-tight">
+                              {act.label}
+                            </h5>
+                            <p
+                              className={`text-[10px] mt-1 leading-snug ${form.activityLevel === act.id ? "text-white/70" : "text-[#1A1A1A]/50"}`}
+                            >
+                              {act.desc}
+                            </p>
                           </button>
                         ))}
                       </div>
@@ -778,7 +1070,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                           { id: "keto", label: "Ketogenic (Low Carb)" },
                           { id: "low-carb", label: "Low Carb (Moderate)" },
                           { id: "gluten-free", label: "Gluten-Free" },
-                          { id: "mediterranean", label: "Mediterranean" }
+                          { id: "mediterranean", label: "Mediterranean" },
                         ].map((diet) => (
                           <button
                             key={diet.id}
@@ -810,7 +1102,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                         className="w-full bg-white border border-[#1A1A1A]/15 rounded-none px-4 py-3 text-[#1A1A1A] text-sm focus:border-[#1A1A1A] focus:outline-none focus:ring-0"
                       />
                       <p className="text-[10px] text-[#1A1A1A]/50 mt-2 font-serif italic leading-relaxed">
-                        Our paid meal delivery service tab will badge or restrict recommended preps with these triggers.
+                        Our paid meal delivery service tab will badge or restrict recommended preps
+                        with these triggers.
                       </p>
                     </div>
                   </div>
