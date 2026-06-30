@@ -1,16 +1,16 @@
 import React, { useState } from "react";
 import { MARKETPLACE_PRODUCTS } from "../data/marketplace";
-import { Assessment, MarketplaceProduct, CartItem, Order } from "../types";
-import { 
-  ShoppingBag, 
-  Search, 
-  Plus, 
-  Minus, 
-  Trash2, 
-  Star, 
-  Sparkles, 
-  ShoppingBagIcon, 
-  Dumbbell, 
+import { MarketplaceProduct, CartItem, Order } from "../types";
+import {
+  ShoppingBag,
+  Search,
+  Plus,
+  Minus,
+  Trash2,
+  Star,
+  Sparkles,
+  ShoppingBagIcon,
+  Dumbbell,
   CreditCard,
   MapPin,
   CheckCircle,
@@ -18,11 +18,11 @@ import {
   Shirt,
   Package,
   Activity,
-  SlidersHorizontal
+  SlidersHorizontal,
+  AlertTriangle,
 } from "lucide-react";
 
 interface MarketplaceTabProps {
-  assessment: Assessment;
   cart: CartItem[];
   onAddToCart: (item: CartItem) => void;
   onRemoveFromCart: (id: string) => void;
@@ -31,15 +31,13 @@ interface MarketplaceTabProps {
 }
 
 export default function MarketplaceTab({
-  assessment,
   cart,
   onAddToCart,
   onRemoveFromCart,
   onUpdateCartQty,
-  onCheckout
+  onCheckout,
 }: MarketplaceTabProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState<string>("all");
   const [typedQuery, setTypedQuery] = useState<string>("");
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<string>("default");
@@ -47,15 +45,15 @@ export default function MarketplaceTab({
   // Checkout states
   const [isCheckoutOpen, setIsCheckoutOpen] = useState<boolean>(false);
   const [address, setAddress] = useState<string>("");
-  const [cardNumber, setCardNumber] = useState<string>("");
   const [isProcessingOrder, setIsProcessingOrder] = useState<boolean>(false);
   const [isOrderSuccess, setIsOrderSuccess] = useState<boolean>(false);
 
   const filteredProducts = MARKETPLACE_PRODUCTS.filter((prod) => {
     const matchesCategory = selectedCategory === "all" || prod.category === selectedCategory;
-    const matchesSearch = typedQuery === "" || 
-                          prod.name.toLowerCase().includes(typedQuery.toLowerCase()) || 
-                          prod.description.toLowerCase().includes(typedQuery.toLowerCase());
+    const matchesSearch =
+      typedQuery === "" ||
+      prod.name.toLowerCase().includes(typedQuery.toLowerCase()) ||
+      prod.description.toLowerCase().includes(typedQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
@@ -66,9 +64,9 @@ export default function MarketplaceTab({
     return 0;
   });
 
-  const cartItems = cart.filter(item => item.type === "marketplace");
+  const cartItems = cart.filter((item) => item.type === "marketplace");
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-  const cartTotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const cartTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   const handleAddProduct = (prod: MarketplaceProduct) => {
     onAddToCart({
@@ -77,7 +75,7 @@ export default function MarketplaceTab({
       price: prod.price,
       image: prod.image,
       quantity: 1,
-      type: "marketplace"
+      type: "marketplace",
     });
   };
 
@@ -88,21 +86,33 @@ export default function MarketplaceTab({
 
   const submitOrder = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!address.trim() || !cardNumber.trim()) return;
+    if (!address.trim()) return;
 
     setIsProcessingOrder(true);
-    
+
     setTimeout(() => {
       setIsProcessingOrder(false);
       setIsOrderSuccess(true);
-      
+
+      // Use crypto.randomUUID() for cryptographically safe order IDs.
+      // Falls back to timestamp+random for older browsers.
+      const orderId =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `ord-mkt-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+
       const newOrder: Order = {
-        id: "ord-mkt-" + Math.random().toString(36).substr(2, 9).toUpperCase(),
+        id: orderId,
         items: [...cartItems],
         total: cartTotal + 4.99, // adding 4.99 shipping
-        date: new Date().toLocaleDateString("en-US", { year: 'numeric', month: 'short', day: 'numeric' }),
+        date: new Date().toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        }),
         status: "pending",
-        deliveryAddress: address
+        deliveryAddress: address,
+        type: "marketplace",
       };
 
       onCheckout(newOrder);
@@ -111,9 +121,7 @@ export default function MarketplaceTab({
         setIsOrderSuccess(false);
         setIsCheckoutOpen(false);
         setAddress("");
-        setCardNumber("");
       }, 3000);
-
     }, 2000);
   };
 
@@ -180,7 +188,11 @@ export default function MarketplaceTab({
             { id: "apparel", label: "Apparel", icon: <Shirt className="w-3.5 h-3.5" /> },
             { id: "supplements", label: "Supplements", icon: <Sparkles className="w-3.5 h-3.5" /> },
             { id: "equipment", label: "Equipment", icon: <Dumbbell className="w-3.5 h-3.5" /> },
-            { id: "accessories", label: "Accessories", icon: <ShoppingBagIcon className="w-3.5 h-3.5" /> }
+            {
+              id: "accessories",
+              label: "Accessories",
+              icon: <ShoppingBagIcon className="w-3.5 h-3.5" />,
+            },
           ].map((cat) => (
             <button
               key={cat.id}
@@ -223,13 +235,19 @@ export default function MarketplaceTab({
       {sortedProducts.length === 0 ? (
         <div className="bg-white border border-[#1A1A1A]/10 p-8 text-center flex flex-col items-center justify-center">
           <Package className="w-10 h-10 text-[#1A1A1A]/30 mb-2 animate-pulse" />
-          <h4 className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A]/80">No Products Found</h4>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A]/80">
+            No Products Found
+          </h4>
           <p className="text-[10px] text-[#1A1A1A]/60 mt-1 font-serif italic max-w-xs">
-            We couldn't find any products matching "{typedQuery}". Try clearing your filters or search keywords.
+            We couldn&apos;t find any products matching &quot;{typedQuery}&quot;. Try clearing your
+            filters or search keywords.
           </p>
           <button
             id="btn-clear-search-mkt"
-            onClick={() => { setTypedQuery(""); setSelectedCategory("all"); }}
+            onClick={() => {
+              setTypedQuery("");
+              setSelectedCategory("all");
+            }}
             className="mt-4 px-4 py-1.5 border border-[#1A1A1A] hover:bg-[#1A1A1A] hover:text-white transition-all text-[10px] font-bold uppercase tracking-widest"
           >
             Reset Filters
@@ -238,10 +256,14 @@ export default function MarketplaceTab({
       ) : (
         <div className="grid grid-cols-2 gap-3.5">
           {sortedProducts.map((prod) => (
-            <div key={prod.id} className="bg-white border border-[#1A1A1A]/10 rounded-none overflow-hidden flex flex-col justify-between shadow-sm hover:border-[#1A1A1A]/30 transition-all group">
+            <div
+              key={prod.id}
+              className="bg-white border border-[#1A1A1A]/10 rounded-none overflow-hidden flex flex-col justify-between shadow-sm hover:border-[#1A1A1A]/30 transition-all group"
+            >
               {/* Image section */}
               <div className="relative h-28 bg-[#F9F8F6] overflow-hidden">
                 <img
+                  loading="lazy"
                   referrerPolicy="no-referrer"
                   src={prod.image}
                   alt={prod.name}
@@ -271,9 +293,7 @@ export default function MarketplaceTab({
                 <div className="mt-3">
                   {/* Rating & Price */}
                   <div className="flex justify-between items-center mb-2.5">
-                    <span className="text-xs text-[#E63946] font-black">
-                      ${prod.price}
-                    </span>
+                    <span className="text-xs text-[#E63946] font-black">${prod.price}</span>
                     <div className="flex items-center gap-0.5 text-[10px] text-amber-500 font-bold">
                       <Star className="w-3 h-3 fill-current" />
                       <span>{prod.rating}</span>
@@ -302,7 +322,9 @@ export default function MarketplaceTab({
             <div className="p-4 border-b border-[#1A1A1A]/10 flex justify-between items-center bg-[#F9F8F6]">
               <div className="flex items-center gap-2">
                 <ShoppingBag className="w-5 h-5 text-[#E63946]" />
-                <h3 className="font-serif italic font-black text-[#1A1A1A] text-lg">Shopping Basket</h3>
+                <h3 className="font-serif italic font-black text-[#1A1A1A] text-lg">
+                  Shopping Basket
+                </h3>
               </div>
               <button
                 id="btn-close-mkt-cart"
@@ -320,15 +342,21 @@ export default function MarketplaceTab({
                 </div>
               ) : (
                 cartItems.map((item) => (
-                  <div key={item.id} className="flex justify-between items-center gap-3 bg-[#F9F8F6] p-2.5 rounded-none border border-[#1A1A1A]/5">
+                  <div
+                    key={item.id}
+                    className="flex justify-between items-center gap-3 bg-[#F9F8F6] p-2.5 rounded-none border border-[#1A1A1A]/5"
+                  >
                     <img
+                      loading="lazy"
                       referrerPolicy="no-referrer"
                       src={item.image}
                       alt={item.name}
                       className="w-10 h-10 object-cover rounded-none bg-slate-100"
                     />
                     <div className="flex-grow min-w-0">
-                      <h5 className="text-xs font-bold uppercase tracking-tight text-[#1A1A1A] truncate">{item.name}</h5>
+                      <h5 className="text-xs font-bold uppercase tracking-tight text-[#1A1A1A] truncate">
+                        {item.name}
+                      </h5>
                       <p className="text-[10px] text-[#E63946] font-bold mt-0.5">${item.price}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
@@ -339,7 +367,9 @@ export default function MarketplaceTab({
                       >
                         <Minus className="w-3 h-3" />
                       </button>
-                      <span className="text-xs text-[#1A1A1A] font-bold w-4 text-center">{item.quantity}</span>
+                      <span className="text-xs text-[#1A1A1A] font-bold w-4 text-center">
+                        {item.quantity}
+                      </span>
                       <button
                         id={`btn-cart-plus-mkt-${item.id}`}
                         onClick={() => onUpdateCartQty(item.id, item.quantity + 1)}
@@ -372,7 +402,9 @@ export default function MarketplaceTab({
                 </div>
                 <div className="flex justify-between font-extrabold text-sm text-[#1A1A1A] mb-4 pt-2 border-t border-[#1A1A1A]/15">
                   <span>Estimated Total</span>
-                  <span className="text-[#E63946] font-black">${(cartTotal >= 75 ? cartTotal : cartTotal + 4.99).toFixed(2)}</span>
+                  <span className="text-[#E63946] font-black">
+                    ${(cartTotal >= 75 ? cartTotal : cartTotal + 4.99).toFixed(2)}
+                  </span>
                 </div>
 
                 <button
@@ -395,7 +427,9 @@ export default function MarketplaceTab({
             {isOrderSuccess ? (
               <div className="p-8 text-center flex flex-col items-center">
                 <CheckCircle className="w-12 h-12 text-[#E63946] mb-4 animate-bounce" />
-                <h3 className="text-xl font-serif font-black italic text-[#1A1A1A]">Purchase Confirmed!</h3>
+                <h3 className="text-xl font-serif font-black italic text-[#1A1A1A]">
+                  Purchase Confirmed!
+                </h3>
                 <p className="text-[#1A1A1A]/60 text-xs mt-1.5 max-w-xs font-serif italic">
                   Your transaction has processed successfully. Warehouse packaging has begun.
                 </p>
@@ -409,7 +443,7 @@ export default function MarketplaceTab({
                 <div className="flex justify-between items-center border-b border-[#1A1A1A]/10 pb-3">
                   <h3 className="font-serif italic font-black text-lg text-[#1A1A1A] flex items-center gap-2">
                     <ShoppingBagIcon className="w-4.5 h-4.5 text-[#E63946]" />
-                    Secure Purchase Checkout
+                    Demo Checkout
                   </h3>
                   <button
                     id="btn-close-checkout-mkt"
@@ -421,19 +455,34 @@ export default function MarketplaceTab({
                   </button>
                 </div>
 
+                {/* Demo-mode banner — no real payment is processed */}
+                <div className="bg-[#E63946]/5 border border-[#E63946]/15 px-3 py-2.5 flex items-start gap-2">
+                  <AlertTriangle className="w-3.5 h-3.5 text-[#E63946] flex-shrink-0 mt-0.5" />
+                  <p className="text-[10px] text-[#1A1A1A]/70 font-serif italic leading-relaxed">
+                    <strong className="not-italic font-bold text-[#E63946]">Demo only.</strong> No
+                    real payment is processed and no card details are collected. Submitting will
+                    simulate an order confirmation for showcase purposes.
+                  </p>
+                </div>
+
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-[9px] font-bold text-[#1A1A1A]/60 uppercase tracking-widest mb-1.5">
+                    <p className="block text-[9px] font-bold text-[#1A1A1A]/60 uppercase tracking-widest mb-1.5">
                       Purchase Total
-                    </label>
+                    </p>
                     <div className="bg-[#F9F8F6] px-3 py-2 rounded-none border border-[#1A1A1A]/5 text-xs flex justify-between font-bold">
                       <span className="text-[#1A1A1A]/60">{cartCount} premium items</span>
-                      <span className="text-[#E63946]">${(cartTotal >= 75 ? cartTotal : cartTotal + 4.99).toFixed(2)}</span>
+                      <span className="text-[#E63946]">
+                        ${(cartTotal >= 75 ? cartTotal : cartTotal + 4.99).toFixed(2)}
+                      </span>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-bold text-[#1A1A1A]/60 uppercase tracking-widest mb-1.5">
+                    <label
+                      htmlFor="input-checkout-address-mkt"
+                      className="block text-[9px] font-bold text-[#1A1A1A]/60 uppercase tracking-widest mb-1.5"
+                    >
                       Shipping Address
                     </label>
                     <div className="relative">
@@ -449,25 +498,6 @@ export default function MarketplaceTab({
                       />
                     </div>
                   </div>
-
-                  <div>
-                    <label className="block text-[9px] font-bold text-[#1A1A1A]/60 uppercase tracking-widest mb-1.5">
-                      Credit Card Number
-                    </label>
-                    <div className="relative">
-                      <CreditCard className="absolute left-3 top-3.5 w-4 h-4 text-[#1A1A1A]/40" />
-                      <input
-                        id="input-checkout-card-mkt"
-                        type="text"
-                        placeholder="4111 2222 3333 4444"
-                        value={cardNumber}
-                        onChange={(e) => setCardNumber(e.target.value)}
-                        required
-                        maxLength={19}
-                        className="w-full bg-white border border-[#1A1A1A]/15 rounded-none pl-9 pr-3 py-2.5 text-xs text-[#1A1A1A] focus:outline-none focus:border-[#1A1A1A]"
-                      />
-                    </div>
-                  </div>
                 </div>
 
                 <button
@@ -479,11 +509,12 @@ export default function MarketplaceTab({
                   {isProcessingOrder ? (
                     <>
                       <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Verifying with Bank...
+                      Preparing Demo Order...
                     </>
                   ) : (
                     <>
-                      Confirm Secure Payment • ${(cartTotal >= 75 ? cartTotal : cartTotal + 4.99).toFixed(2)}
+                      Place Demo Order • $
+                      {(cartTotal >= 75 ? cartTotal : cartTotal + 4.99).toFixed(2)}
                     </>
                   )}
                 </button>

@@ -1,17 +1,18 @@
 import { Assessment, NutritionPlan, Order } from "../types";
-import { 
-  User, 
-  Scale, 
-  Settings, 
-  Heart, 
-  RefreshCw, 
-  FileText, 
-  ShoppingBag, 
-  ChevronRight, 
+import { toast, confirmDialog } from "./Toast";
+import {
+  User,
+  Scale,
+  Settings,
+  Heart,
+  RefreshCw,
+  FileText,
+  ShoppingBag,
+  ChevronRight,
   Compass,
   PieChart,
   Calendar,
-  AlertTriangle
+  AlertTriangle,
 } from "lucide-react";
 
 interface ProfileTabProps {
@@ -25,17 +26,27 @@ export default function ProfileTab({
   assessment,
   nutritionPlan,
   orderHistory,
-  onResetOnboarding
+  onResetOnboarding,
 }: ProfileTabProps) {
   // Calculate macros ratios for standard visualization
-  const totalMacrosGrams = nutritionPlan.macros.protein + nutritionPlan.macros.carbs + nutritionPlan.macros.fat || 1;
+  const totalMacrosGrams =
+    nutritionPlan.macros.protein + nutritionPlan.macros.carbs + nutritionPlan.macros.fat || 1;
   const pPct = Math.round((nutritionPlan.macros.protein / totalMacrosGrams) * 100);
   const cPct = Math.round((nutritionPlan.macros.carbs / totalMacrosGrams) * 100);
   const fPct = 100 - pPct - cPct;
 
-  const handleResetConfirm = () => {
-    if (confirm("Are you sure you want to reset your training split, nutritional targets, and clear active plans? This will return you to the onboarding questionnaire.")) {
+  const handleResetConfirm = async () => {
+    const ok = await confirmDialog({
+      title: "Reset everything?",
+      message:
+        "Are you sure you want to reset your training split, nutritional targets, and clear active plans? This will return you to the onboarding questionnaire.",
+      confirmLabel: "Reset All",
+      cancelLabel: "Keep My Data",
+      destructive: true,
+    });
+    if (ok) {
       onResetOnboarding();
+      toast.success("Reset complete", "You're back at the onboarding questionnaire.");
     }
   };
 
@@ -83,7 +94,9 @@ export default function ProfileTab({
           </div>
           <div className="bg-[#F9F8F6] p-2 rounded-none border border-[#1A1A1A]/5 shadow-sm">
             <span className="block text-[8px] uppercase font-bold text-[#1A1A1A]/40">Diet</span>
-            <span className="text-[10px] font-bold text-[#E63946] truncate block uppercase">{assessment.dietType}</span>
+            <span className="text-[10px] font-bold text-[#E63946] truncate block uppercase">
+              {assessment.dietType}
+            </span>
           </div>
         </div>
 
@@ -104,9 +117,12 @@ export default function ProfileTab({
 
         {/* Daily calories and macro distributions */}
         <div className="bg-[#F9F8F6] border border-[#1A1A1A]/5 rounded-none p-4 text-center mb-4">
-          <span className="text-[10px] uppercase font-bold text-[#1A1A1A]/40 block tracking-wider font-mono">Suggested Daily Intake</span>
+          <span className="text-[10px] uppercase font-bold text-[#1A1A1A]/40 block tracking-wider font-mono">
+            Suggested Daily Intake
+          </span>
           <span className="text-2xl font-black text-[#1A1A1A] mt-1 block">
-            {nutritionPlan.dailyCalories} <span className="text-xs text-[#1A1A1A]/60 font-semibold">kcal / day</span>
+            {nutritionPlan.dailyCalories}{" "}
+            <span className="text-xs text-[#1A1A1A]/60 font-semibold">kcal / day</span>
           </span>
         </div>
 
@@ -115,7 +131,9 @@ export default function ProfileTab({
           <div>
             <div className="flex justify-between text-xs font-bold text-[#1A1A1A]/80 mb-1">
               <span>Protein (Build/Maintain)</span>
-              <span className="text-[#E63946] font-bold">{nutritionPlan.macros.protein}g ({pPct}%)</span>
+              <span className="text-[#E63946] font-bold">
+                {nutritionPlan.macros.protein}g ({pPct}%)
+              </span>
             </div>
             <div className="w-full h-1.5 bg-[#F9F8F6] border border-[#1A1A1A]/5 rounded-none overflow-hidden">
               <div style={{ width: `${pPct}%` }} className="h-full bg-[#E63946]" />
@@ -125,7 +143,9 @@ export default function ProfileTab({
           <div>
             <div className="flex justify-between text-xs font-bold text-[#1A1A1A]/80 mb-1">
               <span>Carbohydrates (Energy)</span>
-              <span className="text-[#1A1A1A] font-bold">{nutritionPlan.macros.carbs}g ({cPct}%)</span>
+              <span className="text-[#1A1A1A] font-bold">
+                {nutritionPlan.macros.carbs}g ({cPct}%)
+              </span>
             </div>
             <div className="w-full h-1.5 bg-[#F9F8F6] border border-[#1A1A1A]/5 rounded-none overflow-hidden">
               <div style={{ width: `${cPct}%` }} className="h-full bg-[#1A1A1A]" />
@@ -135,7 +155,9 @@ export default function ProfileTab({
           <div>
             <div className="flex justify-between text-xs font-bold text-[#1A1A1A]/80 mb-1">
               <span>Fats (Hormonal Health)</span>
-              <span className="text-[#1A1A1A]/60 font-bold">{nutritionPlan.macros.fat}g ({fPct}%)</span>
+              <span className="text-[#1A1A1A]/60 font-bold">
+                {nutritionPlan.macros.fat}g ({fPct}%)
+              </span>
             </div>
             <div className="w-full h-1.5 bg-[#F9F8F6] border border-[#1A1A1A]/5 rounded-none overflow-hidden">
               <div style={{ width: `${fPct}%` }} className="h-full bg-[#1A1A1A]/40" />
@@ -152,7 +174,10 @@ export default function ProfileTab({
         </h3>
         <div className="space-y-2.5">
           {nutritionPlan.guidelines.map((line, idx) => (
-            <div key={idx} className="flex gap-2 text-xs text-[#1A1A1A]/70 bg-[#F9F8F6]/30 p-2.5 rounded-none border border-[#1A1A1A]/5 leading-relaxed font-serif italic">
+            <div
+              key={idx}
+              className="flex gap-2 text-xs text-[#1A1A1A]/70 bg-[#F9F8F6]/30 p-2.5 rounded-none border border-[#1A1A1A]/5 leading-relaxed font-serif italic"
+            >
               <Heart className="w-4 h-4 text-[#E63946] flex-shrink-0 mt-0.5" />
               <span>{line}</span>
             </div>
@@ -168,7 +193,10 @@ export default function ProfileTab({
         </h3>
         <div className="space-y-3">
           {nutritionPlan.mealSuggestions.map((meal, idx) => (
-            <div key={idx} className="flex justify-between items-center gap-3 bg-[#F9F8F6] p-3 rounded-none border border-[#1A1A1A]/5">
+            <div
+              key={idx}
+              className="flex justify-between items-center gap-3 bg-[#F9F8F6] p-3 rounded-none border border-[#1A1A1A]/5"
+            >
               <div>
                 <span className="text-[8px] uppercase font-bold text-[#1A1A1A]/40 tracking-wider font-mono">
                   {meal.mealType}
@@ -182,7 +210,9 @@ export default function ProfileTab({
               </div>
               <div className="text-right flex-shrink-0">
                 <span className="block text-xs font-bold text-[#1A1A1A]">{meal.calories} kcal</span>
-                <span className="text-[10px] text-[#E63946] font-semibold font-mono">{meal.proteinGrams}g Pro</span>
+                <span className="text-[10px] text-[#E63946] font-semibold font-mono">
+                  {meal.proteinGrams}g Pro
+                </span>
               </div>
             </div>
           ))}
@@ -202,27 +232,36 @@ export default function ProfileTab({
         ) : (
           <div className="space-y-3">
             {orderHistory.map((ord) => (
-              <div key={ord.id} className="p-3 bg-[#F9F8F6] border border-[#1A1A1A]/5 rounded-none text-xs space-y-2">
+              <div
+                key={ord.id}
+                className="p-3 bg-[#F9F8F6] border border-[#1A1A1A]/5 rounded-none text-xs space-y-2"
+              >
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-[#1A1A1A] tracking-tight">{ord.id}</span>
                   <span className="text-[9px] uppercase font-bold text-white bg-[#E63946] px-2 py-0.5 rounded-none">
                     {ord.status}
                   </span>
                 </div>
-                
+
                 {/* List item items */}
                 <div className="text-[10px] text-[#1A1A1A]/60 space-y-0.5 font-serif italic">
                   {ord.items.map((item, i) => (
                     <div key={i} className="flex justify-between">
-                      <span className="truncate max-w-[200px]">• {item.name} (x{item.quantity})</span>
-                      <span className="font-bold text-[#1A1A1A]">${(item.price * item.quantity).toFixed(2)}</span>
+                      <span className="truncate max-w-[200px]">
+                        • {item.name} (x{item.quantity})
+                      </span>
+                      <span className="font-bold text-[#1A1A1A]">
+                        ${(item.price * item.quantity).toFixed(2)}
+                      </span>
                     </div>
                   ))}
                 </div>
 
                 <div className="border-t border-[#1A1A1A]/10 pt-1.5 flex justify-between items-center text-[10px]">
                   <span className="text-[#1A1A1A]/40">{ord.date}</span>
-                  <span className="font-bold text-[#1A1A1A]">Paid Total: ${ord.total.toFixed(2)}</span>
+                  <span className="font-bold text-[#1A1A1A]">
+                    Paid Total: ${ord.total.toFixed(2)}
+                  </span>
                 </div>
               </div>
             ))}

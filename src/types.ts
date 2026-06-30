@@ -8,7 +8,8 @@ export interface Assessment {
   activityLevel: "sedentary" | "light" | "moderate" | "active";
   workoutPreference: "home" | "gym" | "outdoor" | "hybrid";
   frequency: number; // days per week: 2, 3, 4, 5
-  dietType: "anything" | "vegetarian" | "vegan" | "keto" | "low-carb" | "gluten-free" | "mediterranean";
+  dietType:
+    "anything" | "vegetarian" | "vegan" | "keto" | "low-carb" | "gluten-free" | "mediterranean";
   allergies: string;
   selectedGymName?: string;
   availableMachines?: string[];
@@ -110,6 +111,8 @@ export interface Order {
   date: string;
   status: "pending" | "processing" | "shipped" | "delivered";
   deliveryAddress: string;
+  /** Cart type that was checked out — used to clear the right cart slice. */
+  type: "meal" | "marketplace";
 }
 
 export interface WeightLog {

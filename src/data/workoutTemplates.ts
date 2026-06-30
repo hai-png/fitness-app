@@ -11,6 +11,22 @@ export interface ExerciseDBItem {
   steps: string[];
 }
 
+/**
+ * Safe lookup helper for EXERCISE_DATABASE entries by videoUrl.
+ * Throws an explicit error at module-load time if a referenced
+ * exercise is missing (instead of silently returning undefined
+ * and crashing the React render later).
+ */
+function ex(videoUrl: string): ExerciseDBItem {
+  const found = EXERCISE_DATABASE.find((e) => e.videoUrl === videoUrl);
+  if (!found) {
+    throw new Error(
+      `workoutTemplates: exercise with videoUrl "${videoUrl}" is referenced but not defined in EXERCISE_DATABASE.`,
+    );
+  }
+  return found;
+}
+
 export const EXERCISE_DATABASE: ExerciseDBItem[] = [
   // CHEST
   {
@@ -25,8 +41,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Lie flat, eyes under bar, grip slightly wider than shoulders.",
       "Pull shoulder blades together, plant feet firmly on the floor.",
       "Unrack bar, lower slowly to lower sternum/nipple line.",
-      "Drive heels and press bar forcefully to locked out start position."
-    ]
+      "Drive heels and press bar forcefully to locked out start position.",
+    ],
   },
   {
     name: "Incline Dumbbell Press",
@@ -40,8 +56,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Set the bench to a 30-degree incline.",
       "Sit back with dumbbells at chest height, elbows under wrists.",
       "Press dumbbells straight up, squeezing chest at the top.",
-      "Lower under control until dumbbells touch outer chest."
-    ]
+      "Lower under control until dumbbells touch outer chest.",
+    ],
   },
   {
     name: "Cable Chest Flys",
@@ -55,8 +71,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Set pulleys to shoulder-height, stand midway with one foot forward.",
       "Grip handles, maintain a slight bend in your elbows.",
       "Bring hands together in a wide hugging arc in front of chest.",
-      "Squeeze for 1s, then return slowly to feel a deep stretch."
-    ]
+      "Squeeze for 1s, then return slowly to feel a deep stretch.",
+    ],
   },
   {
     name: "Standard Push-Ups",
@@ -70,8 +86,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Start in high plank, hands slightly wider than shoulders.",
       "Keep body in perfect straight line from head to heels.",
       "Lower chest to ground by bending elbows to 45 degrees.",
-      "Press up forcefully to lock out start position."
-    ]
+      "Press up forcefully to lock out start position.",
+    ],
   },
   {
     name: "Decline Push-Ups",
@@ -85,8 +101,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Place feet on elevated chair or bed, hands on floor.",
       "Establish straight body alignment, squeeze core.",
       "Lower chest towards floor, keeping elbows controlled.",
-      "Press floor away, returning to starting alignment."
-    ]
+      "Press floor away, returning to starting alignment.",
+    ],
   },
 
   // BACK
@@ -102,8 +118,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Sit, adjust knee pads, grip bar wider than shoulder-width.",
       "Lean back slightly (10-15 degrees), keep core tight.",
       "Pull bar down to upper chest, leading with elbows.",
-      "Squeeze lats, then let bar return slowly with full stretch."
-    ]
+      "Squeeze lats, then let bar return slowly with full stretch.",
+    ],
   },
   {
     name: "Seated Cable Row",
@@ -117,8 +133,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Sit on bench, feet on footplates, knees slightly bent.",
       "Grip close-grip attachment, sit tall with neutral spine.",
       "Pull handle to lower abdomen, pulling shoulders back.",
-      "Squeeze shoulder blades, then slowly return to start."
-    ]
+      "Squeeze shoulder blades, then slowly return to start.",
+    ],
   },
   {
     name: "Dumbbell Single-Arm Row",
@@ -132,8 +148,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Place same-side knee and hand on bench, other foot flat on floor.",
       "Hold dumbbell with straight arm, spine neutral.",
       "Pull elbow up and back towards your hip pocket.",
-      "Squeeze upper back, then lower dumbbell slowly."
-    ]
+      "Squeeze upper back, then lower dumbbell slowly.",
+    ],
   },
   {
     name: "Doorframe Row Pulls",
@@ -147,8 +163,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Stand facing a sturdy doorframe, toes close to frame edge.",
       "Grasp frame with both hands, lean back until arms are straight.",
       "Pull chest to the frame edge, squeezing shoulder blades.",
-      "Extend arms slowly, resisting bodyweight on the way back."
-    ]
+      "Extend arms slowly, resisting bodyweight on the way back.",
+    ],
   },
 
   // LEGS
@@ -164,8 +180,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Position bar on upper traps, grip tightly, lift off rack.",
       "Step back, feet shoulder-width, toes flared 15 degrees.",
       "Hinge hips back, bend knees, descend deep to parallel.",
-      "Drive through mid-foot, stand up, keeping chest tall."
-    ]
+      "Drive through mid-foot, stand up, keeping chest tall.",
+    ],
   },
   {
     name: "Romanian Deadlifts (RDL)",
@@ -179,8 +195,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Stand holding barbell at hips, feet hip-width apart.",
       "Push hips backward, keeping knees soft but static.",
       "Lower barbell along thighs, keeping spine completely flat.",
-      "Once hamstrings stretch fully, drive hips forward and stand."
-    ]
+      "Once hamstrings stretch fully, drive hips forward and stand.",
+    ],
   },
   {
     name: "Leg Extensions",
@@ -194,8 +210,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Sit on machine, back flat, shins behind roller pad.",
       "Grip side handles, engage core, extend legs upward fully.",
       "Squeeze quadriceps intensely at the peak for 1 second.",
-      "Lower weight slowly to starting position under control."
-    ]
+      "Lower weight slowly to starting position under control.",
+    ],
   },
   {
     name: "Bodyweight Bulgarian Split Squats",
@@ -209,8 +225,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Place one foot flat behind you on a chair or couch.",
       "Step other foot forward about 2-3 feet.",
       "Lower hips vertically until front thigh is parallel to floor.",
-      "Drive up through front heel to starting height."
-    ]
+      "Drive up through front heel to starting height.",
+    ],
   },
 
   // SHOULDERS
@@ -226,8 +242,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Sit on bench with vertical back support, feet flat.",
       "Hold dumbbells at shoulder height, elbows slightly forward.",
       "Press dumbbells straight up, locking overhead.",
-      "Lower with control to ear level to complete the rep."
-    ]
+      "Lower with control to ear level to complete the rep.",
+    ],
   },
   {
     name: "Dumbbell Lateral Raises",
@@ -241,8 +257,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Stand tall, dumbbells at sides, slight hinge forward.",
       "Raise arms to the sides, leading with your elbows.",
       "Keep arms almost straight, tilt pinkies up at peak.",
-      "Lower dumbbells slowly, avoiding swinging for momentum."
-    ]
+      "Lower dumbbells slowly, avoiding swinging for momentum.",
+    ],
   },
   {
     name: "Face Pulls",
@@ -256,8 +272,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Attach rope to high pulley, grasp ends with palms facing down.",
       "Step back, engage core, hold arms fully extended.",
       "Pull rope towards bridge of nose, flaring elbows wide.",
-      "External rotate hands at peak, squeeze rear delts."
-    ]
+      "External rotate hands at peak, squeeze rear delts.",
+    ],
   },
 
   // ARMS
@@ -273,8 +289,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Lie back on a 45-degree incline bench with dumbbells.",
       "Let arms hang straight down, palms facing forward.",
       "Curl dumbbells up, keeping elbows pinned in place.",
-      "Squeeze biceps, then lower with full eccentric control."
-    ]
+      "Squeeze biceps, then lower with full eccentric control.",
+    ],
   },
   {
     name: "Tricep Overhead Cable Press",
@@ -288,8 +304,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Attach rope to low pulley, face away, hold rope behind neck.",
       "Step forward into split stance, lean torso slightly.",
       "Extend elbows fully overhead, squeezing triceps at peak.",
-      "Lower rope slowly behind head, feeling deep stretch."
-    ]
+      "Lower rope slowly behind head, feeling deep stretch.",
+    ],
   },
   {
     name: "Bodyweight Bench Dips",
@@ -303,8 +319,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Sit on edge of sturdy chair, palms on edge, fingers forward.",
       "Slide hips off edge, feet flat or legs straight forward.",
       "Lower hips by bending elbows to 90 degrees.",
-      "Press back up vertically, squeezing triceps at peak."
-    ]
+      "Press back up vertically, squeezing triceps at peak.",
+    ],
   },
 
   // CORE
@@ -320,8 +336,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Hang from pull-up bar with overhand grip, arms straight.",
       "Engage shoulders, avoid swinging momentum.",
       "Raise knees towards chest, tucking hips up at top.",
-      "Lower legs slowly to vertical under perfect control."
-    ]
+      "Lower legs slowly to vertical under perfect control.",
+    ],
   },
   {
     name: "Plank holding",
@@ -335,8 +351,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Place forearms on floor, shoulders stacked over elbows.",
       "Extend legs back, toes tucked, hips level with shoulders.",
       "Squeeze glutes, pull belly button up, tighten thighs.",
-      "Maintain deep, steady breathing for the duration."
-    ]
+      "Maintain deep, steady breathing for the duration.",
+    ],
   },
   {
     name: "Bicycle Crunches",
@@ -350,8 +366,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Lie flat on back, hands light behind ears, legs raised.",
       "Lift shoulder blades off floor, rotate elbow to opposite knee.",
       "Extend the opposite leg out straight, 2 inches from floor.",
-      "Alternate sides in smooth, slow, continuous cadence."
-    ]
+      "Alternate sides in smooth, slow, continuous cadence.",
+    ],
   },
 
   // CARDIO
@@ -367,8 +383,8 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Stand tall, squat down, place hands flat on floor.",
       "Jump feet back into a high plank position.",
       "Lower chest completely to floor, push back up.",
-      "Jump feet forward to hands, stand up and jump explosively."
-    ]
+      "Jump feet forward to hands, stand up and jump explosively.",
+    ],
   },
   {
     name: "Mountain Climbers",
@@ -382,9 +398,58 @@ export const EXERCISE_DATABASE: ExerciseDBItem[] = [
       "Set up in rigid high plank, hands under shoulders.",
       "Drive right knee into chest, keep hips flat.",
       "Switch legs rapidly, pulling left knee in while extending right.",
-      "Keep head and spine stable, maintain high speed."
-    ]
-  }
+      "Keep head and spine stable, maintain high speed.",
+    ],
+  },
+
+  // GLUTES / POSTERIOR CHAIN (referenced by Upper/Lower split Day 4)
+  {
+    name: "Glute Bridges",
+    targetMuscle: "Glutes",
+    instruction: "Drive through heels, squeeze glutes hard at peak.",
+    restSeconds: 60,
+    sets: 3,
+    reps: "15-20 reps",
+    videoUrl: "glute-bridge",
+    steps: [
+      "Lie flat on back, knees bent, feet flat hip-width apart.",
+      "Drive through heels, push hips up toward ceiling.",
+      "Squeeze glutes hard at peak, pause 1 second.",
+      "Lower hips under control to just above floor.",
+    ],
+  },
+
+  // CORE / LOWER BACK (referenced by Cardio & Core split Day 2)
+  {
+    name: "Superman Hold",
+    targetMuscle: "Lower Back",
+    instruction: "Lift chest and thighs together, no neck strain.",
+    restSeconds: 45,
+    sets: 3,
+    reps: "30-45 seconds",
+    videoUrl: "superman-hold",
+    steps: [
+      "Lie face down, arms extended overhead, legs straight.",
+      "Simultaneously lift chest, arms, and thighs off floor.",
+      "Squeeze glutes and lower back, keep neck neutral.",
+      "Hold at top for prescribed duration, lower with control.",
+    ],
+  },
+  {
+    name: "Russian Twists",
+    targetMuscle: "Obliques",
+    instruction: "Lean back slightly, rotate from torso not arms.",
+    restSeconds: 45,
+    sets: 3,
+    reps: "20 reps total",
+    videoUrl: "russian-twist",
+    steps: [
+      "Sit on floor, knees bent, lean back 45 degrees.",
+      "Lift feet slightly, balance on sit bones.",
+      "Rotate torso right, tap hands beside hip, then left.",
+      "Keep chest tall and core engaged throughout.",
+    ],
+  },
 ];
 
 export interface SplitTemplate {
@@ -397,7 +462,8 @@ export interface SplitTemplate {
 export const SPLIT_TEMPLATES: SplitTemplate[] = [
   {
     name: "Push / Pull / Legs (3-Day)",
-    description: "The gold standard of athletic muscle growth. Grouping synergist muscle groups together for maximal loading and 48-72 hours of complete restoration.",
+    description:
+      "The gold standard of athletic muscle growth. Grouping synergist muscle groups together for maximal loading and 48-72 hours of complete restoration.",
     difficulty: "Intermediate",
     weeklySchedule: [
       {
@@ -405,41 +471,42 @@ export const SPLIT_TEMPLATES: SplitTemplate[] = [
         activityType: "Strength",
         durationMinutes: 45,
         exercises: [
-          EXERCISE_DATABASE.find(e => e.videoUrl === "flat-bench-press")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "incline-dumbbell-press")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "dumbbell-shoulder-press")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "lateral-raise")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "overhead-tricep-extension")!
-        ]
+          ex("flat-bench-press"),
+          ex("incline-dumbbell-press"),
+          ex("dumbbell-shoulder-press"),
+          ex("lateral-raise"),
+          ex("overhead-tricep-extension"),
+        ],
       },
       {
         day: "Day 2 - Pull Focus (Lats, Upper Back & Biceps)",
         activityType: "Strength",
         durationMinutes: 45,
         exercises: [
-          EXERCISE_DATABASE.find(e => e.videoUrl === "lat-pulldown")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "seated-cable-row")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "dumbbell-row")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "incline-bicep-curl")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "hanging-knee-raise")!
-        ]
+          ex("lat-pulldown"),
+          ex("seated-cable-row"),
+          ex("dumbbell-row"),
+          ex("incline-bicep-curl"),
+          ex("hanging-knee-raise"),
+        ],
       },
       {
         day: "Day 3 - Legs & Abs Focus",
         activityType: "Strength",
         durationMinutes: 50,
         exercises: [
-          EXERCISE_DATABASE.find(e => e.videoUrl === "barbell-back-squat")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "romanian-deadlift")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "leg-extension")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "plank-hold")!
-        ]
-      }
-    ]
+          ex("barbell-back-squat"),
+          ex("romanian-deadlift"),
+          ex("leg-extension"),
+          ex("plank-hold"),
+        ],
+      },
+    ],
   },
   {
     name: "Upper / Lower Split (4-Day)",
-    description: "Highly versatile split with high frequency. Training each muscle group twice weekly for optimized progressive mechanical tension.",
+    description:
+      "Highly versatile split with high frequency. Training each muscle group twice weekly for optimized progressive mechanical tension.",
     difficulty: "Advanced",
     weeklySchedule: [
       {
@@ -447,52 +514,53 @@ export const SPLIT_TEMPLATES: SplitTemplate[] = [
         activityType: "Strength",
         durationMinutes: 45,
         exercises: [
-          EXERCISE_DATABASE.find(e => e.videoUrl === "flat-bench-press")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "lat-pulldown")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "dumbbell-shoulder-press")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "seated-cable-row")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "bench-dip")!
-        ]
+          ex("flat-bench-press"),
+          ex("lat-pulldown"),
+          ex("dumbbell-shoulder-press"),
+          ex("seated-cable-row"),
+          ex("bench-dip"),
+        ],
       },
       {
         day: "Day 2 - Lower Body Power A",
         activityType: "Strength",
         durationMinutes: 45,
         exercises: [
-          EXERCISE_DATABASE.find(e => e.videoUrl === "barbell-back-squat")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "romanian-deadlift")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "hanging-knee-raise")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "plank-hold")!
-        ]
+          ex("barbell-back-squat"),
+          ex("romanian-deadlift"),
+          ex("hanging-knee-raise"),
+          ex("plank-hold"),
+        ],
       },
       {
         day: "Day 3 - Upper Body Hypertrophy B",
         activityType: "Strength",
         durationMinutes: 50,
         exercises: [
-          EXERCISE_DATABASE.find(e => e.videoUrl === "incline-dumbbell-press")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "dumbbell-row")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "lateral-raise")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "incline-bicep-curl")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "overhead-tricep-extension")!
-        ]
+          ex("incline-dumbbell-press"),
+          ex("dumbbell-row"),
+          ex("lateral-raise"),
+          ex("incline-bicep-curl"),
+          ex("overhead-tricep-extension"),
+        ],
       },
       {
         day: "Day 4 - Lower Body Hypertrophy B",
         activityType: "Strength",
         durationMinutes: 45,
         exercises: [
-          EXERCISE_DATABASE.find(e => e.videoUrl === "bulgarian-split-squat")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "leg-extension")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "bicycle-crunch")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "glute-bridge")!
-        ]
-      }
-    ]
+          ex("bulgarian-split-squat"),
+          ex("leg-extension"),
+          ex("bicycle-crunch"),
+          ex("glute-bridge"),
+        ],
+      },
+    ],
   },
   {
     name: "Full Body Focus (2-Day)",
-    description: "Time-efficient and incredibly potent. Maximizing full-body systemic fatigue twice a week. Perfect for busy professionals and wellness preservation.",
+    description:
+      "Time-efficient and incredibly potent. Maximizing full-body systemic fatigue twice a week. Perfect for busy professionals and wellness preservation.",
     difficulty: "Beginner-Friendly",
     weeklySchedule: [
       {
@@ -500,56 +568,52 @@ export const SPLIT_TEMPLATES: SplitTemplate[] = [
         activityType: "Strength",
         durationMinutes: 45,
         exercises: [
-          EXERCISE_DATABASE.find(e => e.videoUrl === "barbell-back-squat")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "flat-bench-press")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "lat-pulldown")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "lateral-raise")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "plank-hold")!
-        ]
+          ex("barbell-back-squat"),
+          ex("flat-bench-press"),
+          ex("lat-pulldown"),
+          ex("lateral-raise"),
+          ex("plank-hold"),
+        ],
       },
       {
         day: "Day 2 - Full Body Conditioning B",
         activityType: "Strength",
         durationMinutes: 45,
         exercises: [
-          EXERCISE_DATABASE.find(e => e.videoUrl === "romanian-deadlift")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "incline-dumbbell-press")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "seated-cable-row")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "bicycle-crunch")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "burpees")!
-        ]
-      }
-    ]
+          ex("romanian-deadlift"),
+          ex("incline-dumbbell-press"),
+          ex("seated-cable-row"),
+          ex("bicycle-crunch"),
+          ex("burpees"),
+        ],
+      },
+    ],
   },
   {
     name: "Cardio & Core Calisthenics",
-    description: "High-intensity metabolic boosting. Strictly bodyweight focused to accelerate caloric output, agility, and absolute core rigidity.",
+    description:
+      "High-intensity metabolic boosting. Strictly bodyweight focused to accelerate caloric output, agility, and absolute core rigidity.",
     difficulty: "All Levels",
     weeklySchedule: [
       {
         day: "Day 1 - Aerobic Interval Blast",
         activityType: "Cardio",
         durationMinutes: 30,
-        exercises: [
-          EXERCISE_DATABASE.find(e => e.videoUrl === "burpees")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "mountain-climber")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "push-up")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "bicycle-crunch")!
-        ]
+        exercises: [ex("burpees"), ex("mountain-climber"), ex("push-up"), ex("bicycle-crunch")],
       },
       {
         day: "Day 2 - Core Isometric Lock",
         activityType: "Cardio",
         durationMinutes: 35,
         exercises: [
-          EXERCISE_DATABASE.find(e => e.videoUrl === "plank-hold")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "hanging-knee-raise")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "superman-hold")!,
-          EXERCISE_DATABASE.find(e => e.videoUrl === "russian-twist")!
-        ]
-      }
-    ]
-  }
+          ex("plank-hold"),
+          ex("hanging-knee-raise"),
+          ex("superman-hold"),
+          ex("russian-twist"),
+        ],
+      },
+    ],
+  },
 ];
 
 export interface ProgramPreset {
@@ -568,51 +632,55 @@ export const DURATION_PROGRAMS: ProgramPreset[] = [
     name: "4-Week Metabolic Blitz",
     goal: "weight-loss",
     durationWeeks: 4,
-    description: "An intensive shock cycle engineered for rapid thermogenesis, glycogen depletion, and maximal heart rate conditioning. Higher rest tempos and high cardio densities.",
+    description:
+      "An intensive shock cycle engineered for rapid thermogenesis, glycogen depletion, and maximal heart rate conditioning. Higher rest tempos and high cardio densities.",
     tips: [
       "Keep rest periods strictly under 45 seconds to maintain elevated fat-burning metabolics.",
       "Walk 10,000 steps daily outside of formal sessions to maximize thermal output.",
-      "Perform interval sessions in a fasted state if preferred, but prioritize absolute consistency."
+      "Perform interval sessions in a fasted state if preferred, but prioritize absolute consistency.",
     ],
-    splitTemplate: SPLIT_TEMPLATES[3] // Cardio & Core
+    splitTemplate: SPLIT_TEMPLATES[3], // Cardio & Core
   },
   {
     id: "8w-hypertrophy",
     name: "8-Week Hypertrophy System",
     goal: "muscle-gain",
     durationWeeks: 8,
-    description: "A balanced 8-week progressive overload split focusing on micro-tearing muscle groups with high mechanical tension, and steady hypertrophy growth.",
+    description:
+      "A balanced 8-week progressive overload split focusing on micro-tearing muscle groups with high mechanical tension, and steady hypertrophy growth.",
     tips: [
       "Keep detailed notes of weights lifted. Increase weight or reps by 1-2% every week.",
       "Get 8+ hours of deep, uninterrupted sleep; muscle repair occurs exclusively in deep REM.",
-      "Consume a post-workout high-protein meal within 2 hours of completion."
+      "Consume a post-workout high-protein meal within 2 hours of completion.",
     ],
-    splitTemplate: SPLIT_TEMPLATES[0] // Push/Pull/Legs
+    splitTemplate: SPLIT_TEMPLATES[0], // Push/Pull/Legs
   },
   {
     id: "12w-strength",
     name: "12-Week Peak Strength Cycle",
     goal: "strength",
     durationWeeks: 12,
-    description: "A comprehensive master cycle focused on central nervous system adaptations, heavy compound barbell lifts, and building deep structural core stability.",
+    description:
+      "A comprehensive master cycle focused on central nervous system adaptations, heavy compound barbell lifts, and building deep structural core stability.",
     tips: [
       "Rest fully for 2-3 minutes between compound heavy lifts to allow ATP re-synthesis.",
       "Incorporate spinal bracing techniques (valsalva) with strict athletic focus.",
-      "Avoid training to failure on every set; manage mechanical exhaustion carefully."
+      "Avoid training to failure on every set; manage mechanical exhaustion carefully.",
     ],
-    splitTemplate: SPLIT_TEMPLATES[1] // Upper/Lower
+    splitTemplate: SPLIT_TEMPLATES[1], // Upper/Lower
   },
   {
     id: "8w-wellness",
     name: "8-Week Functional Longevity",
     goal: "general",
     durationWeeks: 8,
-    description: "A functional full-body routine designed to enhance lean muscle mass, flexibility, joint resilience, and steady-state cardiovascular performance.",
+    description:
+      "A functional full-body routine designed to enhance lean muscle mass, flexibility, joint resilience, and steady-state cardiovascular performance.",
     tips: [
       "Prioritize full range of motion over chasing heavier numbers.",
       "Incorporate dynamic stretching for 5 minutes before every session.",
-      "Listen to physical signs of joint inflammation and substitute with isometric holds if sore."
+      "Listen to physical signs of joint inflammation and substitute with isometric holds if sore.",
     ],
-    splitTemplate: SPLIT_TEMPLATES[2] // Full Body Focus
-  }
+    splitTemplate: SPLIT_TEMPLATES[2], // Full Body Focus
+  },
 ];
