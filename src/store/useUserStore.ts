@@ -14,6 +14,12 @@ import type { EngineProfile } from "../engine/assessment";
  *
  * Persisted to localStorage so a page refresh does NOT force the user back
  * through onboarding.
+ *
+ * A-15/F-C1 fix: a `migrate` function is now defined for every version bump.
+ * Without it, zustand's persist middleware silently DISCARDS the persisted
+ * state when the version doesn't match — causing total data loss on the next
+ * deploy that bumps a version. The v2→v3 migration (assessment→onboardingInput,
+ * personalPlan→workoutPlan) is handled here so existing users keep their data.
  */
 interface UserState {
   onboardingInput: OnboardingInput | null;
@@ -89,6 +95,26 @@ export const useUserStore = create<UserState>()(
       name: "fitlife:user",
       storage: createJSONStorage(() => localStorage),
       version: 3, // bumped from 2 — renamed assessment→onboardingInput, personalPlan→workoutPlan
+      // A-15/F-C1: migrate preserves user data across schema changes.
+      // Without this, any version bump silently wipes localStorage.
+      migrate: (persisted: unknown, fromVersion: number) => {
+        if (!persisted || typeof persisted !== "object") return persisted;
+        const s = persisted as Record<string, unknown>;
+        // v2 → v3: rename assessment → onboardingInput, personalPlan → workoutPlan.
+        // v1 → v3: same fields existed under the v2 names; the v1→v2 rename
+        // (if any) is captured by treating anything <3 uniformly here.
+        if (fromVersion < 3) {
+          if (s.assessment !== undefined && s.onboardingInput === undefined) {
+            s.onboardingInput = s.assessment;
+            delete s.assessment;
+          }
+          if (s.personalPlan !== undefined && s.workoutPlan === undefined) {
+            s.workoutPlan = s.personalPlan;
+            delete s.personalPlan;
+          }
+        }
+        return s;
+      },
     },
   ),
 );

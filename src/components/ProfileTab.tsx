@@ -206,6 +206,8 @@ export default function ProfileTab({
           weightLogs={weightLogs}
           intakeLogs={intakeLogs}
           currentWeightKg={assessment.weight}
+          onboardingInput={assessment}
+          engineProfile={engineProfile}
         />
       )}
 

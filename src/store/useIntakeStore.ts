@@ -72,6 +72,8 @@ export const useIntakeStore = create<IntakeState>()(
       name: "fitlife:intake",
       storage: createJSONStorage(() => localStorage),
       version: 1,
+      // A-15/F-C1: identity migrate — see useLogsStore for rationale.
+      migrate: (persisted: unknown) => persisted,
     },
   ),
 );

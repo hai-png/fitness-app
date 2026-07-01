@@ -479,7 +479,12 @@ export function buildTrainingPlan(args: {
 
 /**
  * Determine if a lift is plateaued based on the last N sessions.
- * Used by the existing ProgressTab analytics in conjunction with the engine.
+ *
+ * A-26 fix: the previous comment claimed this was "Used by the existing
+ * ProgressTab analytics in conjunction with the engine" — that was false.
+ * As of audit 2026-07, this function is test-only (A-02); the UI's plateau
+ * detection is performed by src/data/analyticsEngine.ts:analyzeExerciseProgression.
+ * Either wire this into the UI or delete it (see the audit's P2 roadmap).
  *
  * A "plateau" = top working-set weight has not increased across the last 3 sessions.
  * Special case: bodyweight exercises (Plank holding) are excluded.

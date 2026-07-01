@@ -866,19 +866,97 @@ export function macroTolerancePct(sex: Sex, bf_pct?: number): number {
  * Build a complete NutritionPlan from a User + AssessmentResult.
  *
  * This is the canonical entry point used by the rest of the engine.
+ *
+ * E-50 fix: when `existing_plan` is supplied (a recompute on the same phase),
+ * the plan_id, created_at, phase_start_date, last_adjustment_date, and
+ * adjustment_history are PRESERVED from the existing plan. Only fresh values
+ * are generated on first creation. Without this, useEngine's per-mount
+ * recompute would generate a new plan_id and shift phase_start_date forward
+ * every day — permanently deferring next_adjustment_eligible_date (E-52 depends
+ * on a stable phase_start_date).
  */
 export function buildNutritionPlan(args: {
   user: User;
   assessment: AssessmentResult;
   phase?: NutritionPhase; // override user.primary_goal if provided
   target_rate_pct?: number;
+  /** An existing plan to preserve identity + phase-start fields from. */
+  existing_plan?: NutritionPlan;
 }): NutritionPlan {
   const user = args.user;
   const assessment = args.assessment;
+  const prev = args.existing_plan;
   const phase = args.phase ?? user.primary_goal;
   const bf_pct = assessment.body_fat_pct;
   const bmi_val = assessment.bmi ?? 0;
   const is_obese = bmi_val >= 30;
+
+  // E-53 fix: refuse to produce a cut/bulk plan for excluded populations
+  // (pregnant, breastfeeding, eating-disorder history, kidney disease, <18).
+  // The assessment already surfaces the exclusion reasons; the UI should
+  // render those instead of a plan. Returning a maintenance-only plan is
+  // the safest non-throwing fallback — it produces no deficit/surplus so
+  // no harm can come from a user following it before the UI catches up.
+  if (assessment.population_excluded && (phase === "cut" || phase === "bulk")) {
+    const safePhase: NutritionPhase = "maintain";
+    const calorie_result_safe = computeTargetCalories({
+      tdee_kcal: assessment.tdee_kcal,
+      phase: safePhase,
+      sex: user.sex,
+      body_weight_kg: user.weight_kg,
+      body_fat_pct: bf_pct,
+      target_rate_pct: 0,
+      training_status: user.training_status,
+    });
+    const macros_safe = computeMacros({
+      target_calories_kcal: calorie_result_safe.target_calories_kcal,
+      weight_kg: user.weight_kg,
+      lean_body_mass_kg: assessment.lean_body_mass_kg,
+      target_weight_kg: user.target_weight_kg,
+      height_cm: user.height_cm,
+      age_years: user.age_years,
+      sex: user.sex,
+      phase: safePhase,
+      diet_type: user.diet_type,
+      is_obese,
+      is_pregnant_or_lactating: user.is_pregnant || user.is_breastfeeding,
+    });
+    const today_safe = new Date().toISOString().slice(0, 10);
+    return {
+      user_id: user.id,
+      plan_id: prev?.plan_id ?? `plan_${today_safe}_excluded`,
+      created_at: prev?.created_at ?? new Date().toISOString(),
+      version: 1,
+      phase: safePhase,
+      phase_start_date: prev?.phase_start_date ?? today_safe,
+      tdee_kcal: assessment.tdee_kcal,
+      tdee_method: assessment.tdee_method,
+      target_calories_kcal: calorie_result_safe.target_calories_kcal,
+      calorie_delta_kcal: 0,
+      target_rate_pct: 0,
+      target_rate_lb_per_period: 0,
+      alpert_max_deficit_kcal: calorie_result_safe.alpert_max_deficit_kcal,
+      weekly_loss_cap_lb: calorie_result_safe.weekly_loss_cap_lb,
+      calorie_floor_kcal: calorie_result_safe.calorie_floor_kcal,
+      protein_g: macros_safe.protein_g,
+      protein_basis: macros_safe.protein_basis,
+      protein_rate_g_per_lb: macros_safe.protein_rate_g_per_lb,
+      fat_g: macros_safe.fat_g,
+      fat_pct_of_calories: macros_safe.fat_pct_of_calories,
+      fat_floor_g: macros_safe.fat_floor_g,
+      carb_g: macros_safe.carb_g,
+      macro_pct_calories: macros_safe.macro_pct_calories,
+      fiber_target_g: fiberTargetG(calorie_result_safe.target_calories_kcal),
+      fruit_cups_per_day: fruitVegCups(calorie_result_safe.target_calories_kcal).fruit,
+      veg_cups_per_day: fruitVegCups(calorie_result_safe.target_calories_kcal).veg,
+      supplements: supplementStack({ diet_type: user.diet_type, sex: user.sex }),
+      last_adjustment_date: prev?.last_adjustment_date,
+      next_adjustment_eligible_date: nextAdjustmentEligibleDate(safePhase, prev?.phase_start_date ?? today_safe, user.sex),
+      adjustment_history: prev?.adjustment_history ?? [],
+      macro_tolerance_pct: macroTolerancePct(user.sex, bf_pct),
+      tolerance_compliance_target_pct: 0.9,
+    };
+  }
 
   const calorie_result = computeTargetCalories({
     tdee_kcal: assessment.tdee_kcal,
@@ -908,16 +986,27 @@ export function buildNutritionPlan(args: {
   const cups = fruitVegCups(calorie_result.target_calories_kcal);
   const supplements = supplementStack({ diet_type: user.diet_type, sex: user.sex });
 
+  // E-50: preserve identity + phase-start when recomputing the SAME phase.
+  // A phase change (cut→bulk) is a new plan; a recompute (weight log added)
+  // is the same plan with updated numbers.
+  const phaseChanged = prev !== undefined && prev.phase !== phase;
   const today = new Date().toISOString().slice(0, 10);
-  const next_eligible = nextAdjustmentEligibleDate(phase, today, user.sex);
+  const plan_id = phaseChanged || !prev
+    ? `plan_${today}_${Math.random().toString(36).slice(2, 10)}`
+    : prev.plan_id;
+  const created_at = phaseChanged || !prev ? new Date().toISOString() : prev.created_at;
+  const phase_start_date = phaseChanged || !prev ? today : prev.phase_start_date;
+  const last_adjustment_date = phaseChanged ? undefined : prev?.last_adjustment_date;
+  const adjustment_history = phaseChanged ? [] : (prev?.adjustment_history ?? []);
+  const next_eligible = nextAdjustmentEligibleDate(phase, phase_start_date, user.sex);
 
   return {
     user_id: user.id,
-    plan_id: `plan_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
-    created_at: new Date().toISOString(),
+    plan_id,
+    created_at,
     version: 1,
     phase,
-    phase_start_date: today,
+    phase_start_date,
     tdee_kcal: assessment.tdee_kcal,
     tdee_method: assessment.tdee_method,
     target_calories_kcal: calorie_result.target_calories_kcal,
@@ -939,9 +1028,9 @@ export function buildNutritionPlan(args: {
     fruit_cups_per_day: cups.fruit,
     veg_cups_per_day: cups.veg,
     supplements,
-    last_adjustment_date: undefined,
+    last_adjustment_date,
     next_adjustment_eligible_date: next_eligible,
-    adjustment_history: [],
+    adjustment_history,
     macro_tolerance_pct: macroTolerancePct(user.sex, bf_pct),
     tolerance_compliance_target_pct: 0.9,
   };

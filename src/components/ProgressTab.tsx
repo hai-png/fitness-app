@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { DailyWeightLog, WaterLog, WorkoutLog } from "../engine";
 import {
   Plus,
@@ -1878,6 +1878,10 @@ function EngineTrendAnalysis({ weightLogs }: EngineTrendAnalysisProps) {
   // Pull the user's primary goal + engine profile to determine cut/bulk phase.
   const onboardingInput = useUserStore((s) => s.onboardingInput);
   const engineProfile = useUserStore((s) => s.engineProfile);
+  // E-52 fix: read the cached NutritionPlan so we can compute daysIntoPhase
+  // from the actual phase_start_date — NOT from the weight-log count. The
+  // engine's 14-day adaptation guard depends on the real phase start.
+  const nutritionPlan = useUserStore((s) => s.cachedNutritionPlan);
   const intakeLogs = useIntakeStore((s) => s.intakeLogs);
 
   // DailyWeightLog is an alias for engine DailyWeightLog — no mapping needed.
@@ -1889,14 +1893,43 @@ function EngineTrendAnalysis({ weightLogs }: EngineTrendAnalysisProps) {
 
   // Determine the phase for trend interpretation.
   const phase: "cut" | "bulk" | "recomp" | "maintain" = (() => {
+    // Prefer the engine's resolved phase (which accounts for BF%-based goal
+    // refinement) over the raw onboarding goal. interpretWeightTrend only
+    // handles cut/bulk/recomp/maintain; a reverse_diet plan falls back to
+    // "maintain" for trend-interpretation purposes (reverse diet is a
+    // transition phase, not a weight-trend phase).
+    const planPhase = nutritionPlan?.phase;
+    if (planPhase === "cut" || planPhase === "bulk" || planPhase === "recomp" || planPhase === "maintain") {
+      return planPhase;
+    }
     const goal = onboardingInput?.goal;
     if (goal === "weight-loss") return "cut";
     if (goal === "muscle-gain" || goal === "strength") return "bulk";
     return "maintain";
   })();
 
-  // Days/weeks into phase — approximate from first weight log.
-  const daysIntoPhase = dailyWeights.length;
+  // E-52 fix: daysIntoPhase must be measured from the actual phase start
+  // date (NutritionPlan.phase_start_date), not from the weight-log count.
+  // The engine's interpretWeightTrend() uses days_into_phase to gate the
+  // 14-day adaptation window ("first 14 days: water + glycogen + gut content
+  // shifts dominate, do NOT adjust calories"). Computing it from log count
+  // defeats this safety guard for any user with history from a prior phase.
+  //
+  // The lint rule against calling Date.now() during render is correct in
+  // general, but here we genuinely need the current time to compute elapsed
+  // days. We capture it in state via an effect (runs once per phase-start
+  // change) so the render itself stays pure.
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
+  useEffect(() => {
+    setNowMs(Date.now());
+  }, [nutritionPlan?.phase_start_date]);
+  const daysIntoPhase = useMemo(() => {
+    const phaseStart = nutritionPlan?.phase_start_date;
+    if (!phaseStart) return 0;
+    const startMs = new Date(phaseStart).getTime();
+    if (Number.isNaN(startMs)) return 0;
+    return Math.max(0, Math.floor((nowMs - startMs) / (1000 * 60 * 60 * 24)));
+  }, [nutritionPlan?.phase_start_date, nowMs]);
   const weeksIntoPhase = Math.floor(daysIntoPhase / 7);
 
   const trend = useMemo(

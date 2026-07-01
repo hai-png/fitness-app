@@ -4,7 +4,16 @@
 
 Re-implemented the existing fitness-app's assessment, training-planning, and nutrition-planning systems using the **Unified Reference Guide for Assessment, Training & Nutrition Systems** (`/home/z/my-project/download/unified_fitness_systems_reference.md`).
 
-The implementation introduces a new **engine layer** (`src/engine/`) — a set of pure, fully-tested TypeScript modules that implement every formula, decision tree, and data schema from the reference guide. The engine is wired into the existing app via a **bridge module** (`src/data/engineBridge.ts`) that converts legacy types to engine types and back, preserving the existing UI without modification.
+The implementation introduces a new **engine layer** (`src/engine/`) — a set of pure, fully-tested TypeScript modules that implement every formula, decision tree, and data schema from the reference guide. The engine is wired into the app directly via the `useEngine` hook (`src/store/useEngine.ts`), which calls `createUserFromOnboarding` + `runAssessment` + `buildNutritionPlan` and caches the results in `useUserStore`.
+
+> **A-01 reconciliation (audit 2026-07):** An earlier version of this report
+> described a bridge module (`src/data/engineBridge.ts`), type migrations
+> (`src/data/typeMigrations.ts`), a fallback plan module
+> (`src/data/fallbackPlan.ts`), and a legacy types file (`src/types.ts`).
+> **None of those files exist in the repo** — the engine is wired in
+> directly without an adapter layer, and `src/engine/schemas.ts` is the
+> single source of truth for all types. The earlier claims have been
+> removed. The "next steps" section below reflects the actual state.
 
 ## What was built
 
@@ -39,13 +48,22 @@ The fallback plan-generation path (used when Gemini API is unconfigured) now cal
 
 ## Verification
 
+> **E-47/E-48 reconciliation (audit 2026-07):** Earlier versions of this
+> report cited three different test counts (194, 220, 227). The accurate
+> count is **227 tests across 7 files** (OneRMEstimator 7, analyticsEngine
+> 29, engine 149, WorkoutHeatmap 8, toast 11, server.integration 7, stores
+> 16). All 227 pass when `npm run build` is run first (the
+> `pretest:ci` hook now does this automatically — see E-38). Without the
+> build, the 7 server-integration tests are skipped because `dist/server.cjs`
+> does not exist.
+
 | Check | Result |
 |---|---|
 | `npm run typecheck` | ✅ Clean (0 errors) |
-| `npm run lint` | ✅ 0 errors, 119 warnings (all pre-existing; 0 in new files) |
-| `npx vitest run src/test/engine.test.ts` | ✅ 149/149 tests pass |
-| `npx vitest run` (full suite) | ✅ 220 tests pass, 7 skipped (1 pre-existing server-integration failure unrelated to engine) |
-| `npx vite build` (production build) | ✅ Builds in 2.12s, 307 kB main bundle |
+| `npm run lint` | ✅ 0 errors, 101 warnings (all pre-existing; 0 in new files) |
+| `npx vitest run` (full suite, after `npm run build`) | ✅ 227/227 tests pass |
+| `npx vitest run` (without prior build) | ⚠️ 220 pass, 7 skipped (server-integration; pretest:ci hook fixes this) |
+| `npx vite build` (production build) | ✅ Builds; main bundle ~309 kB (97 kB gzip) |
 
 ## Key canonical resolutions applied
 

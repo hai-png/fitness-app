@@ -505,7 +505,13 @@ export function enforceCalorieFloor(sex: Sex, kcal: number): number {
 
 /**
  * Alpert maximum daily calorie deficit (Part 1.6.1).
- * Canonical constant: 22 kcal/lb fat/day (corrected; original 31 had a math error).
+ *
+ * E-11 fix: the constant 22 kcal/lb fat/day is a *conservative practical
+ * revision* advocated by practitioners (Lyle McDonald, Eric Helms) based on
+ * real-world lean-mass retention data — NOT a "correction of a math error"
+ * in Alpert's original derivation. Alpert's 2005 paper derived ~31 kcal/lb
+ * fat/day from a cell-hydration-limit model; that figure is mathematically
+ * sound but aggressive in practice. We use 22 as a safety margin.
  */
 export function alpertMaxDailyDeficitKcal(
   body_weight_kg: number,
@@ -542,7 +548,12 @@ export function effectiveWeeklyLossCapLb(
 /**
  * FFMI (Part 1.7.3).
  *   FFMI = FFM(kg) / height(m)²
- *   Normalized FFMI = FFMI + 6.3 × (1.8 − height_m)
+ *   Normalized FFMI = FFMI + 6.1 × (1.8 − height_m)
+ *
+ * E-02 fix: coefficient corrected from 6.3 to 6.1 to match Kouri et al.
+ * (1995) "Fat-free mass index in users and nonusers of anabolic-androgenic
+ * steroids". The previous 6.3 was a transcription error that nudged
+ * borderline users across classification boundaries (e.g., 25 = natural limit).
  */
 export function ffmi(
   weight_kg: number,
@@ -552,7 +563,7 @@ export function ffmi(
   const ffm_kg = leanBodyMass(weight_kg, bf_pct);
   const height_m = height_cm / 100;
   const raw = ffm_kg / (height_m * height_m);
-  const normalized = raw + 6.3 * (1.8 - height_m);
+  const normalized = raw + 6.1 * (1.8 - height_m);
   return { ffmi: raw, normalized_ffmi: normalized };
 }
 
@@ -861,8 +872,32 @@ export function runAssessment(user: User): AssessmentResult {
   const ibw = idealBodyWeight(user.sex, user.height_cm);
   const bmi_range = bmiHealthyRange(user.height_cm);
 
-  // RMR (Mifflin-St Jeor + RippedBody adjustments — canonical default)
-  const { bmr_kcal, tdee_kcal, activity_factor } = tdeeFromMifflinAndSaf(user);
+  // RMR + TDEE.
+  // E-54 fix: pediatric users (<18) must use IOM DLW EER, not adult Mifflin
+  // × SAF. Mifflin-St Jeor was derived on adults and underestimates pediatric
+  // BMR by 5-15% (children have higher BMR per kg). checkPopulationExclusions
+  // already flags <18 as "pediatric formulas required" — honor that here by
+  // branching to tdeeFromIomDlwEer, which is valid for ages 9+ per IOM.
+  // Adult BMR is still computed via Mifflin (for the bmr_kcal field + RippedBody
+  // adjustments) so the displayed BMR stays consistent with the bmr_formula
+  // label; only the TDEE method + activity factor switch for pediatrics.
+  const mifflin = tdeeFromMifflinAndSaf(user);
+  let bmr_kcal: number;
+  let tdee_kcal: number;
+  let activity_factor: number;
+  let tdee_method: AssessmentResult["tdee_method"];
+  if (user.age_years < 18) {
+    const iom = tdeeFromIomDlwEer(user);
+    bmr_kcal = mifflin.bmr_kcal;
+    tdee_kcal = iom.tdee_kcal;
+    activity_factor = iom.activity_factor;
+    tdee_method = "iom_dlw_eer";
+  } else {
+    bmr_kcal = mifflin.bmr_kcal;
+    tdee_kcal = mifflin.tdee_kcal;
+    activity_factor = mifflin.activity_factor;
+    tdee_method = "mifflin_x_saf";
+  }
 
   // Alpert + cap
   const alpert_deficit =
@@ -920,7 +955,7 @@ export function runAssessment(user: User): AssessmentResult {
     bmr_kcal,
     bmr_formula: "mifflin_st_jeor",
     tdee_kcal,
-    tdee_method: "mifflin_x_saf",
+    tdee_method,
     activity_factor,
     max_daily_deficit_kcal: alpert_deficit,
     max_weekly_fat_loss_lbs:
@@ -992,12 +1027,23 @@ function mapDietType(diet: OnboardingDietType): DietType {
   }
 }
 
-function mapSex(gender: string): Sex {
-  const lower = gender.toLowerCase();
-  if (lower.startsWith("f") || lower.includes("woman") || lower.includes("female")) {
-    return "female";
+function mapSex(gender: OnboardingInput["gender"]): Sex {
+  // S-19 fix: the form now sends one of the OnboardingGender union values
+  // (male | female | non-binary | prefer-not-to-say). Explicit mapping
+  // replaces the old prefix-matching heuristic that silently mis-gendered
+  // users. 'non-binary' and 'prefer-not-to-say' map to 'male' as the engine
+  // default because sex-specific BMR/TDEE formulas require a binary input;
+  // a future revision should let users specify sex-for-calculations separately.
+  switch (gender) {
+    case "female":
+      return "female";
+    case "male":
+    case "non-binary":
+    case "prefer-not-to-say":
+      return "male";
+    default:
+      return "male";
   }
-  return "male";
 }
 
 function inferTrainingStatus(frequency: number, goal: OnboardingGoal): TrainingStatus {

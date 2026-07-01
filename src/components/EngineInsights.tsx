@@ -8,8 +8,14 @@ import {
   AlertTriangle,
   Sparkles,
 } from "lucide-react";
-import type { AssessmentResult, DailyWeightLog, DailyIntakeLog } from "../engine";
-import { computeAdaptiveTdee, detectOutliers } from "../engine";
+import type {
+  AssessmentResult,
+  DailyWeightLog,
+  DailyIntakeLog,
+  OnboardingInput,
+} from "../engine";
+import { computeAdaptiveTdee, detectOutliers, createUserFromOnboarding } from "../engine";
+import type { EngineProfile } from "../engine/assessment";
 
 interface EngineInsightsProps {
   /** The cached AssessmentResult from the engine. */
@@ -20,6 +26,13 @@ interface EngineInsightsProps {
   intakeLogs: DailyIntakeLog[];
   /** Current body weight (kg) — used for outlier detection thresholds. */
   currentWeightKg: number;
+  /** The onboarding input — needed to construct the real engine User for
+   *  the adaptive-TDEE prior (A-03 fix: previously a hardcoded synthetic
+   *  30-yo / 178 cm / moderate / male was used, producing wrong priors for
+   *  every other user). */
+  onboardingInput: OnboardingInput;
+  /** The engine profile (body-fat %, circumferences, training status, etc.). */
+  engineProfile: EngineProfile;
 }
 
 /**
@@ -32,44 +45,32 @@ interface EngineInsightsProps {
  *   - Anthropometric indices (WHtR, WHR, ABSI)
  *   - Hydration target (6-step formula breakdown)
  *   - Population exclusion warnings (if any)
- *
- * Implements Step 3 of IMPLEMENTATION_REPORT.md next steps.
  */
 export default function EngineInsights({
   assessment,
   weightLogs,
   intakeLogs,
   currentWeightKg,
+  onboardingInput,
+  engineProfile,
 }: EngineInsightsProps) {
-  // Compute adaptive TDEE from observed data.
+  // A-03 fix: construct the REAL engine User from onboarding + profile.
+  // Previously a hardcoded synthetic 30-yo / 178 cm / moderate / male literal
+  // was passed to computeAdaptiveTdee, which made the prior (Mifflin × SAF)
+  // wrong by up to ±500 kcal/day for anyone who wasn't that exact profile.
+  // The misleading comment "prior is overridden by cached BMR below" was
+  // false — computeAdaptiveTdee recomputes the prior fresh from the User.
   const adaptiveTdee = useMemo(() => {
+    const user = createUserFromOnboarding(
+      { ...onboardingInput, weight: currentWeightKg },
+      engineProfile,
+    );
     return computeAdaptiveTdee({
-      // Construct a minimal User for the prior computation. The adaptive
-      // module only uses sex, age, height, weight, activity_level, and the
-      // RippedBody adjustment flags — all of which are already baked into
-      // the cached assessment's BMR. We pass a synthetic User that matches.
-      user: {
-        id: "adaptive-user",
-        sex: "male", // placeholder — prior is overridden by cached BMR below
-        age_years: 30,
-        height_cm: 178,
-        weight_kg: currentWeightKg,
-        unit_system: "metric",
-        is_pregnant: false,
-        is_breastfeeding: false,
-        has_eating_disorder_history: false,
-        has_kidney_disease: false,
-        activity_level: "moderate",
-        training_days_per_week: 4,
-        training_status: "intermediate",
-        primary_goal: "maintain",
-        is_currently_in_deficit: false,
-        is_weight_reduced: false,
-      },
+      user,
       intakes: intakeLogs,
       weights: weightLogs,
     });
-  }, [intakeLogs, weightLogs, currentWeightKg]);
+  }, [intakeLogs, weightLogs, currentWeightKg, onboardingInput, engineProfile]);
 
   const outliers = useMemo(() => {
     if (weightLogs.length === 0) return null;

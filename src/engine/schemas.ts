@@ -545,10 +545,18 @@ export type OnboardingDietType =
   | "gluten-free"
   | "mediterranean";
 
+export type OnboardingGender = "male" | "female" | "non-binary" | "prefer-not-to-say";
+
 export interface OnboardingInput {
   name: string;
   age: number;
-  gender: string;
+  // E-43/S-19 fix: tightened from `string` to a union matching the server
+  // zod schema. Previously mapSex() silently mis-gendered users via prefix
+  // matching ('transgender male' → 't' → 'male'); now the form sends one
+  // of these exact values. 'prefer-not-to-say' is mapped to 'male' as the
+  // engine default (sex-specific formulas require a binary input; a future
+  // revision should let users specify sex-for-calculations separately).
+  gender: OnboardingGender;
   weight: number; // kg
   height: number; // cm
   goal: OnboardingGoal;

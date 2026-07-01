@@ -428,14 +428,14 @@ export default function MarketplaceTab({
               <div className="p-8 text-center flex flex-col items-center">
                 <CheckCircle className="w-12 h-12 text-[#E63946] mb-4 animate-bounce" />
                 <h3 className="text-xl font-serif font-black italic text-[#1A1A1A]">
-                  Purchase Confirmed!
+                  Demo Order Confirmed
                 </h3>
                 <p className="text-[#1A1A1A]/60 text-xs mt-1.5 max-w-xs font-serif italic">
-                  Your transaction has processed successfully. Warehouse packaging has begun.
+                  Your simulated order is complete. <strong className="not-italic font-bold text-[#E63946]">No payment was processed</strong> and no items will ship.
                 </p>
                 <div className="mt-6 flex items-center gap-2 text-xs font-bold uppercase text-[#1A1A1A]/50 bg-[#F9F8F6] border border-[#1A1A1A]/10 px-3 py-2 rounded-none">
-                  <Truck className="w-4 h-4 text-[#E63946]" />
-                  <span>Tracking code emailed shortly</span>
+                  <AlertTriangle className="w-4 h-4 text-[#E63946]" />
+                  <span>Demo mode — no real transaction</span>
                 </div>
               </div>
             ) : (

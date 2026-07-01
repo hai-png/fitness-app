@@ -67,6 +67,10 @@ export const useLogsStore = create<LogsState>()(
       name: "fitlife:logs",
       storage: createJSONStorage(() => localStorage),
       version: 1,
+      // A-15/F-C1: identity migrate — no field renames yet, but the presence
+      // of this function means the next schema change has a place to land
+      // and will NOT silently wipe user log history.
+      migrate: (persisted: unknown) => persisted,
     },
   ),
 );

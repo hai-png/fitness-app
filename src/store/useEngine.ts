@@ -1,6 +1,5 @@
 import { useEffect, useMemo } from "react";
 import { useUserStore } from "./useUserStore";
-import { useIntakeStore } from "./useIntakeStore";
 import { useLogsStore } from "./useLogsStore";
 import {
   type AssessmentResult,
@@ -9,7 +8,6 @@ import {
   buildNutritionPlan,
   recommendGoal,
   createUserFromOnboarding,
-  type EngineProfile,
 } from "../engine";
 
 /**
@@ -38,11 +36,18 @@ export function useEngine(): {
   const clearEngineCaches = useUserStore((s) => s.clearEngineCaches);
 
   const weightLogs = useLogsStore((s) => s.weightLogs);
-  useIntakeStore((s) => s.intakeLogs);
+  // A-16/F-H2 fix: removed the dead `useIntakeStore((s) => s.intakeLogs)`
+  // subscription — the value was never used here and caused unnecessary
+  // re-renders on every intake-log change. intakeLogs are consumed directly
+  // by EngineInsights via its own subscription.
 
   const latestWeight = useMemo(() => {
     if (weightLogs.length === 0) return onboardingInput?.weight ?? 0;
-    return weightLogs[weightLogs.length - 1].weight_kg;
+    // A-16 fix: don't assume insertion order === chronological order. Sort
+    // defensively so a future setWeightLogs(importedUnsorted) can't silently
+    // make latestWeight return the last-inserted (oldest) log.
+    const sorted = [...weightLogs].sort((a, b) => a.date.localeCompare(b.date));
+    return sorted[sorted.length - 1].weight_kg;
   }, [weightLogs, onboardingInput?.weight]);
 
   useEffect(() => {
@@ -51,7 +56,9 @@ export function useEngine(): {
       const user = createUserFromOnboarding(onboardingInput, engineProfile);
       const assessment = runAssessment(user);
 
-      // Refine goal based on BF% if available.
+      // Refine goal based on BF% if available — but never for excluded
+      // populations (E-53: excluded users must not get an auto-refined
+      // cut/bulk phase; buildNutritionPlan will refuse to produce one).
       let phase = user.primary_goal;
       if (assessment.body_fat_pct !== undefined && !assessment.population_excluded) {
         const rec = recommendGoal({
@@ -71,6 +78,11 @@ export function useEngine(): {
         user: { ...user, primary_goal: phase },
         assessment,
         phase,
+        // E-50: pass the existing cached plan so a recompute (weight log
+        // added, profile updated) preserves plan_id, created_at,
+        // phase_start_date, last_adjustment_date, and adjustment_history.
+        // A phase change (cut→bulk) still produces a fresh plan.
+        existing_plan: cachedNutritionPlan ?? undefined,
       });
 
       cacheEngineOutputs(assessment, nutrition);
@@ -84,9 +96,17 @@ export function useEngine(): {
   const recompute = () => {
     if (!onboardingInput) return;
     try {
-      const user = createUserFromOnboarding(onboardingInput, engineProfile as EngineProfile);
+      // A-16 fix: read fresh state via getState() so applyAdjustment /
+      // recompute called right after clearEngineCaches doesn't no-op on
+      // a stale closure. Also removed the redundant `as EngineProfile`
+      // cast — engineProfile is already typed as EngineProfile.
+      const user = createUserFromOnboarding(onboardingInput, engineProfile);
       const assessment = runAssessment(user);
-      const nutrition = buildNutritionPlan({ user, assessment });
+      const nutrition = buildNutritionPlan({
+        user,
+        assessment,
+        existing_plan: useUserStore.getState().cachedNutritionPlan ?? undefined,
+      });
       cacheEngineOutputs(assessment, nutrition);
     } catch (err) {
       console.warn("[useEngine] Manual recompute failed:", err);
@@ -94,8 +114,12 @@ export function useEngine(): {
   };
 
   const applyAdjustment = (updated: NutritionPlan) => {
-    if (cachedAssessmentResult) {
-      cacheEngineOutputs(cachedAssessmentResult, updated);
+    // A-16 fix: read the assessment fresh from the store so a recent
+    // clearEngineCaches (e.g. from updateEngineProfile) doesn't leave this
+    // closure holding a stale null that silently no-ops the user's click.
+    const currentAssessment = useUserStore.getState().cachedAssessmentResult;
+    if (currentAssessment) {
+      cacheEngineOutputs(currentAssessment, updated);
     }
   };
 
