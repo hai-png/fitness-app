@@ -145,7 +145,48 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   // gym-scan timeout against firing after unmount.
   const safeTimeout = useSafeTimeout();
 
-  const [step, setStep] = useState<number>(0);
+  // F-H11: Persist the onboarding form draft to localStorage so an accidental
+  // refresh / tab-close / battery-death doesn't lose progress. The draft has
+  // a 24-hour TTL; it's cleared on successful onComplete.
+  const DRAFT_KEY = "fitlife:onboarding-draft";
+  const DRAFT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+  const DEFAULT_FORM: OnboardingInput = {
+    name: "",
+    age: 26,
+    gender: "male",
+    weight: 75,
+    height: 175,
+    goal: "weight-loss",
+    activityLevel: "moderate",
+    workoutPreference: "hybrid",
+    frequency: 3,
+    dietType: "anything",
+    allergies: "",
+    selectedGymName: "",
+    availableMachines: [],
+  };
+
+  function loadDraft(): { form: OnboardingInput; step: number } | null {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { form: OnboardingInput; step: number; savedAt: number };
+      if (Date.now() - parsed.savedAt > DRAFT_TTL_MS) {
+        localStorage.removeItem(DRAFT_KEY);
+        return null;
+      }
+      return { form: parsed.form, step: parsed.step };
+    } catch {
+      return null;
+    }
+  }
+
+  // F-H11: load the draft once via useState lazy initializer (sanctioned
+  // pattern for impure initialization — runs once during the first render).
+  const [draft] = useState(() => loadDraft());
+
+  const [step, setStep] = useState<number>(draft?.step ?? 0);
   const [loading, setLoading] = useState<boolean>(false);
   const [loadingMsg, setLoadingMsg] = useState<string>("Analyzing your physical baseline...");
   const [error, setError] = useState<string | null>(null);
@@ -168,21 +209,19 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const [locationSearch, setLocationSearch] = useState<string>("Downtown Aether");
   const [isScanningGyms, setIsScanningGyms] = useState<boolean>(false);
 
-  const [form, setForm] = useState<OnboardingInput>({
-    name: "",
-    age: 26,
-    gender: "male",
-    weight: 75,
-    height: 175,
-    goal: "weight-loss",
-    activityLevel: "moderate",
-    workoutPreference: "hybrid",
-    frequency: 3,
-    dietType: "anything",
-    allergies: "",
-    selectedGymName: "",
-    availableMachines: [],
-  });
+  const [form, setForm] = useState<OnboardingInput>(draft?.form ?? DEFAULT_FORM);
+
+  // F-H11: Save the draft whenever form or step changes.
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({ form, step, savedAt: Date.now() }),
+      );
+    } catch {
+      // localStorage might be full or blocked (private mode) — silently skip.
+    }
+  }, [form, step]);
 
   const nextStep = () => {
     if (step === 0 && !form.name.trim()) {
@@ -246,6 +285,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
             durationWeeks: plan.durationWeeks,
           });
           onComplete(plan, form);
+          // F-H11: clear the draft on successful completion.
+          try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
         } catch {
           setError("Failed to generate fallback plan.");
           setLoading(false);
@@ -273,6 +314,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
 
       const planData: WorkoutPlan = await response.json();
       onComplete(planData, form);
+      // F-H11: clear the draft on successful completion.
+      try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
     } catch (err: unknown) {
       console.warn("Gemini generation failed or unconfigured:", err);
       setError(
