@@ -692,14 +692,27 @@ describe("Part 1.11 / runAssessment", () => {
     expect(result.body_fat_pct).toBe(18);
     expect(result.bmi).toBeCloseTo(25.25, 1);
     expect(result.bmi_category).toBe("Overweight");
-    expect(result.bmr_kcal).toBeGreaterThan(1500);
-    expect(result.tdee_kcal).toBeGreaterThan(2000);
+
+    // E-35 fix: exact-value assertions tied to literature formulas.
+    // Mifflin-St Jeor (male, 80kg, 178cm, 30yo):
+    //   9.99*80 + 6.25*178 - 4.92*30 + 5 = 1769.1 kcal
+    // No RippedBody adjustment (not in deficit, not weight-reduced).
+    expect(result.bmr_kcal).toBeCloseTo(1769.1, 0);
+
+    // TDEE = BMR × SAF (moderate = 1.55) = 1769.1 × 1.55 = 2742.1
+    expect(result.tdee_kcal).toBeCloseTo(2742.1, 0);
     expect(result.tdee_method).toBe("mifflin_x_saf");
-    // max_daily_deficit_kcal = Alpert ceiling (22 × fat_lbs) — requires body_fat_pct.
-    expect(result.max_daily_deficit_kcal).toBeDefined();
-    expect(result.max_daily_deficit_kcal!).toBeGreaterThan(0);
-    expect(result.effective_weekly_loss_cap_lbs).toBeGreaterThan(0);
-    expect(result.daily_water_intake_L).toBeGreaterThan(2);
+
+    // Alpert ceiling: 22 kcal/lb fat/day.
+    //   fat_lb = 80 × 2.20462 × 0.18 = 31.75 → 22 × 31.75 = 698.4 kcal/day
+    expect(result.max_daily_deficit_kcal).toBeCloseTo(698.4, 0);
+
+    // Weekly cap = min(Alpert_weekly, 2.0) = min(698.4*7/3500, 2.0) = min(1.397, 2.0) = 1.397
+    expect(result.effective_weekly_loss_cap_lbs).toBeCloseTo(1.40, 1);
+
+    // Hydration: 0.03*80 + 0.3 (male) = 2.4 + 0.3 = 2.7 L (no exercise, temperate)
+    expect(result.daily_water_intake_L).toBeCloseTo(2.7, 1);
+
     expect(result.population_excluded).toBe(false);
     expect(result.exclusion_reasons).toEqual([]);
   });
@@ -1139,7 +1152,21 @@ describe("Part 3.16 / buildNutritionPlan", () => {
     expect(plan.phase).toBe("cut");
     expect(plan.target_calories_kcal).toBeLessThan(assessment.tdee_kcal);
     expect(plan.target_calories_kcal).toBeGreaterThanOrEqual(CALORIE_FLOOR.male);
-    expect(plan.protein_g).toBeGreaterThan(0);
+
+    // E-36 fix: exact-value assertions for the macro recipe.
+    // Protein: 1.1 g/lb (cutting, male, 18% BF > 10% threshold, standard diet).
+    //   80 kg × 2.20462 × 1.1 = 194.01 → roundMacro5 → 195 g
+    expect(plan.protein_g).toBe(195);
+    expect(plan.protein_rate_g_per_lb).toBeCloseTo(1.1, 2);
+    expect(plan.protein_basis).toBe("bodyweight");
+
+    // Internal consistency: protein_cal + fat_cal + carb_cal ≈ target_calories.
+    // Each macro is rounded to nearest 5g, so tolerance is ±25 kcal.
+    const proteinCal = plan.protein_g * 4;
+    const fatCal = plan.fat_g * 9;
+    const carbCal = plan.carb_g * 4;
+    expect(Math.abs(proteinCal + fatCal + carbCal - plan.target_calories_kcal)).toBeLessThan(25);
+
     expect(plan.fat_g).toBeGreaterThanOrEqual(plan.fat_floor_g);
     expect(plan.carb_g).toBeGreaterThanOrEqual(0);
     expect(plan.fiber_target_g).toBeGreaterThan(0);
@@ -1158,6 +1185,19 @@ describe("Part 3.16 / buildNutritionPlan", () => {
 
     expect(plan.phase).toBe("bulk");
     expect(plan.target_calories_kcal).toBeGreaterThan(assessment.tdee_kcal);
+
+    // E-36 fix: exact-value assertions for the bulk macro recipe.
+    // Protein: 0.85 g/lb (bulking, male, standard diet, not vegan).
+    //   80 kg × 2.20462 × 0.85 = 149.9 → roundMacro5 → 150 g
+    expect(plan.protein_g).toBe(150);
+    expect(plan.protein_rate_g_per_lb).toBeCloseTo(0.85, 2);
+
+    // Internal consistency: protein_cal + fat_cal + carb_cal ≈ target (±25).
+    const proteinCal = plan.protein_g * 4;
+    const fatCal = plan.fat_g * 9;
+    const carbCal = plan.carb_g * 4;
+    expect(Math.abs(proteinCal + fatCal + carbCal - plan.target_calories_kcal)).toBeLessThan(25);
+
     expect(plan.target_rate_lb_per_period).toBeGreaterThan(0);
   });
 
