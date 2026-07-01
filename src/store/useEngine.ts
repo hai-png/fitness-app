@@ -5,7 +5,6 @@ import { useLogsStore } from "./useLogsStore";
 import {
   type AssessmentResult,
   type NutritionPlan,
-  type User,
   runAssessment,
   buildNutritionPlan,
   recommendGoal,

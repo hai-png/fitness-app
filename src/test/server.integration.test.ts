@@ -13,8 +13,8 @@ import path from "node:path";
 const SERVER_PORT = 3999; // unlikely to collide
 const BASE = `http://localhost:${SERVER_PORT}`;
 
-// A valid assessment payload matching the zod schema in server.ts
-const VALID_ASSESSMENT = {
+// A valid onboarding payload matching the zod schema in server.ts
+const VALID_ONBOARDING = {
   name: "Test User",
   age: 30,
   gender: "male",
@@ -106,7 +106,7 @@ describe("POST /api/generate-plan — integration", () => {
   it("rejects an empty body with 400 + structured zod issues", async () => {
     const res = await post("/api/generate-plan", {});
     expect(res.status).toBe(400);
-    expect(res.body).toHaveProperty("error", "Invalid assessment data");
+    expect(res.body).toHaveProperty("error", "Invalid onboarding data");
     expect(res.body).toHaveProperty("requestId");
     expect((res.body as any).issues).toEqual(
       expect.arrayContaining([
@@ -117,7 +117,7 @@ describe("POST /api/generate-plan — integration", () => {
   });
 
   it("rejects an out-of-range age with 400 + specific issue", async () => {
-    const res = await post("/api/generate-plan", { ...VALID_ASSESSMENT, age: 5 });
+    const res = await post("/api/generate-plan", { ...VALID_ONBOARDING, age: 5 });
     expect(res.status).toBe(400);
     expect((res.body as any).issues).toEqual(
       expect.arrayContaining([
@@ -127,7 +127,7 @@ describe("POST /api/generate-plan — integration", () => {
   });
 
   it("rejects an invalid goal enum value with 400", async () => {
-    const res = await post("/api/generate-plan", { ...VALID_ASSESSMENT, goal: "invalid-goal" });
+    const res = await post("/api/generate-plan", { ...VALID_ONBOARDING, goal: "invalid-goal" });
     expect(res.status).toBe(400);
     expect((res.body as any).issues[0].message).toMatch(/expected/i);
     expect((res.body as any).issues[0].message).toContain("muscle-gain");
@@ -135,16 +135,16 @@ describe("POST /api/generate-plan — integration", () => {
 
   it("rejects an oversized payload (>32kb) with 413", async () => {
     // Build a payload whose allergies field exceeds 32kb total
-    const huge = { ...VALID_ASSESSMENT, allergies: "x".repeat(40000) };
+    const huge = { ...VALID_ONBOARDING, allergies: "x".repeat(40000) };
     const res = await post("/api/generate-plan", huge);
     // express.json() limit returns 413 Payload Too Large
     expect([400, 413]).toContain(res.status);
   });
 
-  it("accepts a valid assessment and returns 400 (no API key configured)", async () => {
+  it("accepts a valid onboarding input and returns 400 (no API key configured)", async () => {
     // Without GEMINI_API_KEY, the server should reject with the helpful
     // "not configured" message — NOT a 500 from the SDK.
-    const res = await post("/api/generate-plan", VALID_ASSESSMENT);
+    const res = await post("/api/generate-plan", VALID_ONBOARDING);
     expect(res.status).toBe(400);
     expect((res.body as any).error).toMatch(/GEMINI_API_KEY is not configured/i);
     expect(res.body).toHaveProperty("requestId");
@@ -172,7 +172,7 @@ describe("POST /api/generate-plan — integration", () => {
     // Hit any endpoint that produces an error response — we don't care
     // whether it's a 400 (validation) or 429 (rate-limited); either way
     // the body must NOT contain stack traces or SDK class names.
-    const res = await post("/api/generate-plan", VALID_ASSESSMENT);
+    const res = await post("/api/generate-plan", VALID_ONBOARDING);
     const body = JSON.stringify(res.body);
     // No stack traces, no "GoogleGenAI" internal class names, no API key echoes
     expect(body).not.toMatch(/at\s+.*\(\w+:\d+:\d+\)/); // no stack frame
