@@ -13,15 +13,12 @@ import {
   Award,
   Clock,
   Info,
-  ChevronUp,
   Share2,
   Filter,
-  Zap,
   Activity,
   User,
   Check,
   RotateCcw,
-  BookOpen,
 } from "lucide-react";
 import {
   SetLog,
@@ -33,9 +30,6 @@ import {
   analyzeExerciseProgression,
   calculatePersonalRecords,
   calculateMuscleVolumesAndScores,
-  MuscleVolumeZone,
-  ExerciseAnalysis,
-  PersonalRecord,
 } from "../data/analyticsEngine";
 import { EXERCISE_DATABASE } from "../data/workoutTemplates";
 import { useLogsStore } from "../store/useLogsStore";
@@ -63,7 +57,6 @@ interface ProgressTabProps {
 export default function ProgressTab({
   weightLogs,
   waterLogs,
-  workoutLogs,
   onAddWeightLog,
   onAddWaterLog,
   onClearWaterLogs,
@@ -102,8 +95,18 @@ export default function ProgressTab({
   const [selectedAnalysisEx, setSelectedAnalysisEx] = useState<string>("Flat Barbell Bench Press");
   const [isSmoothedTrend, setIsSmoothedTrend] = useState<boolean>(true);
 
-  // Active Flex Card for sharing modal
-  const [activeShareCard, setActiveShareCard] = useState<any | null>(null);
+  // Active Flex Card for sharing modal. Shape matches the flexCardsData
+  // entries below (defined inline as FlexCard).
+  interface FlexCard {
+    id: string;
+    title: string;
+    badge: string;
+    metric: string;
+    subtitle: string;
+    description: string;
+    quote: string;
+  }
+  const [activeShareCard, setActiveShareCard] = useState<FlexCard | null>(null);
   const [copiedShareText, setCopiedShareText] = useState<boolean>(false);
 
   // Quick custom set logger state
@@ -203,7 +206,7 @@ export default function ProgressTab({
 
   const lifetimeTierInfo = useMemo(() => {
     const currentTierIndex = LIFETIME_TIERS.findIndex(
-      (tier, idx) => lifetimeVolumeTons >= tier.minTons && lifetimeVolumeTons < tier.maxTons,
+      (tier) => lifetimeVolumeTons >= tier.minTons && lifetimeVolumeTons < tier.maxTons,
     );
     const currentTier = LIFETIME_TIERS[currentTierIndex] || LIFETIME_TIERS[0];
     const nextTier = LIFETIME_TIERS[currentTierIndex + 1] || null;
@@ -243,7 +246,7 @@ export default function ProgressTab({
       weeksToNext,
       tierIndex: currentTierIndex + 1,
     };
-  }, [lifetimeVolumeTons, exerciseLogs, filteredLogs]);
+  }, [lifetimeVolumeTons, filteredLogs]);
 
   // Exercise Analysis & Progression Grouping
   const exerciseProgressions = useMemo(() => {
@@ -564,7 +567,9 @@ export default function ProgressTab({
             <select
               id="select-training-age"
               value={trainingAge}
-              onChange={(e: any) => setTrainingAge(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                setTrainingAge(e.target.value as "Beginner" | "Intermediate" | "Advanced")
+              }
               className="bg-[#F9F8F6] border border-[#1A1A1A]/10 text-xs px-2 py-1 font-bold text-[#1A1A1A]"
             >
               <option value="Beginner">Beginner Age (&lt;1 yr)</option>
@@ -1182,7 +1187,6 @@ export default function ProgressTab({
       Math.max(0, ...l.sets.map((s) => calculateEpley1RM(s.weight, s.reps))),
     );
     const highestCalculated1RM = session1RMs.length > 0 ? Math.max(...session1RMs) : 0;
-    const topExercise = exerciseProgressions[0]?.name || "Bench Press";
     const topMuscleScore = muscleZonesAndScores[0]?.muscle || "Chest";
     const totalSessionsNum = Array.from(new Set(exerciseLogs.map((l) => l.date))).length;
 
@@ -1269,12 +1273,13 @@ export default function ProgressTab({
       },
     ];
 
-    const handleOpenShare = (card: any) => {
+    const handleOpenShare = (card: FlexCard) => {
       setActiveShareCard(card);
       setCopiedShareText(false);
     };
 
     const handleCopyShare = async () => {
+      if (!activeShareCard) return;
       const shareText = `My Training Card: [${activeShareCard.title} - ${activeShareCard.badge}]\nMetric Peak: ${activeShareCard.metric}\n"${activeShareCard.quote}"\nLogged on FitLife Hub!`;
       // navigator.clipboard is undefined in non-secure (HTTP) contexts and
       // can reject if the user denies the permission. Feature-detect + try/catch.
@@ -1327,10 +1332,11 @@ export default function ProgressTab({
         {/* Visual grid of Cards */}
         <div className="grid grid-cols-2 gap-3.5">
           {flexCardsData.map((card) => (
-            <div
+            <button
+              type="button"
               key={card.id}
               onClick={() => handleOpenShare(card)}
-              className="bg-white border border-[#1A1A1A]/10 p-4 rounded-none hover:border-[#1A1A1A]/35 transition-all relative flex flex-col justify-between cursor-pointer group shadow-sm overflow-hidden"
+              className="bg-white border border-[#1A1A1A]/10 p-4 rounded-none hover:border-[#1A1A1A]/35 transition-all relative flex flex-col justify-between cursor-pointer group shadow-sm overflow-hidden w-full text-left"
             >
               {/* Background watermark badge icon */}
               <div className="absolute right-[-10px] bottom-[-10px] opacity-[0.03] group-hover:opacity-[0.05] transition-opacity pointer-events-none">
@@ -1350,7 +1356,7 @@ export default function ProgressTab({
                 <span className="text-base font-mono font-black text-[#1A1A1A]">{card.metric}</span>
                 <Share2 className="w-3.5 h-3.5 text-[#1A1A1A]/30 group-hover:text-[#E63946] transition-colors" />
               </div>
-            </div>
+            </button>
           ))}
         </div>
 
@@ -1822,7 +1828,9 @@ export default function ProgressTab({
               <select
                 id="select-custom-log-set-type"
                 value={logExType}
-                onChange={(e: any) => setLogExType(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                  setLogExType(e.target.value as "Normal" | "AMRAP" | "Failure" | "Drop Set")
+                }
                 className="w-full bg-white border border-[#1A1A1A]/15 px-2.5 py-1.5 text-xs"
               >
                 <option value="Normal">Normal Set</option>
@@ -1921,7 +1929,13 @@ function EngineTrendAnalysis({ weightLogs }: EngineTrendAnalysisProps) {
   // days. We capture it in state via an effect (runs once per phase-start
   // change) so the render itself stays pure.
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
+  // Intentional setState-in-effect: we capture Date.now() in state once per
+  // phase_start_date change so render stays pure (no Date.now() during render).
+  // The "adjust state during render" alternative would call Date.now() during
+  // render, which the existing comment above explicitly wanted to avoid.
+  // Same canonical pattern as useHydrated's hydration gate.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setNowMs(Date.now());
   }, [nutritionPlan?.phase_start_date]);
   const daysIntoPhase = useMemo(() => {
@@ -2161,13 +2175,13 @@ function DailyIntakeLogger() {
           type="submit"
           className="col-span-4 py-2 bg-[#1A1A1A] hover:bg-[#E63946] text-white text-[10px] font-bold uppercase tracking-wider font-mono transition-all"
         >
-          Log Today's Intake
+          Log Today&apos;s Intake
         </button>
       </form>
 
       <p className="text-[8px] text-[#1A1A1A]/40 font-serif italic mt-1.5">
         Macros are optional but help with future features. One entry per day — submitting
-        overwrites today's log.
+        overwrites today&apos;s log.
       </p>
     </div>
   );

@@ -197,7 +197,17 @@ export function cutAdjustmentDeltaKcal(
   actual_rate_lb_per_week: number,
   target_rate_lb_per_week: number,
 ): number {
-  return (actual_rate_lb_per_week - target_rate_lb_per_week) * 500;
+  // Sign-convention fix (discovered via E-28 test): actual_rate comes from
+  // the weight-regression slope × 7 × 2.2046, which is NEGATIVE for weight
+  // loss. target_rate is POSITIVE (e.g., 1.0 = "lose 1 lb/week"). The
+  // previous (actual - target) * 500 formula produced a large-negative delta
+  // even when on target, making the |delta| < 50 "on target" path unreachable.
+  //
+  // Fix: compare |actual| vs target. Now:
+  //   Losing too slowly (|actual| < target) → delta < 0 → reduce calories. ✓
+  //   On target (|actual| = target)         → delta = 0 → no adjustment.   ✓
+  //   Losing too fast  (|actual| > target)  → delta > 0 → add calories.    ✓
+  return (Math.abs(actual_rate_lb_per_week) - target_rate_lb_per_week) * 500;
 }
 
 /**

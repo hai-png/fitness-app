@@ -128,8 +128,16 @@ export function Modal({
   if (!open) return null;
 
   return createPortal(
+    // Overlay backdrop: role="presentation" marks it as decorative — the
+    // inner dialog div below carries role="dialog" + aria-modal. The overlay's
+    // onClick is a mouse-only "click outside to close" convenience; keyboard
+    // users have equivalent close affordances (Escape via the document
+    // listener, and the X close button which receives autofocus on open).
+    // role="presentation" also suppresses jsx-a11y's click-events-have-key-events
+    // and no-static-element-interactions rules for this element.
     <div
       ref={overlayRef}
+      role="presentation"
       className={`fixed inset-0 ${zIndexClass} bg-[#1A1A1A]/80 flex items-center justify-center p-4`}
       onClick={(e) => {
         // Only close if the click was directly on the overlay (not a child).

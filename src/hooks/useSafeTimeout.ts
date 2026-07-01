@@ -25,11 +25,14 @@ export function useSafeTimeout(): (fn: () => void, ms: number) => void {
 
   useEffect(() => {
     mountedRef.current = true;
+    // Snapshot the timers set so cleanup uses the same instance even if the
+    // ref is reassigned later (defensive — current implementation never reassigns).
+    const timers = timersRef.current;
     return () => {
       mountedRef.current = false;
       // Clear all pending timers on unmount so no callback fires after unmount.
-      timersRef.current.forEach((id) => clearTimeout(id));
-      timersRef.current.clear();
+      timers.forEach((id) => clearTimeout(id));
+      timers.clear();
     };
   }, []);
 

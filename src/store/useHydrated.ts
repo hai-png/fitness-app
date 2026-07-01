@@ -20,6 +20,10 @@ export function useHydrated(): boolean {
     // zustand persist is synchronous by default (uses localStorage), so it
     // rehydrates during the first render. But React's effect runs after paint,
     // so we still need this gate to avoid a flash of the un-persisted state.
+    // This is the canonical SSR/CSR hydration gate — setState-in-effect is
+    // intentional and unavoidable here (the whole point is to flip a flag
+    // exactly once after the first client paint).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHydrated(true);
   }, []);
 

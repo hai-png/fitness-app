@@ -18,7 +18,6 @@ import {
   MapPin,
   Search,
   Check,
-  Map,
   SlidersHorizontal,
 } from "lucide-react";
 
@@ -197,7 +196,10 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     setStep((prev) => Math.max(0, prev - 1));
   };
 
-  const handleFieldChange = (field: keyof OnboardingInput, value: any) => {
+  const handleFieldChange = (
+    field: keyof OnboardingInput,
+    value: OnboardingInput[typeof field],
+  ) => {
     setForm((prev) => ({
       ...prev,
       [field]: value,
@@ -244,7 +246,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
             durationWeeks: plan.durationWeeks,
           });
           onComplete(plan, form);
-        } catch (e) {
+        } catch {
           setError("Failed to generate fallback plan.");
           setLoading(false);
         }
@@ -271,10 +273,10 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
 
       const planData: WorkoutPlan = await response.json();
       onComplete(planData, form);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.warn("Gemini generation failed or unconfigured:", err);
       setError(
-        err.message ||
+        (err instanceof Error ? err.message : "") ||
           "The AI Coach could not connect. This is usually because your GEMINI_API_KEY is not configured yet.",
       );
       setLoading(false);

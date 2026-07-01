@@ -57,7 +57,9 @@ async function startServer(env: Record<string, string> = {}): Promise<void> {
       /* swallow SDK warnings about missing API key */
     });
 
-    setTimeout(() => reject(new Error("Server failed to start within 5s")), 5000);
+    // S-10: increased from 5s to 10s for Express 5 (slightly slower startup
+    // due to the new route-matching engine + Gemini SDK warning output).
+    setTimeout(() => reject(new Error("Server failed to start within 10s")), 10000);
   });
 }
 

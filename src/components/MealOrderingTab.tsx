@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useMemo } from "react";
 import { MEAL_PRODUCTS } from "../data/meals";
 import { OnboardingInput, MealProduct, CartItem, Order, NutritionPlan } from "../engine";
 import { toast } from "./Toast";
@@ -6,7 +6,6 @@ import { useSafeTimeout } from "../hooks/useSafeTimeout";
 import { Modal } from "./Modal";
 import {
   ShoppingBag,
-  UtensilsCrossed,
   AlertTriangle,
   Sparkles,
   MapPin,
@@ -16,9 +15,6 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
-  Plus,
-  TrendingUp,
-  Sliders,
   Check,
 } from "lucide-react";
 
@@ -43,10 +39,6 @@ interface DayPlan {
 export default function MealOrderingTab({
   assessment,
   nutritionPlan,
-  cart,
-  onAddToCart,
-  onRemoveFromCart,
-  onUpdateCartQty,
   onCheckout,
 }: MealOrderingTabProps) {
   // F-H4: useSafeTimeout guards all setTimeout callbacks against firing
@@ -58,9 +50,6 @@ export default function MealOrderingTab({
   const [numDays, setNumDays] = useState<number>(5);
   const [mealsPerDay, setMealsPerDay] = useState<number>(3); // 2 or 3
   const [expandedDay, setExpandedDay] = useState<number | null>(1);
-
-  // Custom suggestion list state
-  const [customPlan, setCustomPlan] = useState<DayPlan[]>([]);
 
   // Custom Swap Modal state
   const [swapTarget, setSwapTarget] = useState<{ dayIndex: number; mealIndex: number } | null>(
@@ -75,11 +64,12 @@ export default function MealOrderingTab({
 
   const targetCalories =
     nutritionPlan?.target_calories_kcal || Math.round(assessment.weight * 26);
-  const targetProtein =
-    nutritionPlan?.protein_g || Math.round(assessment.weight * 1.8);
 
-  // Filter products by dietary restriction and allergy
-  const getEligibleMeals = (): MealProduct[] => {
+  // Filter products by dietary restriction and allergy. Inlined into the
+  // `eligibleMeals` useMemo below so the dep array is exhaustive without
+  // needing a separate `getEligibleMeals` function (which would otherwise
+  // have to be wrapped in useCallback to satisfy exhaustive-deps).
+  const eligibleMeals = useMemo((): MealProduct[] => {
     let filtered = MEAL_PRODUCTS.filter((meal) => {
       // Diet preference alignment
       const diet = assessment.dietType;
@@ -120,21 +110,16 @@ export default function MealOrderingTab({
       return MEAL_PRODUCTS;
     }
     return filtered;
-  };
-
-  const eligibleMeals = useMemo(
-    () => getEligibleMeals(),
     // F-H3 fix: include assessment.allergies so eligibleMeals recomputes when
     // allergies change. Previously this was an un-memoized call that ran every
     // render, and the plan-generation effect didn't depend on it — so changing
     // allergies mid-flow would keep suggesting meals containing the new allergen.
-    [assessment.dietType, assessment.allergies],
-  );
+  }, [assessment.dietType, assessment.allergies]);
 
-  // Suggest/generate plan based on options selected.
-  // F-H3 fix: wrap in useCallback so the effect below can depend on it
-  // without re-running every render. Deps are the inputs the generation reads.
-  const generatePlanSuggestions = useCallback(() => {
+  // Base plan derived from inputs (replaces the old generatePlanSuggestions
+  // useCallback + useEffect pair). Pure function of numDays/mealsPerDay/
+  // eligibleMeals, so useMemo is the React-recommended shape.
+  const basePlan: DayPlan[] = useMemo(() => {
     const list: DayPlan[] = [];
     const mealSlots: ("Breakfast" | "Lunch" | "Dinner")[] =
       mealsPerDay === 3 ? ["Breakfast", "Lunch", "Dinner"] : ["Lunch", "Dinner"];
@@ -154,33 +139,43 @@ export default function MealOrderingTab({
         meals: dayMeals,
       });
     }
-    setCustomPlan(list);
+    return list;
   }, [numDays, mealsPerDay, eligibleMeals]);
 
-  // Re-generate suggestions whenever days, meals per day, or the eligible-meal
-  // set (which depends on diet + allergies) changes.
-  // F-H3 fix: previously dep array was [numDays, mealsPerDay, assessment.dietType]
-  // — missing assessment.allergies. Now depends on generatePlanSuggestions
-  // which is stable unless its own deps change.
-  useEffect(() => {
-    generatePlanSuggestions();
-  }, [generatePlanSuggestions]);
+  // Manual per-slot swaps keyed by `${dayIndex}-${mealIndex}`. These persist
+  // across renders but are RESET when basePlan changes (preserving the
+  // original "regenerate-from-scratch on input change" behavior).
+  const [manualSwaps, setManualSwaps] = useState<Record<string, MealProduct>>({});
+  const [prevBasePlan, setPrevBasePlan] = useState(basePlan);
+  if (basePlan !== prevBasePlan) {
+    // React-recommended "adjust state during render" pattern (replaces the
+    // previous useEffect + setState, which triggered the
+    // react-hooks/set-state-in-effect warning). React re-renders synchronously
+    // with the new state — no cascading render from an effect.
+    setPrevBasePlan(basePlan);
+    setManualSwaps({});
+  }
+
+  const customPlan: DayPlan[] = useMemo(() => {
+    if (Object.keys(manualSwaps).length === 0) return basePlan;
+    return basePlan.map((day, dayIndex) => ({
+      ...day,
+      meals: day.meals.map((m, mealIndex) => {
+        const swap = manualSwaps[`${dayIndex}-${mealIndex}`];
+        return swap ? { ...m, meal: swap } : m;
+      }),
+    }));
+  }, [basePlan, manualSwaps]);
 
   // Handle single meal swap
   const executeMealSwap = (replacementMeal: MealProduct) => {
     if (swapTarget === null) return;
     const { dayIndex, mealIndex } = swapTarget;
 
-    setCustomPlan((prev) => {
-      const updated = [...prev];
-      updated[dayIndex] = {
-        ...updated[dayIndex],
-        meals: updated[dayIndex].meals.map((m, idx) =>
-          idx === mealIndex ? { ...m, meal: replacementMeal } : m,
-        ),
-      };
-      return updated;
-    });
+    setManualSwaps((prev) => ({
+      ...prev,
+      [`${dayIndex}-${mealIndex}`]: replacementMeal,
+    }));
     setSwapTarget(null);
   };
 
@@ -190,13 +185,8 @@ export default function MealOrderingTab({
     (sum, d) => sum + d.meals.reduce((s, m) => s + m.meal.calories, 0),
     0,
   );
-  const totalPlanProtein = customPlan.reduce(
-    (sum, d) => sum + d.meals.reduce((s, m) => s + m.meal.protein, 0),
-    0,
-  );
 
   const avgDailyCalories = Math.round(totalPlanCalories / numDays) || 0;
-  const avgDailyProtein = Math.round(totalPlanProtein / numDays) || 0;
 
   // Pricing calculations
   const basePricePerMeal = 13.49; // Flat plan optimized price
@@ -406,7 +396,7 @@ export default function MealOrderingTab({
           <span>Daily Menu Timeline</span>
           <button
             type="button"
-            onClick={generatePlanSuggestions}
+            onClick={() => setManualSwaps({})}
             className="flex items-center gap-1 text-[9px] hover:text-[#E63946] transition-all font-mono normal-case"
           >
             <RefreshCw className="w-3 h-3" /> Auto-Shuffle

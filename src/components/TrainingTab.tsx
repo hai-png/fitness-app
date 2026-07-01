@@ -3,12 +3,9 @@ import { WorkoutPlan, WeeklyScheduleDay, WorkoutLog, Exercise } from "../engine"
 import { toast } from "./Toast";
 import { Modal } from "./Modal";
 import {
-  Calendar,
   Flame,
-  Clock,
   CheckCircle2,
   Play,
-  HelpCircle,
   ChevronDown,
   ChevronUp,
   Award,
@@ -22,14 +19,12 @@ import {
   Video,
   TrendingUp,
   Check,
-  RotateCcw,
   BookOpen,
 } from "lucide-react";
 import {
   EXERCISE_DATABASE,
   SPLIT_TEMPLATES,
   DURATION_PROGRAMS,
-  ExerciseDBItem,
   ProgramPreset,
 } from "../data/workoutTemplates";
 
@@ -71,7 +66,13 @@ export default function TrainingTab({
   const [builderDifficulty, setBuilderDifficulty] = useState<string>("Intermediate");
   const [selectedBuilderDayIndex, setSelectedBuilderDayIndex] = useState<number>(0);
   const [selectedDBCategory, setSelectedDBCategory] = useState<string>("Chest");
-  const [selectedDBExerciseName, setSelectedDBExerciseName] = useState<string>("");
+  // Lazy initializer: compute the default exercise name for "Chest" on mount.
+  // The original useEffect+setState ran on mount and set this; the lazy
+  // initializer preserves that behavior without triggering set-state-in-effect.
+  const [selectedDBExerciseName, setSelectedDBExerciseName] = useState<string>(() => {
+    const filtered = EXERCISE_DATABASE.filter((e) => e.targetMuscle.toLowerCase() === "chest");
+    return filtered.length > 0 ? filtered[0].name : "";
+  });
 
   const selectedDay: WeeklyScheduleDay =
     workoutPlan.weeklySchedule[selectedDayIndex] || workoutPlan.weeklySchedule[0];
@@ -81,8 +82,16 @@ export default function TrainingTab({
   const currentWeekNum = workoutPlan.currentWeek || 1;
   const goalType = workoutPlan.goalType || "muscle-gain";
 
-  // Synchronize builder local state when split builder opens
-  useEffect(() => {
+  // Synchronize builder local state when split builder opens.
+  // Replaces the previous useEffect+setState (which triggered
+  // react-hooks/set-state-in-effect) with the React-recommended
+  // "adjust state during render" pattern: track the previous value of
+  // isSplitBuilderOpen, and when it changes, reset the derived builder state.
+  // React re-renders synchronously with the new state — no cascading render
+  // from an effect.
+  const [prevIsSplitBuilderOpen, setPrevIsSplitBuilderOpen] = useState(isSplitBuilderOpen);
+  if (isSplitBuilderOpen !== prevIsSplitBuilderOpen) {
+    setPrevIsSplitBuilderOpen(isSplitBuilderOpen);
     if (isSplitBuilderOpen) {
       setBuilderSchedule(structuredClone(workoutPlan.weeklySchedule));
       setBuilderTitle(workoutPlan.title);
@@ -90,56 +99,69 @@ export default function TrainingTab({
       setBuilderDifficulty(workoutPlan.difficulty);
       setSelectedBuilderDayIndex(0);
     }
-  }, [isSplitBuilderOpen, workoutPlan]);
+  }
 
-  // Set default exercise in builder category dropdown
-  useEffect(() => {
+  // Helper: the first EXERCISE_DATABASE entry whose target muscle matches the
+  // given category (used to default the builder's exercise-name dropdown).
+  const defaultDBExerciseNameForCategory = (category: string): string => {
     const filtered = EXERCISE_DATABASE.filter(
       (e) =>
-        e.targetMuscle.toLowerCase() === selectedDBCategory.toLowerCase() ||
-        (selectedDBCategory === "Core" &&
+        e.targetMuscle.toLowerCase() === category.toLowerCase() ||
+        (category === "Core" &&
           ["Core", "Lower Abs", "Obliques"].includes(e.targetMuscle)) ||
-        (selectedDBCategory === "Back" &&
+        (category === "Back" &&
           ["Lats", "Mid Back", "Upper Back", "Lower Back"].includes(e.targetMuscle)) ||
-        (selectedDBCategory === "Legs" &&
+        (category === "Legs" &&
           ["Quads", "Hamstrings", "Glutes"].includes(e.targetMuscle)),
     );
-    if (filtered.length > 0) {
-      setSelectedDBExerciseName(filtered[0].name);
-    } else {
-      setSelectedDBExerciseName("");
-    }
-  }, [selectedDBCategory]);
+    return filtered.length > 0 ? filtered[0].name : "";
+  };
 
-  // Reset completion state when day changes
-  useEffect(() => {
+  // Set default exercise in builder category dropdown. Same "adjust state
+  // during render" pattern as above — the previous useEffect+setState was
+  // flagged by react-hooks/set-state-in-effect. The useState initializer
+  // covers the original effect's mount-time behavior (which set the default
+  // exercise name on initial render).
+  const [prevSelectedDBCategory, setPrevSelectedDBCategory] = useState(selectedDBCategory);
+  if (selectedDBCategory !== prevSelectedDBCategory) {
+    setPrevSelectedDBCategory(selectedDBCategory);
+    setSelectedDBExerciseName(defaultDBExerciseNameForCategory(selectedDBCategory));
+  }
+
+  // Reset completion state when day changes. Same pattern. (Initial state
+  // already matches the reset values, so no initializer is needed.)
+  const [prevSelectedDayIndex, setPrevSelectedDayIndex] = useState(selectedDayIndex);
+  if (selectedDayIndex !== prevSelectedDayIndex) {
+    setPrevSelectedDayIndex(selectedDayIndex);
     setCompletedExercises({});
     setIsWorkoutActive(false);
     setTimerActive(false);
     setTimerSeconds(0);
-  }, [selectedDayIndex]);
+  }
 
-  // Handle rest timer countdown
+  // Handle rest timer countdown. The auto-stop condition (timerSeconds === 0
+  // → setTimerActive(false)) used to live in an else-if branch of this effect,
+  // which triggered react-hooks/set-state-in-effect. Removed: the JSX uses
+  // `timerSeconds > 0` for display (so it hides correctly when the timer
+  // reaches 0), and the interval self-clears via the effect cleanup when
+  // timerSeconds transitions to 0 (the early-return guard then prevents a
+  // new interval from starting). `timerActive` staying `true` after auto-stop
+  // is harmless — it's only read inside this effect, and startRestTimer()
+  // resets both states when a new timer is started.
   useEffect(() => {
-    let interval: any = null;
-    if (timerActive && timerSeconds > 0) {
-      interval = setInterval(() => {
-        setTimerSeconds((prev) => prev - 1);
-      }, 1000);
-    } else if (timerSeconds === 0) {
-      setTimerActive(false);
-    }
+    if (!timerActive || timerSeconds <= 0) return;
+    const interval: ReturnType<typeof setInterval> = setInterval(() => {
+      setTimerSeconds((prev) => Math.max(0, prev - 1));
+    }, 1000);
     return () => clearInterval(interval);
   }, [timerActive, timerSeconds]);
 
   // Loop simulation for mock video tutorial player
   useEffect(() => {
-    let interval: any = null;
-    if (activeTutorialExercise && isVideoPlaying) {
-      interval = setInterval(() => {
-        setVideoProgress((prev) => (prev >= 100 ? 0 : prev + 4));
-      }, 350);
-    }
+    if (!activeTutorialExercise || !isVideoPlaying) return;
+    const interval: ReturnType<typeof setInterval> = setInterval(() => {
+      setVideoProgress((prev) => (prev >= 100 ? 0 : prev + 4));
+    }, 350);
     return () => clearInterval(interval);
   }, [activeTutorialExercise, isVideoPlaying]);
 
@@ -234,7 +256,7 @@ export default function TrainingTab({
     setSelectedBuilderDayIndex(Math.max(0, dayIdx - 1));
   };
 
-  const handleBuilderUpdateDayField = (field: keyof WeeklyScheduleDay, val: any) => {
+  const handleBuilderUpdateDayField = (field: keyof WeeklyScheduleDay, val: string | number) => {
     const next = [...builderSchedule];
     next[selectedBuilderDayIndex] = {
       ...next[selectedBuilderDayIndex],
@@ -272,7 +294,7 @@ export default function TrainingTab({
     setBuilderSchedule(next);
   };
 
-  const handleBuilderUpdateExerciseField = (exIdx: number, field: keyof Exercise, val: any) => {
+  const handleBuilderUpdateExerciseField = (exIdx: number, field: keyof Exercise, val: string | number) => {
     const next = [...builderSchedule];
     next[selectedBuilderDayIndex].exercises[exIdx] = {
       ...next[selectedBuilderDayIndex].exercises[exIdx],
@@ -657,9 +679,10 @@ export default function TrainingTab({
           </p>
 
           {DURATION_PROGRAMS.map((prog) => (
-            <div
+            <button
+              type="button"
               key={prog.id}
-              className="bg-white border border-[#1A1A1A]/10 p-4 relative overflow-hidden group hover:border-[#1A1A1A]/30 transition-all cursor-pointer"
+              className="bg-white border border-[#1A1A1A]/10 p-4 relative overflow-hidden group hover:border-[#1A1A1A]/30 transition-all cursor-pointer w-full text-left block"
               onClick={() => handleApplyPresetProgram(prog)}
             >
               <div className="absolute right-3 top-3 bg-[#E63946] text-white text-[8px] font-bold px-2 py-0.5 uppercase tracking-widest font-mono">
@@ -683,7 +706,7 @@ export default function TrainingTab({
                   Apply Program →
                 </span>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </Modal>

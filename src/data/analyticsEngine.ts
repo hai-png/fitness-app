@@ -1,4 +1,4 @@
-import { EXERCISE_DATABASE } from "./workoutTemplates";
+// (EXERCISE_DATABASE import removed — no longer used by this module.)
 
 export interface SetLog {
   id: string;
@@ -70,12 +70,11 @@ export function calculateCoreMetrics(logs: ExerciseLog[], multiplierSecondary: n
   };
 }
 
-// Compare current vs previous periods (Rolling Windows)
-export function calculateRollingTrends(
-  logs: ExerciseLog[],
-  dateFilterStart?: string,
-  dateFilterEnd?: string,
-) {
+// Compare current vs previous periods (Rolling Windows).
+// NOTE: an earlier signature accepted optional `dateFilterStart` / `dateFilterEnd`
+// params for narrowing the window, but the implementation never read them and
+// no caller ever passed them — removed to clear the no-unused-vars warning.
+export function calculateRollingTrends(logs: ExerciseLog[]) {
   const today = new Date();
 
   // Helper to filter logs in days relative to today.
@@ -297,9 +296,7 @@ export function calculatePersonalRecords(logs: ExerciseLog[]): PersonalRecord[] 
     let silverWeightDate = "";
 
     let gold1RM = 0;
-    let gold1RMDate = "";
     let silver1RM = 0;
-    let silver1RMDate = "";
 
     // Chronological logs to scan for premature PRs
     const sorted = [...exLogs].sort(
@@ -323,15 +320,13 @@ export function calculatePersonalRecords(logs: ExerciseLog[]): PersonalRecord[] 
           silverWeightDate = sess.date;
         }
 
-        // Peak 1RM PR
+        // Peak 1RM PR (tracked but date not surfaced in current PR shape)
         const estimated1RM = calculateEpley1RM(set.weight, set.reps);
         if (estimated1RM > gold1RM) {
           gold1RM = estimated1RM;
-          gold1RMDate = sess.date;
         }
         if (isRecent && estimated1RM > silver1RM) {
           silver1RM = estimated1RM;
-          silver1RMDate = sess.date;
         }
       });
     });
@@ -454,12 +449,13 @@ export function calculateMuscleVolumesAndScores(
     const totalSets = muscleSets[muscle] || 0;
     const weeklySets = Math.round((totalSets / 4) * 10) / 10; // average weekly sets
     const totalVol = muscleWeeklyVolumes[muscle] || 0;
-    const weeklyVol = totalVol / 4;
     const balancePct = totalVolumeAll > 0 ? Math.round((totalVol / totalVolumeAll) * 100) : 0;
 
-    // Categorize Zone
-    let zone: MuscleVolumeZone["zone"] = "Active Recovery";
-    let colorClass = "bg-emerald-100 text-emerald-800 border-emerald-200";
+    // Categorize Zone (every branch below assigns both zone and colorClass,
+    // so they are declared without an initial value to avoid a dead
+    // initial assignment.)
+    let zone: MuscleVolumeZone["zone"];
+    let colorClass: string;
 
     const mvCut = 5 + thresholdOffset * 0.5;
     const mevCut = 9 + thresholdOffset;

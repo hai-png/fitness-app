@@ -486,7 +486,11 @@ async function startServer() {
         },
       }),
     );
-    app.get("*", (_req, res) => {
+    // S-10: Express 5 migration — the `app.get("*", ...)` wildcard is no
+    // longer valid in Express 5 (path-to-regexp v8 requires named wildcards
+    // like `*splat`). Use a catch-all middleware instead, which is cleaner
+    // and handles all HTTP methods (GET, POST, etc.) for the SPA fallback.
+    app.use((_req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }

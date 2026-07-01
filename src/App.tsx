@@ -1,5 +1,11 @@
 import { useState, useEffect, useCallback, memo, lazy, Suspense, type ReactNode } from "react";
-import Onboarding from "./components/Onboarding";
+
+// A-31 fix: lazy-load Onboarding too. It's 1,166+ LOC and imports `motion`
+// (97 kB) — both land in the initial bundle for every visitor even though
+// onboarding is only shown once. Lazy-loading moves them to a separate chunk
+// that only loads for new users. Returning users (who have onboardingInput +
+// workoutPlan persisted) never download it.
+const Onboarding = lazy(() => import("./components/Onboarding"));
 
 // F-C4 fix: wrap lazy-loaded tabs in memo so they don't re-render when App
 // re-renders for unrelated reasons (e.g. activeTab change). Combined with
@@ -190,7 +196,16 @@ export default function App() {
 
         <div className="flex-grow overflow-hidden relative pb-16">
           {!onboardingInput || !workoutPlan ? (
-            <Onboarding onComplete={handleOnboardingComplete} />
+            // A-31: Onboarding is now lazy-loaded — wrap in Suspense.
+            <Suspense
+              fallback={
+                <div className="flex items-center justify-center h-full text-[#1A1A1A]/40 text-xs font-mono uppercase tracking-widest animate-pulse">
+                  Loading…
+                </div>
+              }
+            >
+              <Onboarding onComplete={handleOnboardingComplete} />
+            </Suspense>
           ) : (
             <Suspense
               fallback={

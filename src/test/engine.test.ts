@@ -1755,14 +1755,9 @@ describe("E-28 / recommendAdjustment eligible paths", () => {
     expect(result!.delta_kcal).toBeLessThan(0);
   });
 
-  it("cut eligible: losing weight on target (|rate| ≈ target) → small delta", () => {
-    // Note: the engine's cutAdjustmentDeltaKcal uses (actual - target) * 500
-    // where actual is the regression slope (negative for loss) and target is
-    // positive. This means the delta is always large-negative for a cut.
-    // The |delta| < 50 "on target" path is effectively unreachable with the
-    // current sign convention — that's a separate engine bug. Here we just
-    // verify the eligible path returns a non-null result with a negative
-    // delta (reduce calories) when losing weight.
+  it("cut on-target: |rate| ≈ target → delta ≈ 0 (sign-convention fix)", () => {
+    // After the cutAdjustmentDeltaKcal sign-convention fix, |actual| is
+    // compared to target. Losing at ~0.99 lb/week with target 0.99 → delta ≈ 0.
     const plan = makePlan({
       phase: "cut",
       next_adjustment_eligible_date: "2025-01-01",
@@ -1780,8 +1775,8 @@ describe("E-28 / recommendAdjustment eligible paths", () => {
     });
     expect(result).not.toBeNull();
     expect(result!.eligible).toBe(true);
-    // The delta is negative (reduce calories) for a cut.
-    expect(result!.delta_kcal).toBeLessThan(0);
+    // On target → delta should be 0 (within the 50-kcal threshold).
+    expect(Math.abs(result!.delta_kcal)).toBeLessThan(50);
   });
 
   it("bulk eligible: gaining too slowly → positive delta (add calories)", () => {

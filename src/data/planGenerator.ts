@@ -1,4 +1,4 @@
-import type { OnboardingInput, WorkoutPlan, MealSuggestion } from "../engine";
+import type { OnboardingInput, WorkoutPlan, MealSuggestion, Exercise } from "../engine";
 
 /**
  * Generate a workout plan from onboarding input.
@@ -7,12 +7,14 @@ import type { OnboardingInput, WorkoutPlan, MealSuggestion } from "../engine";
  * (runAssessment + buildNutritionPlan) via the useEngine hook.
  */
 export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
-  const { name, goal, workoutPreference, dietType, frequency } = input;
-  // Decide difficulty and description based on goal
-  let title = "";
-  let description = "";
-  let difficulty = "Intermediate";
-  let tips: string[] = [];
+  const { name, goal, workoutPreference, frequency } = input;
+  // Decide difficulty and description based on goal. Every branch of the
+  // if/else-if chain below assigns all four variables, so they are declared
+  // without an initial value to avoid dead initial assignments.
+  let title: string;
+  let description: string;
+  let difficulty: string;
+  let tips: string[];
 
   if (goal === "weight-loss") {
     title = `Fat Shred & Cardio Burn for ${name}`;
@@ -63,7 +65,10 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
 
   // Generate weekly workouts based on frequency preference
   const scheduleDays = [];
-  const exercisePoolGym = {
+  // Annotated as Record<string, Exercise[]> so that the machine-swap maps
+  // below (which widen `ex` to Exercise) can assign their results back to
+  // the pool arrays without requiring `any` or a cast.
+  const exercisePoolGym: Record<string, Exercise[]> = {
     chest: [
       {
         name: "Incline Dumbbell Press",
@@ -350,7 +355,7 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
     ],
   };
 
-  const exercisePoolHome = {
+  const exercisePoolHome: Record<string, Exercise[]> = {
     chest: [
       {
         name: "Standard Push-Ups",
@@ -650,7 +655,7 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
 
     // 1. Lat Pulldown Machine
     if (!machines.includes("Lat Pulldown")) {
-      pool.back = pool.back.map((ex: any) =>
+      pool.back = pool.back.map((ex: Exercise) =>
         ex.name.includes("Lat Pulldown")
           ? {
               name: "Dumbbell Pull-Over",
@@ -674,7 +679,7 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
 
     // 2. Cable Crossover
     if (!machines.includes("Cable Crossover")) {
-      pool.chest = pool.chest.map((ex: any) =>
+      pool.chest = pool.chest.map((ex: Exercise) =>
         ex.name.includes("Cable Chest")
           ? {
               name: "Flat Dumbbell Flys",
@@ -693,7 +698,7 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
             }
           : ex,
       );
-      pool.arms = pool.arms.map((ex: any) =>
+      pool.arms = pool.arms.map((ex: Exercise) =>
         ex.name.includes("Cable")
           ? {
               name: "Dumbbell Overhead Tricep Extension",
@@ -717,7 +722,7 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
 
     // 3. Leg Extension Machine
     if (!machines.includes("Leg Extension Machine")) {
-      pool.legs = pool.legs.map((ex: any) =>
+      pool.legs = pool.legs.map((ex: Exercise) =>
         ex.name.includes("Leg Extensions")
           ? {
               name: "Dumbbell Goblet Squats",
