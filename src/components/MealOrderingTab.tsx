@@ -1,8 +1,6 @@
 import React, { useState, useMemo, useCallback } from "react";
-import { MEAL_PRODUCTS } from "../data/meals";
 import type {
   OnboardingInput,
-  MealProduct,
   CartItem,
   Order,
   NutritionPlan,
@@ -10,7 +8,8 @@ import type {
 import { toast } from "./Toast";
 import { useSafeTimeout } from "../hooks/useSafeTimeout";
 import { Modal } from "./Modal";
-import { findSwapAlternatives, computeMealTargets } from "../engine/mealSwap";
+import { findSwapAlternatives, computeMealTargets, mapDietToRecipeTypes, recipeContainsAllergen } from "../engine/mealSwap";
+import { RECIPES, type Recipe } from "../data/recipeDatabase";
 import {
   ShoppingBag,
   AlertTriangle,
@@ -41,29 +40,21 @@ export interface DayPlan {
   dayNumber: number;
   meals: {
     slot: MealSlot;
-    meal: MealProduct;
+    recipe: Recipe;
   }[];
 }
 
 /**
  * Pure plan generator — builds a DayPlan[] by cycling through the eligible
- * meals in a balanced rotation. Pure (no React, no side effects) so it can
- * be unit-tested or run outside the component if needed.
- *
- * The meal index uses `(d * 5 + slotIdx * 3) % eligible.length` so consecutive
- * days pick different starting meals and consecutive slots within a day also
- * shift — yielding visible variety even with a small eligible pool.
- *
- * @param numDays       Number of delivery days (1..N).
- * @param mealsPerDay   2 (Lunch + Dinner) or 3 (Breakfast + Lunch + Dinner).
- * @param eligibleMeals Meals already filtered by diet + allergies.
+ * recipes in a balanced rotation. Uses macro-matched recipes from the
+ * curated 17-recipe database.
  */
 export function generatePlan(
   numDays: number,
   mealsPerDay: number,
-  eligibleMeals: MealProduct[],
+  eligibleRecipes: Recipe[],
 ): DayPlan[] {
-  if (eligibleMeals.length === 0) return [];
+  if (eligibleRecipes.length === 0) return [];
 
   const slots: MealSlot[] =
     mealsPerDay === 3 ? ["Breakfast", "Lunch", "Dinner"] : ["Lunch", "Dinner"];
@@ -71,8 +62,12 @@ export function generatePlan(
   const list: DayPlan[] = [];
   for (let d = 1; d <= numDays; d++) {
     const dayMeals: DayPlan["meals"] = slots.map((slot, slotIdx) => {
-      const idx = (d * 5 + slotIdx * 3) % eligibleMeals.length;
-      return { slot, meal: eligibleMeals[idx] };
+      // Filter eligible recipes by meal type
+      const mealType = slot.toLowerCase() as "breakfast" | "lunch" | "dinner";
+      const slotEligible = eligibleRecipes.filter((r) => r.mealTypes.includes(mealType));
+      const pool = slotEligible.length > 0 ? slotEligible : eligibleRecipes;
+      const idx = (d * 5 + slotIdx * 3) % pool.length;
+      return { slot, recipe: pool[idx] };
     });
     list.push({ dayNumber: d, meals: dayMeals });
   }
@@ -108,87 +103,35 @@ export default function MealOrderingTab({
   const targetCalories =
     nutritionPlan?.target_calories_kcal || Math.round(assessment.weight * 26);
 
-  // Filter products by dietary restriction and allergy. Inlined into the
-  // `eligibleMeals` useMemo below so the dep array is exhaustive without
-  // needing a separate `getEligibleMeals` function (which would otherwise
-  // have to be wrapped in useCallback to satisfy exhaustive-deps).
-  const eligibleMeals = useMemo((): MealProduct[] => {
-    let filtered = MEAL_PRODUCTS.filter((meal) => {
-      // Diet preference alignment
-      const diet = assessment.dietType;
-      if (diet === "vegan") {
-        return meal.category === "vegan";
-      } else if (diet === "vegetarian") {
-        return meal.category === "vegetarian" || meal.category === "vegan";
-      } else if (diet === "keto") {
-        return meal.category === "keto" || meal.category === "low-carb";
-      } else if (diet === "low-carb") {
-        return meal.category === "low-carb" || meal.category === "keto";
-      }
-      return true; // anything, mediterranean, gluten-free
+  // Filter recipes by diet + allergies using the swap engine's filter functions
+  const eligibleRecipes = useMemo((): Recipe[] => {
+    const allowedDietTypes = mapDietToRecipeTypes(assessment.dietType);
+    const filtered = RECIPES.filter((r) => {
+      // Diet compatibility
+      if (!r.dietTypes.some((d) => allowedDietTypes.includes(d))) return false;
+      // Allergy safety
+      if (recipeContainsAllergen(r, assessment.allergies)) return false;
+      return true;
     });
-
-    // Allergy strict filters
-    if (assessment.allergies && filtered.length > 0) {
-      const allergyList = assessment.allergies
-        .toLowerCase()
-        .split(",")
-        .map((a) => a.trim())
-        .filter(Boolean);
-      const safe = filtered.filter((meal) => {
-        return !allergyList.some(
-          (allergen) =>
-            meal.name.toLowerCase().includes(allergen) ||
-            meal.description.toLowerCase().includes(allergen),
-        );
-      });
-      // Avoid failing if ALL meals are filtered out due to overlapping labels
-      if (safe.length > 0) {
-        filtered = safe;
-      }
-    }
-
-    // Fallback if list ends up completely empty
-    if (filtered.length === 0) {
-      return MEAL_PRODUCTS;
-    }
+    // Fallback if list ends up empty
+    if (filtered.length === 0) return RECIPES;
     return filtered;
-    // F-H3 fix: include assessment.allergies so eligibleMeals recomputes when
-    // allergies change. Previously this was an un-memoized call that ran every
-    // render, and the plan-generation effect didn't depend on it — so changing
-    // allergies mid-flow would keep suggesting meals containing the new allergen.
   }, [assessment.dietType, assessment.allergies]);
 
-  // mealPlan IS the single source of truth for the plan. Swaps mutate it
-  // directly via handleSwap; handleRegenerate replaces it wholesale. There is
-  // no separate `manualSwaps` map layered on top of a base plan — the previous
-  // `basePlan` + `manualSwaps` + `customPlan` triple-state pattern was tangled
-  // and made it easy for the three to drift out of sync.
-  //
-  // The plan is regenerated when the structural inputs change (numDays,
-  // mealsPerDay, or eligibleMeals identity). We use the React-recommended
-  // "adjust state during render" pattern (compare to a previous-renders
-  // snapshot, then call setState during render) instead of useEffect +
-  // setState, which would trip the react-hooks/set-state-in-effect rule.
-  // React re-renders synchronously with the new state — no cascading render
-  // from an effect. See:
-  // https://react.dev/reference/react/useState#storing-information-from-previous-renders
   const regenKey = `${numDays}|${mealsPerDay}`;
   const [mealPlan, setMealPlan] = useState<DayPlan[]>(() =>
-    generatePlan(numDays, mealsPerDay, eligibleMeals),
+    generatePlan(numDays, mealsPerDay, eligibleRecipes),
   );
   const [prevRegenKey, setPrevRegenKey] = useState(regenKey);
-  const [prevEligible, setPrevEligible] = useState(eligibleMeals);
-  if (regenKey !== prevRegenKey || eligibleMeals !== prevEligible) {
+  const [prevEligible, setPrevEligible] = useState(eligibleRecipes);
+  if (regenKey !== prevRegenKey || eligibleRecipes !== prevEligible) {
     setPrevRegenKey(regenKey);
-    setPrevEligible(eligibleMeals);
-    setMealPlan(generatePlan(numDays, mealsPerDay, eligibleMeals));
+    setPrevEligible(eligibleRecipes);
+    setMealPlan(generatePlan(numDays, mealsPerDay, eligibleRecipes));
   }
 
-  // handleSwap — directly updates the mealPlan state at the target position.
-  // No separate swaps map; mealPlan is the single source of truth.
   const handleSwap = useCallback(
-    (dayIndex: number, mealIndex: number, newMeal: MealProduct) => {
+    (dayIndex: number, mealIndex: number, newRecipe: Recipe) => {
       setMealPlan((prev) =>
         prev.map((day, dIdx) =>
           dIdx !== dayIndex
@@ -196,7 +139,7 @@ export default function MealOrderingTab({
             : {
                 ...day,
                 meals: day.meals.map((slot, mIdx) =>
-                  mIdx !== mealIndex ? slot : { ...slot, meal: newMeal },
+                  mIdx !== mealIndex ? slot : { ...slot, recipe: newRecipe },
                 ),
               },
         ),
@@ -206,18 +149,13 @@ export default function MealOrderingTab({
     [],
   );
 
-  // handleRegenerate — re-runs generatePlan to get a fresh plan, clearing any
-  // manual swaps the user made. (Cycling is deterministic given the same
-  // inputs, so this is effectively a "reset to baseline" today; a future
-  // revision could seed it with randomness if true shuffle is desired.)
   const handleRegenerate = useCallback(() => {
-    setMealPlan(generatePlan(numDays, mealsPerDay, eligibleMeals));
-  }, [numDays, mealsPerDay, eligibleMeals]);
+    setMealPlan(generatePlan(numDays, mealsPerDay, eligibleRecipes));
+  }, [numDays, mealsPerDay, eligibleRecipes]);
 
-  // Nutrition plan totals calculations
   const totalMealsCount = mealPlan.reduce((sum, d) => sum + d.meals.length, 0);
   const totalPlanCalories = mealPlan.reduce(
-    (sum, d) => sum + d.meals.reduce((s, m) => s + m.meal.calories, 0),
+    (sum, d) => sum + d.meals.reduce((s, m) => s + m.recipe.nutrition.kcal, 0),
     0,
   );
 
@@ -263,7 +201,7 @@ export default function MealOrderingTab({
         name: `${numDays}-Day Delivered Meal Plan (${totalMealsCount} preps - ${assessment.dietType.toUpperCase()})`,
         price: finalPlanPrice,
         image:
-          mealPlan[0]?.meals[0]?.meal?.image ||
+          mealPlan[0]?.meals[0]?.recipe?.imageUrl ||
           "https://images.unsplash.com/photo-1544025162-d76694265947?w=500&auto=format&fit=crop&q=80",
         quantity: 1,
         type: "meal",
@@ -441,8 +379,8 @@ export default function MealOrderingTab({
 
         {mealPlan.map((dayPlan, dayIdx) => {
           const isExpanded = expandedDay === dayPlan.dayNumber;
-          const dayCals = dayPlan.meals.reduce((sum, m) => sum + m.meal.calories, 0);
-          const dayPro = dayPlan.meals.reduce((sum, m) => sum + m.meal.protein, 0);
+          const dayCals = dayPlan.meals.reduce((sum, m) => sum + m.recipe.nutrition.kcal, 0);
+          const dayPro = dayPlan.meals.reduce((sum, m) => sum + m.recipe.nutrition.proteinG, 0);
 
           return (
             <div
@@ -477,15 +415,15 @@ export default function MealOrderingTab({
                 <div className="p-3.5 space-y-3 bg-[#F9F8F6]/40">
                   {dayPlan.meals.map((slotMeal, mIdx) => (
                     <div
-                      key={`meal-${dayPlan.dayNumber}-${slotMeal.slot}-${slotMeal.meal.id}`}
+                      key={`meal-${dayPlan.dayNumber}-${slotMeal.slot}-${slotMeal.recipe.id}`}
                       className="bg-white border border-[#1A1A1A]/10 rounded-none p-3 flex gap-3 shadow-sm"
                     >
                       {/* Thumbnail Image */}
                       <img
                         loading="lazy"
                         referrerPolicy="no-referrer"
-                        src={slotMeal.meal.image}
-                        alt={slotMeal.meal.name}
+                        src={slotMeal.recipe.imageUrl}
+                        alt={slotMeal.recipe.name}
                         className="w-14 h-14 object-cover flex-shrink-0"
                       />
 
@@ -496,19 +434,19 @@ export default function MealOrderingTab({
                             {slotMeal.slot}
                           </span>
                           <span className="text-[10px] font-bold text-[#1A1A1A]/60 font-mono">
-                            ${slotMeal.meal.price}
+                            ${basePricePerMeal}
                           </span>
                         </div>
                         <h5 className="text-xs font-bold uppercase tracking-tight text-[#1A1A1A] truncate">
-                          {slotMeal.meal.name}
+                          {slotMeal.recipe.name}
                         </h5>
                         <p className="text-[10px] text-[#1A1A1A]/50 font-serif italic line-clamp-1">
-                          {slotMeal.meal.description}
+                          {slotMeal.recipe.cuisine}
                         </p>
                         <div className="flex gap-2.5 mt-1 text-[9px] font-mono text-[#1A1A1A]/60">
-                          <span>{slotMeal.meal.calories} kcal</span>
-                          <span>{slotMeal.meal.protein}g Pro</span>
-                          <span>{slotMeal.meal.carbs}g Carb</span>
+                          <span>{Math.round(slotMeal.recipe.nutrition.kcal)} kcal</span>
+                          <span>{Math.round(slotMeal.recipe.nutrition.proteinG)}g Pro</span>
+                          <span>{Math.round(slotMeal.recipe.nutrition.carbG)}g Carb</span>
                         </div>
                       </div>
 
@@ -591,20 +529,20 @@ export default function MealOrderingTab({
       >
         <div className="p-3 space-y-2.5 max-h-[70vh] overflow-y-auto">
           <p className="text-[9px] text-[#1A1A1A]/50 font-mono uppercase">
-            Diet Compliant Options ({eligibleMeals.length})
+            Eligible Meals ({eligibleRecipes.length})
           </p>
-          {eligibleMeals.map((meal) => {
+          {eligibleRecipes.map((recipe) => {
             const isCurrentlySelected =
-              mealPlan[swapTarget?.dayIndex ?? -1]?.meals[swapTarget?.mealIndex ?? -1]?.meal.id === meal.id;
+              mealPlan[swapTarget?.dayIndex ?? -1]?.meals[swapTarget?.mealIndex ?? -1]?.recipe.id === recipe.id;
 
             return (
               <button
-                key={meal.id}
+                key={recipe.id}
                 type="button"
-                id={`btn-select-swap-meal-${meal.id}`}
+                id={`btn-select-swap-meal-${recipe.id}`}
                 onClick={() => {
                   if (swapTarget) {
-                    handleSwap(swapTarget.dayIndex, swapTarget.mealIndex, meal);
+                    handleSwap(swapTarget.dayIndex, swapTarget.mealIndex, recipe);
                   }
                 }}
                 className={`w-full text-left p-2.5 border transition-all flex gap-3 ${
@@ -616,14 +554,14 @@ export default function MealOrderingTab({
                 <img
                   loading="lazy"
                   referrerPolicy="no-referrer"
-                  src={meal.image}
-                  alt={meal.name}
+                  src={recipe.imageUrl}
+                  alt={recipe.name}
                   className="w-12 h-12 object-cover flex-shrink-0"
                 />
                 <div className="flex-grow min-w-0">
                   <div className="flex justify-between items-start">
                     <h5 className="text-xs font-bold uppercase tracking-tight text-[#1A1A1A] truncate">
-                      {meal.name}
+                      {recipe.name}
                     </h5>
                     {isCurrentlySelected && (
                       <span className="text-[#E63946] text-[8px] font-bold uppercase tracking-wider flex items-center gap-0.5">
@@ -632,20 +570,20 @@ export default function MealOrderingTab({
                     )}
                   </div>
                   <p className="text-[10px] text-[#1A1A1A]/50 font-serif italic truncate">
-                    {meal.description}
+                    {recipe.cuisine} cuisine · {recipe.prepTimeMin + recipe.cookTimeMin}min
                   </p>
                   <div className="flex gap-2.5 mt-0.5 text-[9px] font-mono text-[#1A1A1A]/60">
-                    <span>{meal.calories} kcal</span>
-                    <span>{meal.protein}g Pro</span>
-                    <span>${meal.price}</span>
+                    <span>{Math.round(recipe.nutrition.kcal)} kcal</span>
+                    <span>{Math.round(recipe.nutrition.proteinG)}g Pro</span>
+                    <span>${basePricePerMeal}</span>
                   </div>
                 </div>
               </button>
             );
           })}
 
-          {/* Recipe alternatives from the 305-recipe database — matched by
-              diet, allergies, cuisine preference, and macro targets. */}
+          {/* Additional recipe alternatives from the swap engine — matched by
+              macro proximity + cuisine preference. */}
           {(() => {
             if (!swapTarget || !nutritionPlan) return null;
             const slot = mealPlan[swapTarget.dayIndex]?.meals[swapTarget.mealIndex];
@@ -675,19 +613,7 @@ export default function MealOrderingTab({
                     type="button"
                     onClick={() => {
                       if (swapTarget) {
-                        const recipeMeal: MealProduct = {
-                          id: `recipe-${recipe.id}`,
-                          name: recipe.name,
-                          description: `${recipe.cuisine} cuisine`,
-                          price: basePricePerMeal,
-                          calories: Math.round(recipe.nutrition.kcal),
-                          protein: Math.round(recipe.nutrition.proteinG),
-                          carbs: Math.round(recipe.nutrition.carbG),
-                          fat: Math.round(recipe.nutrition.fatG),
-                          image: recipe.imageUrl,
-                          category: "balanced",
-                        };
-                        handleSwap(swapTarget.dayIndex, swapTarget.mealIndex, recipeMeal);
+                        handleSwap(swapTarget.dayIndex, swapTarget.mealIndex, recipe);
                       }
                     }}
                     className="w-full text-left p-2.5 border bg-white border-[#1A1A1A]/10 hover:border-[#E63946]/30 transition-all flex gap-3"
