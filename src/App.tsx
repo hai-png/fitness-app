@@ -1,11 +1,15 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, memo, lazy, Suspense, type ReactNode } from "react";
 import Onboarding from "./components/Onboarding";
 
-const TrainingTab = lazy(() => import("./components/TrainingTab"));
-const MealOrderingTab = lazy(() => import("./components/MealOrderingTab"));
-const ProgressTab = lazy(() => import("./components/ProgressTab"));
-const MarketplaceTab = lazy(() => import("./components/MarketplaceTab"));
-const ProfileTab = lazy(() => import("./components/ProfileTab"));
+// F-C4 fix: wrap lazy-loaded tabs in memo so they don't re-render when App
+// re-renders for unrelated reasons (e.g. activeTab change). Combined with
+// useCallback handlers below, this prevents the 10s clock (now isolated in
+// <StatusBar />) and other App state changes from re-rendering the active tab.
+const TrainingTab = memo(lazy(() => import("./components/TrainingTab")));
+const MealOrderingTab = memo(lazy(() => import("./components/MealOrderingTab")));
+const ProgressTab = memo(lazy(() => import("./components/ProgressTab")));
+const MarketplaceTab = memo(lazy(() => import("./components/MarketplaceTab")));
+const ProfileTab = memo(lazy(() => import("./components/ProfileTab")));
 
 import type {
   OnboardingInput,
@@ -32,6 +36,43 @@ import { useEngine } from "./store/useEngine";
 import { ToastViewport, ConfirmViewport } from "./components/Toast";
 
 type TabId = "training" | "meals" | "progress" | "marketplace" | "profile";
+
+/**
+ * StatusBar — the phone-mockup status bar (time + signal/wifi/battery icons).
+ *
+ * F-C4 fix: the 10-second clock interval lives HERE, not in <App />, so the
+ * clock tick only re-renders this tiny component. Previously the clock was in
+ * App's local state, which re-rendered the entire tab subtree every 10s
+ * (including the 2,140-line ProgressTab's non-memoized render paths). The
+ * ARCHITECTURE.md claim that the zustand migration fixed this was false; this
+ * extraction actually fixes it.
+ */
+function StatusBar() {
+  const [timeStr, setTimeStr] = useState<string>("09:41");
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      let hours = now.getHours();
+      const mins = now.getMinutes().toString().padStart(2, "0");
+      const ampm = hours >= 12 ? "PM" : "AM";
+      hours = hours % 12 || 12;
+      setTimeStr(`${hours}:${mins} ${ampm}`);
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 10000);
+    return () => clearInterval(interval);
+  }, []);
+  return (
+    <div className="flex justify-between items-center px-6 pt-3 md:pt-4 pb-2.5 bg-[#F9F8F6] text-[#1A1A1A]/60 text-[11px] font-mono z-30 select-none flex-shrink-0 border-b border-[#1A1A1A]/5">
+      <span>{timeStr}</span>
+      <div className="flex items-center gap-1.5 text-[#1A1A1A]/70">
+        <Signal className="w-3.5 h-3.5" />
+        <Wifi className="w-3.5 h-3.5" />
+        <Battery className="w-4 h-4 text-[#1A1A1A] fill-current" />
+      </div>
+    </div>
+  );
+}
 
 export default function App() {
   const hydrated = useHydrated();
@@ -62,54 +103,60 @@ export default function App() {
   const resetCommerce = useCommerceStore((s) => s.reset);
 
   const [activeTab, setActiveTab] = useState<TabId>("training");
-  const [timeStr, setTimeStr] = useState<string>("09:41");
 
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      let hours = now.getHours();
-      const mins = now.getMinutes().toString().padStart(2, "0");
-      const ampm = hours >= 12 ? "PM" : "AM";
-      hours = hours % 12 || 12;
-      setTimeStr(`${hours}:${mins} ${ampm}`);
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 10000);
-    return () => clearInterval(interval);
-  }, []);
+  // F-C4 fix: wrap all handlers in useCallback so they have stable references
+  // across renders. This is what makes React.memo on the tab components
+  // effective — without useCallback, every App render creates new handler
+  // functions, which defeats memo. The zustand store actions in the dep
+  // arrays are stable references (zustand guarantees this), so these
+  // callbacks are effectively created once.
+  const handleOnboardingComplete = useCallback(
+    (plan: WorkoutPlan, input: OnboardingInput) => {
+      setBoth(input, plan);
+      setActiveTab("training");
+      addWeightLog(input.weight);
+    },
+    [setBoth, addWeightLog],
+  );
 
-  const handleOnboardingComplete = (plan: WorkoutPlan, input: OnboardingInput) => {
-    setBoth(input, plan);
-    setActiveTab("training");
-    addWeightLog(input.weight);
-  };
+  const handleAddWeightLog = useCallback(
+    (weight: number) => {
+      addWeightLog(weight);
+      updateWeight(weight);
+    },
+    [addWeightLog, updateWeight],
+  );
 
-  const handleAddWeightLog = (weight: number) => {
-    addWeightLog(weight);
-    updateWeight(weight);
-  };
+  const handleCheckout = useCallback(
+    (newOrder: Order) => {
+      addOrder(newOrder);
+    },
+    [addOrder],
+  );
 
-  const handleCheckout = (newOrder: Order) => {
-    addOrder(newOrder);
-  };
+  const handleUpdateWorkoutPlan = useCallback(
+    (updatedPlan: WorkoutPlan) => {
+      updateWorkoutPlan(updatedPlan);
+    },
+    [updateWorkoutPlan],
+  );
 
-  const handleUpdateWorkoutPlan = (updatedPlan: WorkoutPlan) => {
-    updateWorkoutPlan(updatedPlan);
-  };
-
-  const handleResetOnboarding = () => {
+  const handleResetOnboarding = useCallback(() => {
     resetUser();
     resetLogs();
     resetCommerce();
-  };
+  }, [resetUser, resetLogs, resetCommerce]);
 
-  const handleAddToCart = (newItem: CartItem) => addToCart(newItem);
-  const handleRemoveFromCart = (id: string) => removeFromCart(id);
-  const handleUpdateCartQty = (id: string, qty: number) => updateCartQty(id, qty);
+  const handleAddToCart = useCallback((newItem: CartItem) => addToCart(newItem), [addToCart]);
+  const handleRemoveFromCart = useCallback((id: string) => removeFromCart(id), [removeFromCart]);
+  const handleUpdateCartQty = useCallback(
+    (id: string, qty: number) => updateCartQty(id, qty),
+    [updateCartQty],
+  );
 
-  const handleAddWaterLog = (amountMl: number) => addWaterLog(amountMl);
-  const handleClearWaterLogs = () => clearTodayWaterLogs();
-  const handleLogWorkout = (log: WorkoutLog) => addWorkoutLog(log);
+  const handleAddWaterLog = useCallback((amountMl: number) => addWaterLog(amountMl), [addWaterLog]);
+  const handleClearWaterLogs = useCallback(() => clearTodayWaterLogs(), [clearTodayWaterLogs]);
+  const handleLogWorkout = useCallback((log: WorkoutLog) => addWorkoutLog(log), [addWorkoutLog]);
 
   if (!hydrated) {
     return (
@@ -121,7 +168,7 @@ export default function App() {
     );
   }
 
-  const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
+  const tabs: { id: TabId; label: string; icon: ReactNode }[] = [
     { id: "training", label: "Training", icon: <Dumbbell className="w-5 h-5" /> },
     { id: "meals", label: "Meals Prep", icon: <UtensilsCrossed className="w-5 h-5" /> },
     { id: "progress", label: "Logs", icon: <Activity className="w-5 h-5" /> },
@@ -139,14 +186,7 @@ export default function App() {
           <div className="absolute right-6 top-1.5 w-2.5 h-2.5 rounded-full bg-[#1A1A1A] border border-white/10" />
         </div>
 
-        <div className="flex justify-between items-center px-6 pt-3 md:pt-4 pb-2.5 bg-[#F9F8F6] text-[#1A1A1A]/60 text-[11px] font-mono z-30 select-none flex-shrink-0 border-b border-[#1A1A1A]/5">
-          <span>{timeStr}</span>
-          <div className="flex items-center gap-1.5 text-[#1A1A1A]/70">
-            <Signal className="w-3.5 h-3.5" />
-            <Wifi className="w-3.5 h-3.5" />
-            <Battery className="w-4 h-4 text-[#1A1A1A] fill-current" />
-          </div>
-        </div>
+        <StatusBar />
 
         <div className="flex-grow overflow-hidden relative pb-16">
           {!onboardingInput || !workoutPlan ? (

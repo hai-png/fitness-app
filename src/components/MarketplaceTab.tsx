@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { MARKETPLACE_PRODUCTS } from "../data/marketplace";
 import { MarketplaceProduct, CartItem, Order } from "../engine";
+import { useSafeTimeout } from "../hooks/useSafeTimeout";
 import {
   ShoppingBag,
   Search,
@@ -37,6 +38,11 @@ export default function MarketplaceTab({
   onUpdateCartQty,
   onCheckout,
 }: MarketplaceTabProps) {
+  // F-H4: useSafeTimeout guards all setTimeout callbacks against firing
+  // after unmount (prevents spurious order pushes if the user navigates
+  // away mid-checkout).
+  const safeTimeout = useSafeTimeout();
+
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [typedQuery, setTypedQuery] = useState<string>("");
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
@@ -90,7 +96,7 @@ export default function MarketplaceTab({
 
     setIsProcessingOrder(true);
 
-    setTimeout(() => {
+    safeTimeout(() => {
       setIsProcessingOrder(false);
       setIsOrderSuccess(true);
 
@@ -117,7 +123,7 @@ export default function MarketplaceTab({
 
       onCheckout(newOrder);
 
-      setTimeout(() => {
+      safeTimeout(() => {
         setIsOrderSuccess(false);
         setIsCheckoutOpen(false);
         setAddress("");
@@ -140,6 +146,7 @@ export default function MarketplaceTab({
 
         {/* Floating Cart Icon */}
         <button
+          aria-label="Open cart"
           id="btn-open-mkt-cart"
           onClick={() => setIsCartOpen(true)}
           className="relative bg-white border border-[#1A1A1A]/10 p-3 rounded-none hover:border-[#1A1A1A]/30 transition-all shadow-sm"
@@ -317,7 +324,10 @@ export default function MarketplaceTab({
 
       {/* Cart Drawer */}
       {isCartOpen && (
-        <div className="fixed inset-0 z-45 bg-[#1A1A1A]/70 flex items-end justify-center p-4">
+        <div className="fixed inset-0 z-40 bg-[#1A1A1A]/70 flex items-end justify-center p-4">
+          {/* F-H5 fix: z-45 is not a valid Tailwind class (default scale only
+              defines z-0/10/20/30/40/50/auto). Changed to z-40 so the drawer
+              renders below modals (z-50) but above the tab bar (z-30). */}
           <div className="bg-white border border-[#1A1A1A]/10 rounded-none max-w-sm w-full max-h-[80vh] flex flex-col justify-between overflow-hidden shadow-xl">
             <div className="p-4 border-b border-[#1A1A1A]/10 flex justify-between items-center bg-[#F9F8F6]">
               <div className="flex items-center gap-2">
@@ -361,6 +371,7 @@ export default function MarketplaceTab({
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <button
+                        aria-label="Decrease quantity"
                         id={`btn-cart-minus-mkt-${item.id}`}
                         onClick={() => onUpdateCartQty(item.id, item.quantity - 1)}
                         className="p-1 rounded-none bg-white border border-[#1A1A1A]/10 text-[#1A1A1A]"
@@ -371,6 +382,7 @@ export default function MarketplaceTab({
                         {item.quantity}
                       </span>
                       <button
+                        aria-label="Increase quantity"
                         id={`btn-cart-plus-mkt-${item.id}`}
                         onClick={() => onUpdateCartQty(item.id, item.quantity + 1)}
                         className="p-1 rounded-none bg-white border border-[#1A1A1A]/10 text-[#1A1A1A]"
@@ -378,6 +390,7 @@ export default function MarketplaceTab({
                         <Plus className="w-3 h-3" />
                       </button>
                       <button
+                        aria-label="Remove item"
                         id={`btn-cart-del-mkt-${item.id}`}
                         onClick={() => onRemoveFromCart(item.id)}
                         className="p-1 text-[#1A1A1A]/40 hover:text-[#E63946] transition-all ml-1"

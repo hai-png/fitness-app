@@ -523,6 +523,7 @@ export default function TrainingTab({
                     <div className="flex items-center gap-3">
                       {isWorkoutActive ? (
                         <button
+                          aria-label={isCompleted ? "Mark exercise incomplete" : "Mark exercise complete"}
                           id={`btn-complete-ex-${idx}`}
                           onClick={() => toggleExerciseComplete(idx, ex.restSeconds)}
                           className="text-[#1A1A1A]/40 hover:text-[#1A1A1A] transition-all"
@@ -567,6 +568,7 @@ export default function TrainingTab({
                     <div className="flex items-center gap-1">
                       {/* Video Form Tutorial play button */}
                       <button
+                        aria-label="Watch form tutorial"
                         id={`btn-ex-tutorial-${idx}`}
                         onClick={() => handleOpenTutorial(ex)}
                         title="Watch Form Tutorial"
@@ -575,6 +577,7 @@ export default function TrainingTab({
                         <Video className="w-4 h-4" />
                       </button>
                       <button
+                        aria-label={isExpanded ? "Collapse exercise" : "Expand exercise"}
                         id={`btn-expand-exercise-${idx}`}
                         onClick={() => setExpandedExerciseIndex(isExpanded ? null : idx)}
                         className="text-[#1A1A1A]/40 hover:text-[#1A1A1A] transition-all p-1"
@@ -651,6 +654,7 @@ export default function TrainingTab({
                 </h3>
               </div>
               <button
+                aria-label="Close"
                 id="btn-close-presets"
                 onClick={() => setIsProgramSelectorOpen(false)}
                 className="text-white/60 hover:text-white"
@@ -724,6 +728,7 @@ export default function TrainingTab({
                 </h3>
               </div>
               <button
+                aria-label="Close"
                 id="btn-close-tutorial"
                 onClick={() => setActiveTutorialExercise(null)}
                 className="text-white/40 hover:text-white bg-white/5 hover:bg-white/10 p-1.5 rounded-full transition-all"
@@ -775,6 +780,7 @@ export default function TrainingTab({
                 </div>
 
                 <button
+                  aria-label={tutorialMuted ? "Unmute" : "Mute"}
                   id="btn-toggle-mute"
                   onClick={() => setTutorialMuted(!tutorialMuted)}
                   className="hover:text-white"
@@ -867,6 +873,7 @@ export default function TrainingTab({
                 </h3>
               </div>
               <button
+                aria-label="Close"
                 id="btn-close-builder"
                 onClick={() => setIsSplitBuilderOpen(false)}
                 className="text-white/60 hover:text-white"
@@ -905,7 +912,10 @@ export default function TrainingTab({
               {/* Global Metadata Inputs */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[9px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1">
+                  <label
+                    htmlFor="input-builder-title"
+                    className="block text-[9px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
+                  >
                     Routine Title
                   </label>
                   <input
@@ -918,7 +928,10 @@ export default function TrainingTab({
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1">
+                  <label
+                    htmlFor="select-builder-difficulty"
+                    className="block text-[9px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
+                  >
                     Workout Difficulty
                   </label>
                   <select
@@ -936,7 +949,10 @@ export default function TrainingTab({
               </div>
 
               <div>
-                <label className="block text-[9px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1">
+                <label
+                  htmlFor="textarea-builder-desc"
+                  className="block text-[9px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
+                >
                   Split Description
                 </label>
                 <textarea
@@ -997,7 +1013,10 @@ export default function TrainingTab({
                         {/* Day fields */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 items-end">
                           <div className="md:col-span-2">
-                            <label className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/40 mb-1">
+                            <label
+                              htmlFor={`input-builder-day-name-${selectedBuilderDayIndex}`}
+                              className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/40 mb-1"
+                            >
                               Day Name
                             </label>
                             <input
@@ -1009,7 +1028,10 @@ export default function TrainingTab({
                             />
                           </div>
                           <div>
-                            <label className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/40 mb-1">
+                            <label
+                              htmlFor={`input-builder-day-duration-${selectedBuilderDayIndex}`}
+                              className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/40 mb-1"
+                            >
                               Duration (Min)
                             </label>
                             <input
@@ -1029,7 +1051,10 @@ export default function TrainingTab({
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                           <div>
-                            <label className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/40 mb-1">
+                            <label
+                              htmlFor={`select-builder-day-focus-${selectedBuilderDayIndex}`}
+                              className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/40 mb-1"
+                            >
                               Split Focus
                             </label>
                             <select
@@ -1083,6 +1108,7 @@ export default function TrainingTab({
                                         {exIdx + 1}. {ex.name}
                                       </span>
                                       <button
+                                        aria-label="Remove exercise"
                                         id={`btn-builder-delete-ex-${exIdx}`}
                                         type="button"
                                         onClick={() => handleBuilderRemoveExerciseFromDay(exIdx)}
@@ -1095,10 +1121,14 @@ export default function TrainingTab({
                                     {/* Inputs sets, reps, rest, instruction */}
                                     <div className="grid grid-cols-3 gap-1.5 text-[10px]">
                                       <div>
-                                        <label className="block text-[8px] text-[#1A1A1A]/40 font-bold uppercase mb-0.5">
+                                        <label
+                                          htmlFor={`input-builder-ex-sets-${exIdx}`}
+                                          className="block text-[8px] text-[#1A1A1A]/40 font-bold uppercase mb-0.5"
+                                        >
                                           Sets
                                         </label>
                                         <input
+                                          id={`input-builder-ex-sets-${exIdx}`}
                                           type="number"
                                           value={ex.sets}
                                           onChange={(e) =>
@@ -1112,10 +1142,14 @@ export default function TrainingTab({
                                         />
                                       </div>
                                       <div>
-                                        <label className="block text-[8px] text-[#1A1A1A]/40 font-bold uppercase mb-0.5">
+                                        <label
+                                          htmlFor={`input-builder-ex-reps-${exIdx}`}
+                                          className="block text-[8px] text-[#1A1A1A]/40 font-bold uppercase mb-0.5"
+                                        >
                                           Reps
                                         </label>
                                         <input
+                                          id={`input-builder-ex-reps-${exIdx}`}
                                           type="text"
                                           value={ex.reps}
                                           onChange={(e) =>
@@ -1129,10 +1163,14 @@ export default function TrainingTab({
                                         />
                                       </div>
                                       <div>
-                                        <label className="block text-[8px] text-[#1A1A1A]/40 font-bold uppercase mb-0.5">
+                                        <label
+                                          htmlFor={`input-builder-ex-rest-${exIdx}`}
+                                          className="block text-[8px] text-[#1A1A1A]/40 font-bold uppercase mb-0.5"
+                                        >
                                           Rest (Sec)
                                         </label>
                                         <input
+                                          id={`input-builder-ex-rest-${exIdx}`}
                                           type="number"
                                           value={ex.restSeconds}
                                           onChange={(e) =>
@@ -1148,10 +1186,14 @@ export default function TrainingTab({
                                     </div>
 
                                     <div>
-                                      <label className="block text-[8px] text-[#1A1A1A]/40 font-bold uppercase mb-0.5">
+                                      <label
+                                        htmlFor={`input-builder-ex-instruction-${exIdx}`}
+                                        className="block text-[8px] text-[#1A1A1A]/40 font-bold uppercase mb-0.5"
+                                      >
                                         Instruction Notes
                                       </label>
                                       <input
+                                        id={`input-builder-ex-instruction-${exIdx}`}
                                         type="text"
                                         value={ex.instruction}
                                         onChange={(e) =>
@@ -1178,7 +1220,10 @@ export default function TrainingTab({
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                               {/* Category Filter */}
                               <div>
-                                <label className="block text-[8px] uppercase font-semibold text-[#1A1A1A]/40 mb-0.5">
+                                <label
+                                  htmlFor="select-builder-muscle-category"
+                                  className="block text-[8px] uppercase font-semibold text-[#1A1A1A]/40 mb-0.5"
+                                >
                                   Filter Muscles
                                 </label>
                                 <select
@@ -1197,7 +1242,10 @@ export default function TrainingTab({
 
                               {/* Target Exercise select */}
                               <div>
-                                <label className="block text-[8px] uppercase font-semibold text-[#1A1A1A]/40 mb-0.5">
+                                <label
+                                  htmlFor="select-builder-exercise-name"
+                                  className="block text-[8px] uppercase font-semibold text-[#1A1A1A]/40 mb-0.5"
+                                >
                                   Select Exercise
                                 </label>
                                 <select

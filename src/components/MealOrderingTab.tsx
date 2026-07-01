@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { MEAL_PRODUCTS } from "../data/meals";
 import { OnboardingInput, MealProduct, CartItem, Order, NutritionPlan } from "../engine";
 import { toast } from "./Toast";
+import { useSafeTimeout } from "../hooks/useSafeTimeout";
 import {
   ShoppingBag,
   UtensilsCrossed,
@@ -48,6 +49,11 @@ export default function MealOrderingTab({
   onUpdateCartQty,
   onCheckout,
 }: MealOrderingTabProps) {
+  // F-H4: useSafeTimeout guards all setTimeout callbacks against firing
+  // after unmount (prevents state updates on unmounted components and
+  // spurious order pushes if the user navigates away mid-checkout).
+  const safeTimeout = useSafeTimeout();
+
   // Configurable Delivery Variables
   const [numDays, setNumDays] = useState<number>(5);
   const [mealsPerDay, setMealsPerDay] = useState<number>(3); // 2 or 3
@@ -116,10 +122,19 @@ export default function MealOrderingTab({
     return filtered;
   };
 
-  const eligibleMeals = getEligibleMeals();
+  const eligibleMeals = useMemo(
+    () => getEligibleMeals(),
+    // F-H3 fix: include assessment.allergies so eligibleMeals recomputes when
+    // allergies change. Previously this was an un-memoized call that ran every
+    // render, and the plan-generation effect didn't depend on it — so changing
+    // allergies mid-flow would keep suggesting meals containing the new allergen.
+    [assessment.dietType, assessment.allergies],
+  );
 
-  // Suggest/generate plan based on options selected
-  const generatePlanSuggestions = () => {
+  // Suggest/generate plan based on options selected.
+  // F-H3 fix: wrap in useCallback so the effect below can depend on it
+  // without re-running every render. Deps are the inputs the generation reads.
+  const generatePlanSuggestions = useCallback(() => {
     const list: DayPlan[] = [];
     const mealSlots: ("Breakfast" | "Lunch" | "Dinner")[] =
       mealsPerDay === 3 ? ["Breakfast", "Lunch", "Dinner"] : ["Lunch", "Dinner"];
@@ -140,12 +155,16 @@ export default function MealOrderingTab({
       });
     }
     setCustomPlan(list);
-  };
+  }, [numDays, mealsPerDay, eligibleMeals]);
 
-  // Re-generate suggestions whenever days or meals per day change
+  // Re-generate suggestions whenever days, meals per day, or the eligible-meal
+  // set (which depends on diet + allergies) changes.
+  // F-H3 fix: previously dep array was [numDays, mealsPerDay, assessment.dietType]
+  // — missing assessment.allergies. Now depends on generatePlanSuggestions
+  // which is stable unless its own deps change.
   useEffect(() => {
     generatePlanSuggestions();
-  }, [numDays, mealsPerDay, assessment.dietType]);
+  }, [generatePlanSuggestions]);
 
   // Handle single meal swap
   const executeMealSwap = (replacementMeal: MealProduct) => {
@@ -210,7 +229,7 @@ export default function MealOrderingTab({
 
     setIsProcessingOrder(true);
 
-    setTimeout(() => {
+    safeTimeout(() => {
       setIsProcessingOrder(false);
       setIsOrderSuccess(true);
 
@@ -249,7 +268,7 @@ export default function MealOrderingTab({
       onCheckout(newOrder);
 
       // Dismiss modals on delay
-      setTimeout(() => {
+      safeTimeout(() => {
         setIsOrderSuccess(false);
         setIsCheckoutOpen(false);
         setAddress("");
@@ -659,9 +678,9 @@ export default function MealOrderingTab({
 
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-[9px] font-bold text-[#1A1A1A]/60 uppercase tracking-widest mb-1.5">
+                    <span className="block text-[9px] font-bold text-[#1A1A1A]/60 uppercase tracking-widest mb-1.5">
                       Delivered Plan Summary
-                    </label>
+                    </span>
                     <div className="bg-[#F9F8F6] px-3 py-2 rounded-none border border-[#1A1A1A]/5 text-xs flex justify-between font-bold">
                       <span className="text-[#1A1A1A]/60">
                         {numDays}-day plan ({totalMealsCount} preps)

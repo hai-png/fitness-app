@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { useSafeTimeout } from "../hooks/useSafeTimeout";
 import { DailyWeightLog, WaterLog, WorkoutLog } from "../engine";
 import {
   Plus,
@@ -67,6 +68,10 @@ export default function ProgressTab({
   onAddWaterLog,
   onClearWaterLogs,
 }: ProgressTabProps) {
+  // F-H4: useSafeTimeout guards the share-card copy-reset timeouts against
+  // firing after unmount.
+  const safeTimeout = useSafeTimeout();
+
   // --- STATE ---
   const [newWeight, setNewWeight] = useState<string>("");
 
@@ -1277,7 +1282,7 @@ export default function ProgressTab({
         if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
           await navigator.clipboard.writeText(shareText);
           setCopiedShareText(true);
-          setTimeout(() => setCopiedShareText(false), 2000);
+          safeTimeout(() => setCopiedShareText(false), 2000);
           toast.success("Copied!", "Share text is on your clipboard.");
         } else {
           // Fallback: select-and-execCommand for older browsers / non-secure contexts
@@ -1290,7 +1295,7 @@ export default function ProgressTab({
           document.execCommand("copy");
           document.body.removeChild(ta);
           setCopiedShareText(true);
-          setTimeout(() => setCopiedShareText(false), 2000);
+          safeTimeout(() => setCopiedShareText(false), 2000);
           toast.success("Copied!", "Share text is on your clipboard.");
         }
       } catch (err) {
@@ -1440,6 +1445,7 @@ export default function ProgressTab({
           </button>
 
           <button
+            aria-label="Reset analytics"
             id="btn-reset-performance-metrics"
             onClick={handleResetHistory}
             title="Reset to default pre-seeded metrics"
@@ -1700,6 +1706,7 @@ export default function ProgressTab({
                 </h3>
               </div>
               <button
+                aria-label="Close"
                 id="btn-close-log-form"
                 onClick={() => setIsLogFormOpen(false)}
                 className="text-white/60 hover:text-white"
@@ -1712,7 +1719,10 @@ export default function ProgressTab({
             <form onSubmit={handleLogCustomSetSubmit} className="p-4 space-y-3.5">
               {/* Category selector */}
               <div>
-                <label className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1">
+                <label
+                  htmlFor="select-custom-log-category"
+                  className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
+                >
                   Muscle Category
                 </label>
                 <select
@@ -1738,7 +1748,10 @@ export default function ProgressTab({
 
               {/* Exercise Selection list depending on category */}
               <div>
-                <label className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1">
+                <label
+                  htmlFor="select-custom-log-exercise-name"
+                  className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
+                >
                   Exercise Name
                 </label>
                 <select
@@ -1777,7 +1790,10 @@ export default function ProgressTab({
               {/* Load weight & Reps */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1">
+                  <label
+                    htmlFor="input-custom-log-weight"
+                    className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
+                  >
                     Weight Load (kg)
                   </label>
                   <input
@@ -1791,7 +1807,10 @@ export default function ProgressTab({
                   />
                 </div>
                 <div>
-                  <label className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1">
+                  <label
+                    htmlFor="input-custom-log-reps"
+                    className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
+                  >
                     Repetitions
                   </label>
                   <input
@@ -1808,7 +1827,10 @@ export default function ProgressTab({
               {/* Set category type and Warm-Up toggle */}
               <div className="grid grid-cols-2 gap-3 items-center pt-1">
                 <div>
-                  <label className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1">
+                  <label
+                    htmlFor="select-custom-log-set-type"
+                    className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
+                  >
                     Set Intensity Type
                   </label>
                   <select
@@ -1832,7 +1854,10 @@ export default function ProgressTab({
                     onChange={(e) => setLogExIsWarmUp(e.target.checked)}
                     className="w-4 h-4 accent-[#E63946]"
                   />
-                  <label className="text-[10px] font-bold uppercase text-[#1A1A1A]/60">
+                  <label
+                    htmlFor="checkbox-custom-log-warmup"
+                    className="text-[10px] font-bold uppercase text-[#1A1A1A]/60"
+                  >
                     Warm-Up Set
                   </label>
                 </div>

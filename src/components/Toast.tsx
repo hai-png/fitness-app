@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { CheckCircle2, AlertTriangle, Info, X, AlertCircle } from "lucide-react";
 
 /**
@@ -159,8 +160,6 @@ export function ToastViewport() {
 // Returns a Promise<boolean> so callers can `await confirm(...)`.
 // ---------------------------------------------------------------------------
 
-import { createPortal } from "react-dom";
-
 interface ConfirmState {
   open: boolean;
   title: string;
@@ -225,8 +224,45 @@ export const confirmDialog = (opts: {
 }) => useConfirmStore.getState().show(opts);
 
 export function ConfirmViewport() {
-  const s = useConfirmStore();
-  if (!s.open) return null;
+  // F-M8 fix: use individual selectors instead of subscribing to the entire
+  // store. Previously `const s = useConfirmStore()` re-rendered on every
+  // confirm-state field change (including resolver set/clear).
+  const open = useConfirmStore((s) => s.open);
+  const title = useConfirmStore((s) => s.title);
+  const message = useConfirmStore((s) => s.message);
+  const confirmLabel = useConfirmStore((s) => s.confirmLabel);
+  const cancelLabel = useConfirmStore((s) => s.cancelLabel);
+  const destructive = useConfirmStore((s) => s.destructive);
+  const resolve = useConfirmStore((s) => s.resolve);
+
+  // F-M9 fix: autofocus the cancel button on open so keyboard users have a
+  // safe default (cancel) focused. Also restore focus to the trigger on close
+  // — React's focus management handles this if we focus before the dialog
+  // unmounts; here we focus the cancel button as the least-destructive choice.
+  const cancelBtnRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    // Focus on the next paint so the button is mounted.
+    const id = requestAnimationFrame(() => cancelBtnRef.current?.focus());
+    return () => cancelAnimationFrame(id);
+  }, [open]);
+
+  // F-M9 fix: close on Escape. Previously the alertdialog had correct ARIA
+  // (role, aria-modal, aria-labelledby) but no keyboard handler — keyboard
+  // users had to Tab to the cancel button.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        resolve(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, resolve]);
+
+  if (!open) return null;
 
   return createPortal(
     <div
@@ -238,32 +274,33 @@ export function ConfirmViewport() {
     >
       <div className="bg-white border border-[#1A1A1A]/10 max-w-sm w-full p-5 shadow-xl">
         <h3 id="confirm-title" className="font-serif italic font-black text-lg text-[#1A1A1A] mb-2">
-          {s.title}
+          {title}
         </h3>
         <p
           id="confirm-message"
           className="text-xs text-[#1A1A1A]/70 font-serif italic leading-relaxed mb-5"
         >
-          {s.message}
+          {message}
         </p>
         <div className="flex gap-2">
           <button
+            ref={cancelBtnRef}
             type="button"
-            onClick={() => s.resolve(false)}
+            onClick={() => resolve(false)}
             className="flex-1 py-3 bg-white border border-[#1A1A1A]/15 hover:border-[#1A1A1A] text-[#1A1A1A] text-xs font-bold uppercase tracking-widest transition-all"
           >
-            {s.cancelLabel}
+            {cancelLabel}
           </button>
           <button
             type="button"
-            onClick={() => s.resolve(true)}
+            onClick={() => resolve(true)}
             className={`flex-1 py-3 text-white text-xs font-bold uppercase tracking-widest transition-all ${
-              s.destructive
+              destructive
                 ? "bg-[#E63946] hover:bg-[#d62828]"
                 : "bg-[#1A1A1A] hover:bg-[#1A1A1A]/90"
             }`}
           >
-            {s.confirmLabel}
+            {confirmLabel}
           </button>
         </div>
       </div>

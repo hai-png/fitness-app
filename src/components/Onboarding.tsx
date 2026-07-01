@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import type { OnboardingInput, WorkoutPlan } from "../engine";
+import { useSafeTimeout } from "../hooks/useSafeTimeout";
 import { toast } from "./Toast";
 import { generateWorkoutPlan } from "../data/planGenerator";
 import {
@@ -141,6 +142,10 @@ interface OnboardingProps {
 }
 
 export default function Onboarding({ onComplete }: OnboardingProps) {
+  // F-H4: useSafeTimeout guards the fallback-plan-generation timeout and the
+  // gym-scan timeout against firing after unmount.
+  const safeTimeout = useSafeTimeout();
+
   const [step, setStep] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [loadingMsg, setLoadingMsg] = useState<string>("Analyzing your physical baseline...");
@@ -223,7 +228,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     loadingIntervalRef.current = interval;
 
     if (forceFallback) {
-      setTimeout(() => {
+      safeTimeout(() => {
         if (loadingIntervalRef.current) {
           clearInterval(loadingIntervalRef.current);
           loadingIntervalRef.current = null;
@@ -397,7 +402,10 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 {step === 0 && (
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-1.5 uppercase tracking-wider">
+                      <label
+                        htmlFor="input-name"
+                        className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-1.5 uppercase tracking-wider"
+                      >
                         Your Name
                       </label>
                       <input
@@ -413,7 +421,10 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-1.5 uppercase tracking-wider">
+                        <label
+                          htmlFor="input-age"
+                          className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-1.5 uppercase tracking-wider"
+                        >
                           Age
                         </label>
                         <input
@@ -427,7 +438,10 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-1.5 uppercase tracking-wider">
+                        <label
+                          htmlFor="select-gender"
+                          className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-1.5 uppercase tracking-wider"
+                        >
                           Gender
                         </label>
                         <select
@@ -446,7 +460,10 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-1.5 uppercase tracking-wider">
+                        <label
+                          htmlFor="input-weight"
+                          className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-1.5 uppercase tracking-wider"
+                        >
                           Weight (kg)
                         </label>
                         <input
@@ -462,7 +479,10 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                         />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-1.5 uppercase tracking-wider">
+                        <label
+                          htmlFor="input-height"
+                          className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-1.5 uppercase tracking-wider"
+                        >
                           Height (cm)
                         </label>
                         <input
@@ -484,7 +504,10 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 {step === 1 && (
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-2 uppercase tracking-wider">
+                      <label
+                        htmlFor="btn-goal-weight-loss"
+                        className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-2 uppercase tracking-wider"
+                      >
                         Primary Aspiration
                       </label>
                       <div className="grid grid-cols-1 gap-2.5">
@@ -540,7 +563,10 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-2 uppercase tracking-wider mt-4">
+                      <label
+                        htmlFor="btn-freq-2"
+                        className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-2 uppercase tracking-wider mt-4"
+                      >
                         Weekly Workout Frequency
                       </label>
                       <div className="grid grid-cols-4 gap-2">
@@ -567,7 +593,10 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 {step === 2 && (
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-2 uppercase tracking-wider">
+                      <label
+                        htmlFor="btn-pref-home"
+                        className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-2 uppercase tracking-wider"
+                      >
                         Workout Setting Preference
                       </label>
                       <div className="grid grid-cols-1 gap-2.5">
@@ -660,7 +689,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                             type="button"
                             onClick={() => {
                               setIsScanningGyms(true);
-                              setTimeout(() => setIsScanningGyms(false), 600);
+                              safeTimeout(() => setIsScanningGyms(false), 600);
                             }}
                             className="bg-[#1A1A1A] hover:opacity-90 text-white font-bold uppercase tracking-widest text-[9px] px-3 py-2 rounded-none transition-all"
                           >
@@ -1021,7 +1050,10 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                     )}
 
                     <div>
-                      <label className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-2 uppercase tracking-wider mt-4">
+                      <label
+                        htmlFor="btn-act-sedentary"
+                        className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-2 uppercase tracking-wider mt-4"
+                      >
                         Daily Baseline Activity Level
                       </label>
                       <div className="grid grid-cols-2 gap-2">
@@ -1068,7 +1100,10 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                 {step === 3 && (
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-2 uppercase tracking-wider">
+                      <label
+                        htmlFor="btn-diet-anything"
+                        className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-2 uppercase tracking-wider"
+                      >
                         Dietary Category
                       </label>
                       <div className="grid grid-cols-2 gap-2">
@@ -1099,7 +1134,10 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-1.5 uppercase tracking-wider mt-4">
+                      <label
+                        htmlFor="input-allergies"
+                        className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-1.5 uppercase tracking-wider mt-4"
+                      >
                         Allergies & Food Sensitive Restrictions
                       </label>
                       <input
