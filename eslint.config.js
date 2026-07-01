@@ -65,19 +65,24 @@ export default tseslint.config(
       "react/prop-types": "off",
       "react/jsx-props-no-spreading": "off",
 
-      // --- Pre-existing-codebase relaxations (Phase 4 will tighten these) ---
-      // The original codebase has ~100 unused vars and ~20 `any` types across
+      // --- Pre-existing-codebase relaxations ---
+      // The original codebase has ~70 unused vars and ~14 `any` types across
       // 1,670-line god components. We surface them as warnings rather than
-      // errors so the lint gate is usable today; Phase 4 refactor + cleanup
-      // will promote these back to errors.
+      // errors so the lint gate is usable today. P3 will clear the remaining
+      // warnings and flip these to errors (tracking issue: see audit P3 DoD).
+      // A-26 fix: the previous "Phase 4 will tighten these" comment had no
+      // owner/date/tracking issue — replaced with a concrete P3 reference.
       "@typescript-eslint/no-unused-vars": "warn",
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-non-null-assertion": "warn",
       "prefer-const": "warn",
       "no-useless-assignment": "warn",
 
-      // Accessibility — real issues that need fixing in Phase 4 component
+      // Accessibility — real issues that need fixing in P2/P3 component
       // refactor. Downgrade to warnings so the gate runs but doesn't block.
+      // F-C3 (label-has-associated-control) resolved 30→0 in P1; the rule
+      // stays as "warn" to catch regressions. The remaining no-static-element-
+      // interactions / click-events-have-key-events warnings are slated for P2.
       "jsx-a11y/label-has-associated-control": "warn",
       "jsx-a11y/no-static-element-interactions": "warn",
       "jsx-a11y/click-events-have-key-events": "warn",

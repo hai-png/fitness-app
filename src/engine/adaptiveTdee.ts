@@ -138,14 +138,28 @@ export function computeObservedTdee(args: {
  *   t = 60 days:           α ≈ 0.014 → effectively fully data-driven
  */
 export function priorWeightAlpha(days_logged: number, tau_days: number = TAU_DAYS): number {
-  return Math.exp(-days_logged / tau_days);
+  // E-17 fix: clamp days_logged to >= 0. A negative input (clock skew or
+  // caller bug) would produce alpha = exp(positive) > 1, which makes the
+  // convex blend extrapolate outside [min, max] (e.g. 1.43*prior - 0.43*observed).
+  const clamped = Math.max(0, days_logged);
+  return Math.exp(-clamped / tau_days);
 }
 
 /**
  * Compute the adaptive TDEE — the canonical blend.
  *   TDEE_adaptive(t) = α(t) × TDEE_prior + (1 − α(t)) × TDEE_observed(t)
  *
- * @returns the blended TDEE plus a confidence score (0-1).
+ * E-22 fix: this function now calls detectOutliers internally. When the
+ * outlier confidence_indicator is "low", alpha is clamped to >= 0.5 so the
+ * blend stays prior-heavy — previously a user with 30 days of gamed data
+ * (10,000 kcal intake, no weight change) would get alpha ≈ 0.12 and a
+ * wildly wrong observed-driven TDEE.
+ *
+ * E-23 fix: the observed TDEE is clamped to [0.5 × prior, 2 × prior] before
+ * blending. A gamed or buggy input that produces observed = 10,000 kcal no
+ * longer dominates the blend.
+ *
+ * @returns the blended TDEE plus a confidence score (0-1) and the outlier flags.
  */
 export function computeAdaptiveTdee(args: {
   user: User;
@@ -154,6 +168,7 @@ export function computeAdaptiveTdee(args: {
   days_logged?: number; // override; otherwise computed from earliest log date
   window_days?: number;
   tau_days?: number;
+  body_weight_kg?: number; // for outlier detection; falls back to user.weight_kg
 }): {
   adaptive_tdee_kcal: number;
   prior_tdee_kcal: number;
@@ -161,6 +176,7 @@ export function computeAdaptiveTdee(args: {
   alpha: number;
   confidence: number;
   n_days_data: number;
+  outliers: OutlierFlags | null;
 } {
   const prior = computePriorTdee(args.user);
 
@@ -173,16 +189,32 @@ export function computeAdaptiveTdee(args: {
     } else {
       const earliest = new Date(all_dates[0]).getTime();
       const latest = new Date(all_dates[all_dates.length - 1]).getTime();
+      // E-17: clamp to >= 0 (clock skew defense).
       days_logged = Math.max(0, (latest - earliest) / (1000 * 60 * 60 * 24));
     }
   }
 
-  const alpha = priorWeightAlpha(days_logged, args.tau_days ?? TAU_DAYS);
+  let alpha = priorWeightAlpha(days_logged, args.tau_days ?? TAU_DAYS);
   const observed = computeObservedTdee({
     intakes: args.intakes,
     weights: args.weights,
     window_days: args.window_days,
   });
+
+  // E-22: run outlier detection. When confidence is "low", clamp alpha to
+  // >= 0.5 so the blend stays prior-heavy and the outliers don't dominate.
+  const body_weight_kg = args.body_weight_kg ?? args.user.weight_kg;
+  const outliers =
+    args.intakes.length > 0 || args.weights.length > 0
+      ? detectOutliers({
+          intakes: args.intakes,
+          weights: args.weights,
+          body_weight_kg,
+        })
+      : null;
+  if (outliers && outliers.confidence_indicator === "low") {
+    alpha = Math.max(alpha, 0.5);
+  }
 
   if (observed === null) {
     return {
@@ -192,21 +224,37 @@ export function computeAdaptiveTdee(args: {
       alpha: 1.0,
       confidence: 0,
       n_days_data: 0,
+      outliers,
     };
   }
 
-  const blended = alpha * prior.tdee_kcal + (1 - alpha) * observed.tdee_kcal;
+  // E-23: clamp observed TDEE to a plausible band around the prior.
+  // Gamed data (e.g. 10,000 kcal logged with no weight change) would
+  // otherwise produce observed = 10,000 and dominate the blend even with
+  // the E-22 alpha clamp. The [0.5, 2.0] band is generous but excludes
+  // physiologically impossible values.
+  const observed_clamped = Math.min(
+    Math.max(observed.tdee_kcal, prior.tdee_kcal * 0.5),
+    prior.tdee_kcal * 2.0,
+  );
+
+  const blended = alpha * prior.tdee_kcal + (1 - alpha) * observed_clamped;
   // Confidence: 0 when fully prior, → 1 as alpha → 0 AND data is clean.
-  // Simple model: confidence = 1 − alpha, clamped to [0, 1].
-  const confidence = Math.max(0, Math.min(1, 1 - alpha));
+  // E-22: when outliers flag low confidence, cap confidence at 0.3 so the
+  // UI's confidence bar doesn't give false reassurance.
+  let confidence = Math.max(0, Math.min(1, 1 - alpha));
+  if (outliers && outliers.confidence_indicator === "low") {
+    confidence = Math.min(confidence, 0.3);
+  }
 
   return {
     adaptive_tdee_kcal: blended,
     prior_tdee_kcal: prior.tdee_kcal,
-    observed_tdee_kcal: observed.tdee_kcal,
+    observed_tdee_kcal: observed_clamped,
     alpha,
     confidence,
     n_days_data: observed.n_days,
+    outliers,
   };
 }
 

@@ -171,6 +171,10 @@ export function jp3BfPct(sex: Sex, age_years: number, s3_mm: number): number {
 
 /** Siri body-density → BF% conversion. */
 export function siriBfPct(body_density: number): number {
+  // E-16 fix: guard against zero/negative body density (495/0 → Infinity).
+  if (!Number.isFinite(body_density) || body_density <= 0) {
+    return NaN;
+  }
   return 495 / body_density - 450;
 }
 
@@ -264,6 +268,13 @@ export function clampBfPct(sex: Sex, bf_pct: number): number {
 
 /** BMI (Part 1.2.1). */
 export function bmi(weight_kg: number, height_cm: number): number {
+  // E-16 fix: guard against zero/negative/NaN inputs that would produce
+  // Infinity or NaN. The server zod enforces weight >= 20, height >= 100,
+  // but this function is pure and callable from any path (tests, scripts).
+  if (!Number.isFinite(weight_kg) || weight_kg <= 0 ||
+      !Number.isFinite(height_cm) || height_cm <= 0) {
+    return NaN;
+  }
   const h_m = height_cm / 100;
   return weight_kg / (h_m * h_m);
 }
@@ -280,6 +291,10 @@ export function bmiCategory(bmi_val: number): string {
 
 /** Waist-to-Height Ratio (Part 1.2.2). */
 export function whtr(waist_cm: number, height_cm: number): number {
+  // E-16 fix: guard against zero/negative height (would produce Infinity/NaN).
+  if (!Number.isFinite(waist_cm) || !Number.isFinite(height_cm) || height_cm <= 0) {
+    return NaN;
+  }
   return waist_cm / height_cm;
 }
 
@@ -302,6 +317,10 @@ export function whtrCategory(sex: Sex, ratio: number): string {
 
 /** Waist-to-Hip Ratio (Part 1.2.3). */
 export function whr(waist_cm: number, hip_cm: number): number {
+  // E-16 fix: guard against zero/negative hip (would produce Infinity/NaN).
+  if (!Number.isFinite(waist_cm) || !Number.isFinite(hip_cm) || hip_cm <= 0) {
+    return NaN;
+  }
   return waist_cm / hip_cm;
 }
 
@@ -324,6 +343,13 @@ export function absi(
   weight_kg: number,
   height_cm: number,
 ): number {
+  // E-16 fix: guard against zero/negative weight (weight^(-2/3) → Infinity/NaN
+  // at weight=0) and zero/negative height.
+  if (!Number.isFinite(waist_cm) || waist_cm <= 0 ||
+      !Number.isFinite(weight_kg) || weight_kg <= 0 ||
+      !Number.isFinite(height_cm) || height_cm <= 0) {
+    return NaN;
+  }
   const waist_m = waist_cm / 100;
   const height_m = height_cm / 100;
   return waist_m * Math.pow(weight_kg, -2 / 3) * Math.pow(height_m, 5 / 6);
@@ -419,6 +445,12 @@ export function cunningham(lean_body_mass_kg: number): number {
 
 /** Compute LBM from body weight + BF%. */
 export function leanBodyMass(weight_kg: number, bf_pct: number): number {
+  // E-16 fix: guard against negative weight and bf_pct > 100 (which would
+  // produce negative lean mass, cascading into FFMI/Cunningham errors).
+  if (!Number.isFinite(weight_kg) || weight_kg <= 0 ||
+      !Number.isFinite(bf_pct) || bf_pct < 0) {
+    return NaN;
+  }
   return weight_kg * (1 - bf_pct / 100);
 }
 

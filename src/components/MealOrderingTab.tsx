@@ -3,12 +3,12 @@ import { MEAL_PRODUCTS } from "../data/meals";
 import { OnboardingInput, MealProduct, CartItem, Order, NutritionPlan } from "../engine";
 import { toast } from "./Toast";
 import { useSafeTimeout } from "../hooks/useSafeTimeout";
+import { Modal } from "./Modal";
 import {
   ShoppingBag,
   UtensilsCrossed,
   AlertTriangle,
   Sparkles,
-  CreditCard,
   MapPin,
   CheckCircle,
   Calendar,
@@ -631,106 +631,92 @@ export default function MealOrderingTab({
         </div>
       )}
 
-      {/* SECURE CHECKOUT SLIDE-OVER */}
-      {isCheckoutOpen && (
-        <div className="fixed inset-0 z-50 bg-[#1A1A1A]/80 flex items-center justify-center p-4">
-          <div className="bg-white border border-[#1A1A1A]/10 rounded-none max-w-sm w-full overflow-hidden shadow-xl">
-            {isOrderSuccess ? (
-              <div className="p-8 text-center flex flex-col items-center">
-                <CheckCircle className="w-12 h-12 text-[#E63946] mb-4 animate-bounce" />
-                <h3 className="text-xl font-serif font-black italic text-[#1A1A1A]">
-                  Demo Plan Confirmed
-                </h3>
-                <p className="text-[#1A1A1A]/60 text-xs mt-1.5 max-w-xs font-serif italic">
-                  Your simulated meal-plan subscription is set up. <strong className="not-italic font-bold text-[#E63946]">No payment was processed</strong> and no meals will be delivered.
-                </p>
-                <div className="mt-6 flex items-center gap-2 text-xs font-bold uppercase text-[#1A1A1A]/50 bg-[#F9F8F6] border border-[#1A1A1A]/10 px-3 py-2 rounded-none">
-                  <AlertTriangle className="w-4 h-4 text-[#E63946]" />
-                  <span>Demo mode — no real subscription</span>
+      {/* SECURE CHECKOUT — F-C2: uses the accessible <Modal> component. */}
+      <Modal
+        open={isCheckoutOpen}
+        onClose={() => setIsCheckoutOpen(false)}
+        title="Demo Checkout"
+        closeOnOverlayClick={!isProcessingOrder}
+      >
+        {isOrderSuccess ? (
+          <div className="p-8 text-center flex flex-col items-center">
+            <CheckCircle className="w-12 h-12 text-[#E63946] mb-4 animate-bounce" />
+            <h3 className="text-xl font-serif font-black italic text-[#1A1A1A]">
+              Demo Plan Confirmed
+            </h3>
+            <p className="text-[#1A1A1A]/60 text-xs mt-1.5 max-w-xs font-serif italic">
+              Your simulated meal-plan subscription is set up. <strong className="not-italic font-bold text-[#E63946]">No payment was processed</strong> and no meals will be delivered.
+            </p>
+            <div className="mt-6 flex items-center gap-2 text-xs font-bold uppercase text-[#1A1A1A]/50 bg-[#F9F8F6] border border-[#1A1A1A]/10 px-3 py-2 rounded-none">
+              <AlertTriangle className="w-4 h-4 text-[#E63946]" />
+              <span>Demo mode — no real subscription</span>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handlePlaceOrder} className="p-5 space-y-4">
+            {/* Demo-mode banner — no real payment is processed */}
+            <div className="bg-[#E63946]/5 border border-[#E63946]/15 px-3 py-2.5 flex items-start gap-2">
+              <AlertTriangle className="w-3.5 h-3.5 text-[#E63946] flex-shrink-0 mt-0.5" />
+              <p className="text-[10px] text-[#1A1A1A]/70 font-serif italic leading-relaxed">
+                <strong className="not-italic font-bold text-[#E63946]">Demo only.</strong> No
+                real payment is processed and no card details are collected. Submitting will
+                simulate an order confirmation for showcase purposes.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <span className="block text-[9px] font-bold text-[#1A1A1A]/60 uppercase tracking-widest mb-1.5">
+                  Delivered Plan Summary
+                </span>
+                <div className="bg-[#F9F8F6] px-3 py-2 rounded-none border border-[#1A1A1A]/5 text-xs flex justify-between font-bold">
+                  <span className="text-[#1A1A1A]/60">
+                    {numDays}-day plan ({totalMealsCount} preps)
+                  </span>
+                  <span className="text-[#E63946] font-mono">${finalPlanPrice.toFixed(2)}</span>
                 </div>
               </div>
-            ) : (
-              <form onSubmit={handlePlaceOrder} className="p-5 space-y-4">
-                <div className="flex justify-between items-center border-b border-[#1A1A1A]/10 pb-3">
-                  <h3 className="font-serif italic font-black text-lg text-[#1A1A1A] flex items-center gap-2">
-                    <CreditCard className="w-4.5 h-4.5 text-[#E63946]" />
-                    Demo Checkout
-                  </h3>
-                  <button
-                    id="btn-close-checkout"
-                    type="button"
-                    onClick={() => setIsCheckoutOpen(false)}
-                    className="text-[#1A1A1A]/50 hover:text-[#1A1A1A] text-xs font-bold uppercase tracking-wider"
-                  >
-                    Cancel
-                  </button>
-                </div>
 
-                {/* Demo-mode banner — no real payment is processed */}
-                <div className="bg-[#E63946]/5 border border-[#E63946]/15 px-3 py-2.5 flex items-start gap-2">
-                  <AlertTriangle className="w-3.5 h-3.5 text-[#E63946] flex-shrink-0 mt-0.5" />
-                  <p className="text-[10px] text-[#1A1A1A]/70 font-serif italic leading-relaxed">
-                    <strong className="not-italic font-bold text-[#E63946]">Demo only.</strong> No
-                    real payment is processed and no card details are collected. Submitting will
-                    simulate an order confirmation for showcase purposes.
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <span className="block text-[9px] font-bold text-[#1A1A1A]/60 uppercase tracking-widest mb-1.5">
-                      Delivered Plan Summary
-                    </span>
-                    <div className="bg-[#F9F8F6] px-3 py-2 rounded-none border border-[#1A1A1A]/5 text-xs flex justify-between font-bold">
-                      <span className="text-[#1A1A1A]/60">
-                        {numDays}-day plan ({totalMealsCount} preps)
-                      </span>
-                      <span className="text-[#E63946] font-mono">${finalPlanPrice.toFixed(2)}</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="input-checkout-address"
-                      className="block text-[9px] font-bold text-[#1A1A1A]/60 uppercase tracking-widest mb-1.5"
-                    >
-                      Delivery Street Address
-                    </label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-3.5 w-4 h-4 text-[#1A1A1A]/40" />
-                      <input
-                        id="input-checkout-address"
-                        type="text"
-                        placeholder="e.g. 120 Baker Street, London"
-                        value={address}
-                        onChange={(e) => setAddress(e.target.value)}
-                        required
-                        className="w-full bg-white border border-[#1A1A1A]/15 rounded-none pl-9 pr-3 py-2.5 text-xs text-[#1A1A1A] focus:outline-none focus:border-[#1A1A1A]"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  id="btn-submit-order"
-                  type="submit"
-                  disabled={isProcessingOrder}
-                  className="w-full py-3.5 mt-4 bg-[#E63946] hover:bg-[#d62828] text-white font-bold text-xs uppercase tracking-widest rounded-none transition-all shadow-md flex items-center justify-center gap-2"
+              <div>
+                <label
+                  htmlFor="input-checkout-address"
+                  className="block text-[9px] font-bold text-[#1A1A1A]/60 uppercase tracking-widest mb-1.5"
                 >
-                  {isProcessingOrder ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Preparing Demo Order...
-                    </>
-                  ) : (
-                    <>Place Demo Order • ${finalPlanPrice.toFixed(2)}</>
-                  )}
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
+                  Delivery Street Address
+                </label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-3.5 w-4 h-4 text-[#1A1A1A]/40" />
+                  <input
+                    id="input-checkout-address"
+                    type="text"
+                    placeholder="e.g. 120 Baker Street, London"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    required
+                    className="w-full bg-white border border-[#1A1A1A]/15 rounded-none pl-9 pr-3 py-2.5 text-xs text-[#1A1A1A] focus:outline-none focus:border-[#1A1A1A]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button
+              id="btn-submit-order"
+              type="submit"
+              disabled={isProcessingOrder}
+              className="w-full py-3.5 mt-4 bg-[#E63946] hover:bg-[#d62828] text-white font-bold text-xs uppercase tracking-widest rounded-none transition-all shadow-md flex items-center justify-center gap-2"
+            >
+              {isProcessingOrder ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Preparing Demo Order...
+                </>
+              ) : (
+                <>Place Demo Order • ${finalPlanPrice.toFixed(2)}</>
+              )}
+            </button>
+          </form>
+        )}
+      </Modal>
     </div>
   );
 }

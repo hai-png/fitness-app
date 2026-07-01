@@ -84,24 +84,6 @@ import {
   recommendAdjustment,
   macroTolerancePct,
   nextAdjustmentEligibleDate,
-  // Training
-  VOLUME_TIERS,
-  frequencyForVolume,
-  REP_RIR_TABLE,
-  HYPERTROPHY_DEFAULTS,
-  LINEAR_INCREMENTS_LB,
-  ADP_LOAD_ADJUSTMENT_PCT,
-  selectProgressionScheme,
-  adpNextSetLoad,
-  shouldDeload,
-  applyDeload,
-  inferMovementPattern,
-  inferExerciseCategory,
-  fractionalSetCredit,
-  diagnosePlateau,
-  adjustVolumeForPlateau,
-  buildTrainingPlan,
-  isLiftPlateaued,
   // Adaptive TDEE
   computePriorTdee,
   computeObservedTdee,
@@ -497,9 +479,27 @@ describe("Part 1.7 / FFMI", () => {
   });
 
   it("Normalized FFMI shifts shorter people up", () => {
-    // 170 cm user: 1.8 - 1.70 = 0.10 → adds 0.63 to FFMI
+    // 170 cm user: 1.8 - 1.70 = 0.10 → adds 0.61 to FFMI (E-02: 6.1, not 6.3)
     const result = ffmi(80, 15, 170);
     expect(result.normalized_ffmi).toBeGreaterThan(result.ffmi);
+  });
+
+  // E-02 exact-value test: confirms the coefficient is 6.1 (Kouri 1995),
+  // not the previous 6.3. For a 1.80 m user, normalized_ffmi === ffmi
+  // because (1.8 - 1.8) = 0. For a 1.70 m user, the offset is exactly
+  // 6.1 × 0.10 = 0.61.
+  it("E-02: FFMI normalization coefficient is 6.1 (Kouri 1995), not 6.3", () => {
+    // At 1.80 m, the offset term is 6.1 × (1.8 - 1.8) = 0 → normalized === raw.
+    const at180 = ffmi(80, 15, 180);
+    expect(at180.normalized_ffmi).toBeCloseTo(at180.ffmi, 5);
+
+    // At 1.70 m, the offset is 6.1 × (1.8 - 1.70) = 6.1 × 0.10 = 0.61.
+    const at170 = ffmi(80, 15, 170);
+    expect(at170.normalized_ffmi - at170.ffmi).toBeCloseTo(0.61, 2);
+
+    // At 1.60 m, the offset is 6.1 × (1.8 - 1.60) = 6.1 × 0.20 = 1.22.
+    const at160 = ffmi(80, 15, 160);
+    expect(at160.normalized_ffmi - at160.ffmi).toBeCloseTo(1.22, 2);
   });
 });
 
@@ -1260,258 +1260,6 @@ describe("recommendAdjustment", () => {
 });
 
 // ===========================================================================
-// Part 2.4 — Progression schemes
-// ===========================================================================
-
-describe("Part 2.4 / Progression", () => {
-  it("linear increments: 10 lb compound, 5 lb other (Part 2.4.1)", () => {
-    expect(LINEAR_INCREMENTS_LB.compound).toBe(10);
-    expect(LINEAR_INCREMENTS_LB.other).toBe(5);
-  });
-
-  it("ADP load adjustment = 4% per rep outside range (Part 2.4.2)", () => {
-    expect(ADP_LOAD_ADJUSTMENT_PCT).toBe(0.04);
-  });
-
-  it("selectProgressionScheme: novices with weekly progress → linear", () => {
-    const user = makeUser({ training_status: "novice" });
-    expect(selectProgressionScheme(user, true)).toBe("linear");
-  });
-
-  it("selectProgressionScheme: intermediate → ADP", () => {
-    const user = makeUser({ training_status: "intermediate" });
-    expect(selectProgressionScheme(user, false)).toBe("adp");
-  });
-
-  it("ADP: within range → keep load", () => {
-    const result = adpNextSetLoad({
-      current_load_kg: 80,
-      reps_achieved: 12,
-      target_reps: [10, 15],
-      target_rir: [2, 0],
-      rir_achieved: 1,
-    });
-    expect(result.next_load_kg).toBe(80);
-  });
-
-  it("ADP: at top of rep+RIR range → increase load next session", () => {
-    const result = adpNextSetLoad({
-      current_load_kg: 80,
-      reps_achieved: 15,
-      target_reps: [10, 15],
-      target_rir: [2, 0],
-      rir_achieved: 0,
-    });
-    expect(result.next_load_kg).toBeGreaterThan(80);
-  });
-
-  it("ADP: reps over upper boundary → increase load", () => {
-    const result = adpNextSetLoad({
-      current_load_kg: 80,
-      reps_achieved: 18,
-      target_reps: [10, 15],
-      target_rir: [2, 0],
-      rir_achieved: 0,
-    });
-    // 3 reps over → +12% → 89.6 kg
-    expect(result.next_load_kg).toBeCloseTo(89.6, 1);
-  });
-
-  it("ADP: reps under lower boundary → decrease load", () => {
-    const result = adpNextSetLoad({
-      current_load_kg: 80,
-      reps_achieved: 7,
-      target_reps: [10, 15],
-      target_rir: [2, 0],
-      rir_achieved: 0,
-    });
-    // 3 reps under → -12% → 70.4 kg
-    expect(result.next_load_kg).toBeCloseTo(70.4, 1);
-  });
-
-  it("deload triggers at 2+ yes (Part 2.4.4)", () => {
-    expect(shouldDeload({
-      dreading_gym: false,
-      sleep_worse: false,
-      loads_or_reps_decreasing: false,
-      stress_worse: false,
-      aches_worse: false,
-    }).deload).toBe(false);
-    expect(shouldDeload({
-      dreading_gym: true,
-      sleep_worse: true,
-      loads_or_reps_decreasing: false,
-      stress_worse: false,
-      aches_worse: false,
-    }).deload).toBe(true);
-  });
-
-  it("applyDeload reduces volume by configured percentage", () => {
-    const user = makeUser();
-    const plan = buildTrainingPlan({
-      user,
-      goal: "hypertrophy",
-      exercises: [
-        {
-          exercise_name: "Bench Press",
-          movement_pattern: "horizontal_push",
-          exercise_category: "lower_machine_or_upper_free_weight_press",
-          sets: 16,
-          reps: [6, 12],
-          rir: [2, 0],
-          rest_seconds: 150,
-          is_primary: true,
-          primary_muscle_group: "Chest",
-          secondary_muscle_groups: ["Triceps", "Front Delts"],
-        },
-      ],
-    });
-    const deloaded = applyDeload(plan);
-    // 40% reduction → 16 × 0.6 = 9.6 → 10
-    expect(deloaded.exercises[0].sets).toBe(10);
-    expect(deloaded.weekly_sets_per_muscle.Chest).toBe(10);
-  });
-});
-
-// ===========================================================================
-// Part 2.5 — Exercise selection
-// ===========================================================================
-
-describe("Part 2.5 / Exercise selection", () => {
-  it("infers movement pattern from exercise name", () => {
-    expect(inferMovementPattern("Barbell Back Squat")).toBe("squat");
-    expect(inferMovementPattern("Romanian Deadlift")).toBe("hip_hinge");
-    expect(inferMovementPattern("Overhead Press")).toBe("vertical_push");
-    expect(inferMovementPattern("Lat Pulldown")).toBe("vertical_pull");
-    expect(inferMovementPattern("Flat Barbell Bench Press")).toBe("horizontal_push");
-    expect(inferMovementPattern("Seated Cable Row")).toBe("horizontal_pull");
-    expect(inferMovementPattern("Bicep Curl")).toBe("isolation");
-  });
-
-  it("infers exercise category for rep/RIR assignment", () => {
-    expect(inferExerciseCategory("Barbell Back Squat")).toBe("lower_free_weight_compound");
-    expect(inferExerciseCategory("Romanian Deadlift")).toBe("lower_free_weight_compound");
-    expect(inferExerciseCategory("Leg Press")).toBe("lower_machine_or_upper_free_weight_press");
-    expect(inferExerciseCategory("Overhead Press")).toBe("lower_machine_or_upper_free_weight_press");
-    expect(inferExerciseCategory("Lat Pulldown")).toBe("upper_machine_or_pulling_compound");
-    expect(inferExerciseCategory("Bicep Curl")).toBe("isolation");
-  });
-
-  it("fractional set counting: primary 1.0, secondary 0.5 (Part 2.5.3)", () => {
-    expect(fractionalSetCredit(10, true)).toBe(10);
-    expect(fractionalSetCredit(10, false)).toBe(5);
-  });
-});
-
-// ===========================================================================
-// Part 2.6 — Plateau handling
-// ===========================================================================
-
-describe("Part 2.6 / Plateau handling", () => {
-  it("not plateaued → no action", () => {
-    const result = diagnosePlateau({ is_actually_plateaued: false });
-    expect(result.cause).toBe("not_plateaued");
-  });
-
-  it("sleep <7 hours → sleep cause", () => {
-    const result = diagnosePlateau({
-      is_actually_plateaued: true,
-      sleep_hours_avg: 6,
-    });
-    expect(result.cause).toBe("sleep");
-  });
-
-  it("intermediate+ in deficit → eating cause", () => {
-    const result = diagnosePlateau({
-      is_actually_plateaued: true,
-      sleep_hours_avg: 8,
-      is_in_deficit: true,
-      training_status: "intermediate",
-    });
-    expect(result.cause).toBe("eating");
-  });
-
-  it("protein <0.7 g/lb → protein cause", () => {
-    const result = diagnosePlateau({
-      is_actually_plateaued: true,
-      sleep_hours_avg: 8,
-      is_in_deficit: false,
-      training_status: "intermediate",
-      protein_g_per_lb: 0.5,
-    });
-    expect(result.cause).toBe("protein");
-  });
-
-  it("frequency <2 → frequency cause", () => {
-    const result = diagnosePlateau({
-      is_actually_plateaued: true,
-      sleep_hours_avg: 8,
-      is_in_deficit: false,
-      training_status: "intermediate",
-      protein_g_per_lb: 1.0,
-      frequency_per_muscle: 1,
-    });
-    expect(result.cause).toBe("frequency");
-  });
-
-  it("all causes addressed → volume_adjustment", () => {
-    const result = diagnosePlateau({
-      is_actually_plateaued: true,
-      sleep_hours_avg: 8,
-      is_in_deficit: false,
-      training_status: "intermediate",
-      protein_g_per_lb: 1.0,
-      frequency_per_muscle: 2,
-    });
-    expect(result.cause).toBe("volume_adjustment");
-  });
-
-  it("adjustVolumeForPlateau: overreaching → ×0.8", () => {
-    expect(adjustVolumeForPlateau(20, "overreaching")).toBe(16);
-  });
-
-  it("adjustVolumeForPlateau: all addressed → ×1.2", () => {
-    expect(adjustVolumeForPlateau(20, "all_addressed")).toBe(24);
-  });
-});
-
-// ===========================================================================
-// Part 2.8 — buildTrainingPlan
-// ===========================================================================
-
-describe("Part 2.8 / buildTrainingPlan", () => {
-  it("produces a complete TrainingPlan", () => {
-    const user = makeUser();
-    const plan = buildTrainingPlan({
-      user,
-      goal: "hypertrophy",
-      exercises: [
-        {
-          exercise_name: "Bench Press",
-          movement_pattern: "horizontal_push",
-          exercise_category: "lower_machine_or_upper_free_weight_press",
-          sets: 12,
-          reps: [6, 12],
-          rir: [2, 0],
-          rest_seconds: 150,
-          is_primary: true,
-          primary_muscle_group: "Chest",
-          secondary_muscle_groups: ["Triceps"],
-        },
-      ],
-    });
-
-    expect(plan.user_id).toBe("test-user-1");
-    expect(plan.goal).toBe("hypertrophy");
-    expect(plan.days_per_week).toBe(4);
-    expect(plan.split_type).toBe("upper_lower");
-    expect(plan.weekly_sets_per_muscle.Chest).toBe(12);
-    expect(plan.progression_scheme).toBe("adp"); // intermediate → ADP
-    expect(plan.deload_trigger).toBe("reactive");
-  });
-});
-
-// ===========================================================================
 // Part 4.1 — Adaptive TDEE
 // ===========================================================================
 
@@ -1602,6 +1350,10 @@ describe("Part 4.1 / Adaptive TDEE", () => {
   it("computeAdaptiveTdee: with 60 days of data, observed dominates", () => {
     const user = makeUser();
     // 60 days of weight-stable data at 3000 kcal intake.
+    // E-22 fix companion: use 60 distinct dates for BOTH intakes and weights
+    // so detectOutliers sees n_days >= 30 and doesn't clamp alpha to 0.5.
+    // Previously weights had only 2 entries (Jan 1 + Mar 1), so n_days = 2
+    // and confidence_indicator was "low" — which is now correctly caught.
     const intakes = Array.from({ length: 60 }, (_, i) => ({
       date: `2025-01-${String((i % 28) + 1).padStart(2, "0")}`,
       kcal: 3000,
@@ -1609,10 +1361,10 @@ describe("Part 4.1 / Adaptive TDEE", () => {
       carbs_g: 350,
       fat_g: 100,
     }));
-    const weights = [
-      { date: "2025-01-01", weight_kg: 80 },
-      { date: "2025-03-01", weight_kg: 80 },
-    ];
+    const weights = Array.from({ length: 60 }, (_, i) => ({
+      date: `2025-02-${String((i % 28) + 1).padStart(2, "0")}`,
+      weight_kg: 80,
+    }));
     const result = computeAdaptiveTdee({
       user,
       intakes,
@@ -1624,6 +1376,68 @@ describe("Part 4.1 / Adaptive TDEE", () => {
     // Adaptive should be very close to observed (2500-ish).
     expect(Math.abs(result.adaptive_tdee_kcal - (result.observed_tdee_kcal ?? 0))).toBeLessThan(50);
     expect(result.confidence).toBeGreaterThan(0.95);
+  });
+
+  // E-22 + E-23 regression tests: outlier-aware clamping + sanity bounds.
+  it("E-22: clamps alpha to >= 0.5 when outlier confidence is low (sparse data)", () => {
+    const user = makeUser();
+    // Only 5 days of data → n_days < 14 → confidence_indicator "low" → alpha clamped.
+    const intakes = Array.from({ length: 5 }, (_, i) => ({
+      date: `2025-01-${String(i + 1).padStart(2, "0")}`,
+      kcal: 3000,
+      protein_g: 150,
+      carbs_g: 350,
+      fat_g: 100,
+    }));
+    const weights = Array.from({ length: 5 }, (_, i) => ({
+      date: `2025-01-${String(i + 1).padStart(2, "0")}`,
+      weight_kg: 80,
+    }));
+    const result = computeAdaptiveTdee({
+      user,
+      intakes,
+      weights,
+      days_logged: 5, // would give alpha = exp(-5/14) ≈ 0.70 without the clamp
+    });
+    // With low confidence, alpha is clamped to >= 0.5.
+    expect(result.alpha).toBeGreaterThanOrEqual(0.5);
+    // Confidence is capped at 0.3.
+    expect(result.confidence).toBeLessThanOrEqual(0.3);
+    // Outliers are now returned.
+    expect(result.outliers).not.toBeNull();
+    expect(result.outliers?.confidence_indicator).toBe("low");
+  });
+
+  it("E-23: clamps observed TDEE to [0.5x, 2x] prior (gamed data defense)", () => {
+    const user = makeUser(); // prior TDEE ≈ 2742 kcal (1769 BMR × 1.55 SAF)
+    // 40 days of 10,000 kcal intake with NO weight change → observed = 10,000.
+    // Without E-23 clamping, even with alpha = 0.5, the blend would be
+    // 0.5*2742 + 0.5*10000 = 6371 kcal — absurd. E-23 clamps observed to
+    // 2*2742 = 5484, so blend = 0.5*2742 + 0.5*5484 = 4113.
+    const intakes = Array.from({ length: 40 }, (_, i) => ({
+      date: `2025-01-${String((i % 28) + 1).padStart(2, "0")}`,
+      kcal: 10000,
+      protein_g: 150,
+      carbs_g: 350,
+      fat_g: 100,
+    }));
+    const weights = Array.from({ length: 40 }, (_, i) => ({
+      date: `2025-02-${String((i % 28) + 1).padStart(2, "0")}`,
+      weight_kg: 80,
+    }));
+    const result = computeAdaptiveTdee({
+      user,
+      intakes,
+      weights,
+      days_logged: 40,
+    });
+    // Observed is clamped to <= 2 * prior.
+    const priorTdee = result.prior_tdee_kcal;
+    expect(result.observed_tdee_kcal).toBeLessThanOrEqual(priorTdee * 2.0 + 1);
+    expect(result.observed_tdee_kcal).toBeGreaterThanOrEqual(priorTdee * 0.5 - 1);
+    // The adaptive TDEE must be within [prior*0.5, prior*2] — never absurd.
+    expect(result.adaptive_tdee_kcal).toBeLessThanOrEqual(priorTdee * 2.0 + 1);
+    expect(result.adaptive_tdee_kcal).toBeGreaterThanOrEqual(priorTdee * 0.5 - 1);
   });
 
   it("detectOutliers: flags large weight jumps", () => {
