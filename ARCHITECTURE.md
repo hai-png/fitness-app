@@ -177,6 +177,22 @@ sweep is planned.
 
 ---
 
+### Naming conventions (A-25)
+
+The codebase uses a **dual naming convention** by design:
+
+| Layer | Convention | Rationale | Example |
+|-------|-----------|-----------|---------|
+| Engine types (`src/engine/schemas.ts`) | `snake_case` | Mirrors a future Python/backend API spec; matches the Unified Reference Guide's notation | `weight_kg`, `body_fat_pct`, `target_calories_kcal` |
+| UI types (`OnboardingInput`, `WorkoutPlan`) | `camelCase` | Follows JavaScript/TypeScript conventions; matches React form-field naming | `activityLevel`, `dietType`, `workoutPreference` |
+| Commerce types (`CartItem`, `Order`) | `camelCase` | Follows JS conventions | `deliveryAddress`, `orderHistory` |
+
+The boundary is `createUserFromOnboarding()` in `assessment.ts`, which maps camelCase UI fields to snake_case engine fields. This is the single conversion point; all engine functions consume snake_case and all UI components consume camelCase.
+
+**Decision (audit 2026-07):** Keep the dual convention. Converting all engine types to camelCase would require ~50 field renames across engine + tests with no functional benefit (the engine is pure TS, not a backend API today). Converting UI types to snake_case would break React form conventions. The boundary is documented and tested.
+
+---
+
 ## Analytics Engine Concepts
 
 The analytics engine (`src/data/analyticsEngine.ts`) is the most logic-dense part of the codebase. Here's a primer on the concepts it implements:

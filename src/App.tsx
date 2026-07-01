@@ -186,11 +186,17 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#EFECE6] flex items-center justify-center py-0 md:py-8 font-sans antialiased selection:bg-[#E63946]/20 select-none">
+    <div className="min-h-screen bg-[#EFECE6] flex items-center justify-center py-0 md:py-4 lg:py-0 font-sans antialiased selection:bg-[#E63946]/20 select-none">
       <ToastViewport />
       <ConfirmViewport />
 
-      <div className="relative w-full md:w-[410px] h-screen md:h-[840px] md:max-h-[92vh] md:rounded-[48px] md:border-8 md:border-[#1A1A1A] bg-[#F9F8F6] text-[#1A1A1A] overflow-hidden flex flex-col shadow-[0_25px_60px_-15px_rgba(26,26,26,0.15)]">
+      {/* F-H12 fix: on mobile (default) the app is full-screen. On md
+          breakpoints (tablet) the phone mockup is preserved for the
+          mobile-first visual metaphor. On lg+ breakpoints the phone bezel
+          is dropped — the app uses a responsive max-width container so
+          desktop users get a wider, more readable layout instead of a
+          cramped 410px column. */}
+      <div className="relative w-full md:w-[410px] lg:w-full lg:max-w-3xl h-screen md:h-[840px] lg:h-screen lg:max-h-none md:max-h-[92vh] lg:max-h-none md:rounded-[48px] lg:rounded-none md:border-8 lg:border-0 md:border-[#1A1A1A] lg:border-transparent bg-[#F9F8F6] text-[#1A1A1A] overflow-hidden flex flex-col shadow-[0_25px_60px_-15px_rgba(26,26,26,0.15)] lg:shadow-none">
         {/* F-M12 fix: top-level h1 is visually hidden but provides an
             accessible name for the app shell for screen-reader users
             (otherwise the landmark roles below would be nameless). */}

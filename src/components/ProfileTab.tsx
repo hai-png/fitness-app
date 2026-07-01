@@ -17,7 +17,7 @@ import { useUserStore } from "../store/useUserStore";
 import { useLogsStore } from "../store/useLogsStore";
 import { useIntakeStore } from "../store/useIntakeStore";
 import { useEngine } from "../store/useEngine";
-import { generateMealSuggestions } from "../data/planGenerator";
+import { buildMealPlan } from "../engine/mealPlan";
 import {
   User,
   Heart,
@@ -53,15 +53,19 @@ export default function ProfileTab({
 
   const { assessmentResult, nutritionPlan: engineNutritionPlan, applyAdjustment } = useEngine();
 
-  // Generate meal suggestions from the engine nutrition plan.
-  const mealSuggestions = useMemo(() => {
-    if (!nutritionPlan) return [];
-    return generateMealSuggestions({
-      input: assessment,
-      targetCalories: nutritionPlan.target_calories_kcal,
-      proteinG: nutritionPlan.protein_g,
-    });
-  }, [nutritionPlan, assessment]);
+  // A-20 fix: generate real meal plan from the recipe database instead of
+  // fake hardcoded meal suggestions. Uses the engine's NutritionPlan macros
+  // + the user's diet type + allergies to pick real recipes.
+  const mealPlan = useMemo(() => {
+    if (!nutritionPlan) return null;
+    return buildMealPlan(
+      nutritionPlan,
+      assessment.dietType,
+      assessment.allergies,
+      3, // 3-day preview
+      3, // 3 meals per day
+    );
+  }, [nutritionPlan, assessment.dietType, assessment.allergies]);
 
   // Generate guidelines from the engine nutrition plan.
   const guidelines = useMemo(() => {
@@ -247,34 +251,53 @@ export default function ProfileTab({
         </div>
       )}
 
-      {mealSuggestions.length > 0 && (
+      {mealPlan && mealPlan.days.length > 0 && (
         <div className="bg-white border border-[#1A1A1A]/10 rounded-none p-4 mb-6">
           <h3 className="font-serif font-bold text-[#1A1A1A] text-sm flex items-center gap-1.5 mb-3">
             <Compass className="w-4 h-4 text-[#E63946]" />
-            Ideal Meal Schedule
+            Personalized Meal Plan Preview
           </h3>
-          <div className="space-y-3">
-            {mealSuggestions.map((meal, idx) => (
-              <div
-                key={`meal-${idx}-${meal.name.slice(0, 12)}`}
-                className="flex justify-between items-center gap-3 bg-[#F9F8F6] p-3 rounded-none border border-[#1A1A1A]/5"
-              >
-                <div>
-                  <span className="text-[8px] uppercase font-bold text-[#1A1A1A]/40 tracking-wider font-mono">
-                    {meal.mealType}
+          <p className="text-[10px] text-[#1A1A1A]/50 font-serif italic mb-3">
+            Real recipes from a {mealPlan.days.reduce((s, d) => s + d.meals.length, 0)}-recipe database, matched to your macros ({Math.round(mealPlan.target_calories_kcal)} kcal · {mealPlan.target_protein_g}g protein), diet ({assessment.dietType}), and allergies.
+          </p>
+          <div className="space-y-4">
+            {mealPlan.days.map((day) => (
+              <div key={`day-${day.dayNumber}`}>
+                <div className="flex justify-between items-baseline mb-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#E63946] font-mono">
+                    Day {day.dayNumber}
                   </span>
-                  <h4 className="text-xs font-bold uppercase tracking-tight text-[#1A1A1A] mt-0.5 leading-snug">
-                    {meal.name}
-                  </h4>
-                  <p className="text-[10px] text-[#1A1A1A]/60 mt-0.5 leading-relaxed font-serif italic">
-                    {meal.description}
-                  </p>
+                  <span className="text-[9px] text-[#1A1A1A]/50 font-mono">
+                    {Math.round(day.total_kcal)} kcal · {Math.round(day.total_protein_g)}g P
+                  </span>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <span className="block text-xs font-bold text-[#1A1A1A]">{meal.calories} kcal</span>
-                  <span className="text-[10px] text-[#E63946] font-semibold font-mono">
-                    {meal.proteinGrams}g Pro
-                  </span>
+                <div className="space-y-2">
+                  {day.meals.map((meal, mIdx) => (
+                    <div
+                      key={`meal-${day.dayNumber}-${mIdx}-${meal.recipe.id}`}
+                      className="flex justify-between items-center gap-3 bg-[#F9F8F6] p-3 rounded-none border border-[#1A1A1A]/5"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[8px] uppercase font-bold text-[#1A1A1A]/40 tracking-wider font-mono">
+                          {meal.slot}
+                        </span>
+                        <h4 className="text-xs font-bold uppercase tracking-tight text-[#1A1A1A] mt-0.5 leading-snug truncate">
+                          {meal.recipe.name}
+                        </h4>
+                        <p className="text-[9px] text-[#1A1A1A]/50 mt-0.5 font-mono">
+                          {meal.recipe.cuisine} · {(meal.recipe.prep_time_min ?? 0) + (meal.recipe.cook_time_min ?? 0)}min
+                        </p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <span className="block text-xs font-bold text-[#1A1A1A]">
+                          {Math.round(meal.recipe.nutrition_per_serving.kcal)} kcal
+                        </span>
+                        <span className="text-[10px] text-[#E63946] font-semibold font-mono">
+                          {Math.round(meal.recipe.nutrition_per_serving.protein_g)}g Pro
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
