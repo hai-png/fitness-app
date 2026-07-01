@@ -1,8 +1,13 @@
-import { PersonalPlan, Assessment } from "../types";
+import type { OnboardingInput, WorkoutPlan, MealSuggestion } from "../engine";
 
-export function generateLocalPlan(assessment: Assessment): PersonalPlan {
-  const { name, goal, workoutPreference, dietType, frequency } = assessment;
-
+/**
+ * Generate a workout plan from onboarding input.
+ *
+ * The nutrition plan is NOT generated here — it's computed by the engine
+ * (runAssessment + buildNutritionPlan) via the useEngine hook.
+ */
+export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
+  const { name, goal, workoutPreference, dietType, frequency } = input;
   // Decide difficulty and description based on goal
   let title = "";
   let description = "";
@@ -640,8 +645,8 @@ export function generateLocalPlan(assessment: Assessment): PersonalPlan {
   const pool = structuredClone(isGym ? exercisePoolGym : exercisePoolHome);
 
   // Let's tune the gym exercise pool if availableMachines is specified
-  if (isGym && assessment.availableMachines && assessment.availableMachines.length > 0) {
-    const machines = assessment.availableMachines;
+  if (isGym && input.availableMachines && input.availableMachines.length > 0) {
+    const machines = input.availableMachines;
 
     // 1. Lat Pulldown Machine
     if (!machines.includes("Lat Pulldown")) {
@@ -932,59 +937,31 @@ export function generateLocalPlan(assessment: Assessment): PersonalPlan {
       },
     );
   }
+  return {
+    title,
+    description,
+    difficulty,
+    weeklySchedule: scheduleDays,
+    tips,
+    durationWeeks: 8,
+    currentWeek: 1,
+    goalType: goal,
+  };
+}
 
-  // Generate customized nutrition plan based on goals & diet type
-  const dietName = dietType.charAt(0).toUpperCase() + dietType.slice(1);
-  let dailyCalories = 2000;
-  let p = 140,
-    c = 200,
-    f = 65; // macros
+/**
+ * Generate meal suggestions from the engine NutritionPlan + onboarding input.
+ * Used by the meal-ordering UI to display per-meal macro targets.
+ */
+export function generateMealSuggestions(args: {
+  input: OnboardingInput;
+  targetCalories: number;
+  proteinG: number;
+}): MealSuggestion[] {
+  const { input, targetCalories, proteinG } = args;
+  const { dietType } = input;
 
-  if (goal === "weight-loss") {
-    dailyCalories = Math.round(assessment.weight * 22); // conservative deficit
-    p = Math.round(assessment.weight * 2.0); // high protein to preserve mass
-    c = Math.round((dailyCalories * 0.35) / 4);
-    f = Math.round((dailyCalories * 0.25) / 9);
-  } else if (goal === "muscle-gain" || goal === "strength") {
-    dailyCalories = Math.round(assessment.weight * 32); // surplus
-    p = Math.round(assessment.weight * 2.2);
-    c = Math.round((dailyCalories * 0.45) / 4);
-    f = Math.round((dailyCalories * 0.25) / 9);
-  } else {
-    dailyCalories = Math.round(assessment.weight * 26); // maintenance
-    p = Math.round(assessment.weight * 1.8);
-    c = Math.round((dailyCalories * 0.45) / 4);
-    f = Math.round((dailyCalories * 0.25) / 9);
-  }
-
-  if (dietType === "keto") {
-    p = Math.round((dailyCalories * 0.25) / 4);
-    c = 25; // strict keto limits
-    f = Math.round((dailyCalories * 0.7) / 9);
-  } else if (dietType === "low-carb") {
-    p = Math.round((dailyCalories * 0.35) / 4);
-    c = 75;
-    f = Math.round((dailyCalories * 0.45) / 9);
-  }
-
-  const guidelines = [
-    `Consume ${p}g of protein daily to support muscle recovery and satiety.`,
-    `Aim to consume your largest carbohydrate meal within 2 hours after your workout.`,
-    `Maintain strict hydration by drinking at least 3 liters of fresh water daily.`,
-  ];
-
-  if (dietType === "vegan") {
-    guidelines.push(
-      "Supplement with B12 daily and combine pea/brown-rice protein sources for a complete amino profile.",
-    );
-  }
-  if (assessment.allergies) {
-    guidelines.push(
-      `Strictly verify all food labels to remain completely free of: ${assessment.allergies}.`,
-    );
-  }
-
-  const mealSuggestions = [
+  return [
     {
       mealType: "Breakfast",
       name:
@@ -994,8 +971,8 @@ export function generateLocalPlan(assessment: Assessment): PersonalPlan {
             ? "Avocado Toast & Egg Whites"
             : "Savory Turkey Sausage & Egg White Scramble",
       description: "Scrambled with baby spinach, tomatoes, and organic olive oil.",
-      calories: Math.round(dailyCalories * 0.25),
-      proteinGrams: Math.round(p * 0.28),
+      calories: Math.round(targetCalories * 0.25),
+      proteinGrams: Math.round(proteinG * 0.28),
     },
     {
       mealType: "Lunch",
@@ -1004,8 +981,8 @@ export function generateLocalPlan(assessment: Assessment): PersonalPlan {
           ? "Baked Sesame Tofu Bowl"
           : "Zesty Herb Grilled Chicken Breast",
       description: "Served with cauliflower rice, sautéed bell peppers, and fresh greens.",
-      calories: Math.round(dailyCalories * 0.3),
-      proteinGrams: Math.round(p * 0.32),
+      calories: Math.round(targetCalories * 0.3),
+      proteinGrams: Math.round(proteinG * 0.32),
     },
     {
       mealType: "Dinner",
@@ -1016,8 +993,8 @@ export function generateLocalPlan(assessment: Assessment): PersonalPlan {
             ? "Lentil Pasta & Herb Marinara"
             : "Seared Atlantic Salmon Fillet",
       description: "Accompanied by dark steamed greens and lemon herb seasoning.",
-      calories: Math.round(dailyCalories * 0.35),
-      proteinGrams: Math.round(p * 0.35),
+      calories: Math.round(targetCalories * 0.35),
+      proteinGrams: Math.round(proteinG * 0.35),
     },
     {
       mealType: "Snack",
@@ -1026,28 +1003,8 @@ export function generateLocalPlan(assessment: Assessment): PersonalPlan {
           ? "Soy Protein & Almond Shake"
           : "Whey Isolate Shake & Handful of Almonds",
       description: "Blended with cold unsweetened almond milk and optional stevia.",
-      calories: Math.round(dailyCalories * 0.1),
-      proteinGrams: Math.round(p * 0.15),
+      calories: Math.round(targetCalories * 0.1),
+      proteinGrams: Math.round(proteinG * 0.15),
     },
   ];
-
-  return {
-    workoutPlan: {
-      title,
-      description,
-      difficulty,
-      weeklySchedule: scheduleDays,
-      tips,
-      durationWeeks: 8,
-      currentWeek: 1,
-      goalType: goal,
-    },
-    nutritionPlan: {
-      dietType: dietName,
-      dailyCalories,
-      macros: { protein: p, carbs: c, fat: f },
-      guidelines,
-      mealSuggestions,
-    },
-  };
 }

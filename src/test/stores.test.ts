@@ -2,10 +2,9 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { useUserStore } from "../store/useUserStore";
 import { useLogsStore } from "../store/useLogsStore";
 import { useCommerceStore } from "../store/useCommerceStore";
-import type { Assessment, PersonalPlan, CartItem, Order } from "../types";
+import type { OnboardingInput, WorkoutPlan, CartItem, Order } from "../engine";
 
-// Sample fixtures
-const SAMPLE_ASSESSMENT: Assessment = {
+const SAMPLE_INPUT: OnboardingInput = {
   name: "Test",
   age: 30,
   gender: "male",
@@ -19,21 +18,12 @@ const SAMPLE_ASSESSMENT: Assessment = {
   allergies: "",
 };
 
-const SAMPLE_PLAN: PersonalPlan = {
-  workoutPlan: {
-    title: "Test Plan",
-    description: "desc",
-    difficulty: "Intermediate",
-    weeklySchedule: [],
-    tips: [],
-  },
-  nutritionPlan: {
-    dietType: "anything",
-    dailyCalories: 2500,
-    macros: { protein: 150, carbs: 300, fat: 80 },
-    guidelines: [],
-    mealSuggestions: [],
-  },
+const SAMPLE_WORKOUT_PLAN: WorkoutPlan = {
+  title: "Test Plan",
+  description: "desc",
+  difficulty: "Intermediate",
+  weeklySchedule: [],
+  tips: [],
 };
 
 const SAMPLE_CART_ITEM: CartItem = {
@@ -56,7 +46,6 @@ const SAMPLE_ORDER: Order = {
 };
 
 beforeEach(() => {
-  // Reset all stores between tests
   useUserStore.getState().reset();
   useLogsStore.getState().reset();
   useCommerceStore.getState().reset();
@@ -64,50 +53,46 @@ beforeEach(() => {
 });
 
 describe("useUserStore", () => {
-  it("starts with null assessment and plan", () => {
+  it("starts with null onboarding input and workout plan", () => {
     const s = useUserStore.getState();
-    expect(s.assessment).toBeNull();
-    expect(s.personalPlan).toBeNull();
+    expect(s.onboardingInput).toBeNull();
+    expect(s.workoutPlan).toBeNull();
   });
 
-  it("setBoth stores assessment + plan atomically", () => {
-    useUserStore.getState().setBoth(SAMPLE_ASSESSMENT, SAMPLE_PLAN);
+  it("setBoth stores onboarding input + workout plan atomically", () => {
+    useUserStore.getState().setBoth(SAMPLE_INPUT, SAMPLE_WORKOUT_PLAN);
     const s = useUserStore.getState();
-    expect(s.assessment).toEqual(SAMPLE_ASSESSMENT);
-    expect(s.personalPlan).toEqual(SAMPLE_PLAN);
+    expect(s.onboardingInput).toEqual(SAMPLE_INPUT);
+    expect(s.workoutPlan).toEqual(SAMPLE_WORKOUT_PLAN);
   });
 
-  it("updateWeight mutates only the weight field on the assessment", () => {
-    useUserStore.getState().setBoth(SAMPLE_ASSESSMENT, SAMPLE_PLAN);
+  it("updateWeight mutates only the weight field on the onboarding input", () => {
+    useUserStore.getState().setBoth(SAMPLE_INPUT, SAMPLE_WORKOUT_PLAN);
     useUserStore.getState().updateWeight(82.5);
-    expect(useUserStore.getState().assessment?.weight).toBe(82.5);
-    // Other fields preserved
-    expect(useUserStore.getState().assessment?.name).toBe("Test");
+    expect(useUserStore.getState().onboardingInput?.weight).toBe(82.5);
+    expect(useUserStore.getState().onboardingInput?.name).toBe("Test");
   });
 
   it("updateWorkoutPlan replaces the workout plan only", () => {
-    useUserStore.getState().setBoth(SAMPLE_ASSESSMENT, SAMPLE_PLAN);
-    const newPlan = { ...SAMPLE_PLAN.workoutPlan, title: "Updated" };
+    useUserStore.getState().setBoth(SAMPLE_INPUT, SAMPLE_WORKOUT_PLAN);
+    const newPlan = { ...SAMPLE_WORKOUT_PLAN, title: "Updated" };
     useUserStore.getState().updateWorkoutPlan(newPlan);
-    expect(useUserStore.getState().personalPlan?.workoutPlan.title).toBe("Updated");
-    // Nutrition plan untouched
-    expect(useUserStore.getState().personalPlan?.nutritionPlan.dailyCalories).toBe(2500);
+    expect(useUserStore.getState().workoutPlan?.title).toBe("Updated");
   });
 
-  it("reset clears both assessment and plan", () => {
-    useUserStore.getState().setBoth(SAMPLE_ASSESSMENT, SAMPLE_PLAN);
+  it("reset clears both onboarding input and workout plan", () => {
+    useUserStore.getState().setBoth(SAMPLE_INPUT, SAMPLE_WORKOUT_PLAN);
     useUserStore.getState().reset();
-    expect(useUserStore.getState().assessment).toBeNull();
-    expect(useUserStore.getState().personalPlan).toBeNull();
+    expect(useUserStore.getState().onboardingInput).toBeNull();
+    expect(useUserStore.getState().workoutPlan).toBeNull();
   });
 
   it("persists to localStorage under the 'fitlife:user' key", () => {
-    useUserStore.getState().setBoth(SAMPLE_ASSESSMENT, SAMPLE_PLAN);
-    // zustand persist is synchronous for localStorage
+    useUserStore.getState().setBoth(SAMPLE_INPUT, SAMPLE_WORKOUT_PLAN);
     const raw = localStorage.getItem("fitlife:user");
     expect(raw).not.toBeNull();
     const parsed = JSON.parse(raw!);
-    expect(parsed.state.assessment.name).toBe("Test");
+    expect(parsed.state.onboardingInput.name).toBe("Test");
   });
 });
 
@@ -117,7 +102,7 @@ describe("useLogsStore", () => {
     useLogsStore.getState().addWeightLog(81.5);
     const logs = useLogsStore.getState().weightLogs;
     expect(logs).toHaveLength(1);
-    expect(logs[0].value).toBe(81.5);
+    expect(logs[0].weight_kg).toBe(81.5);
   });
 
   it("addWaterLog appends (multiple per day allowed)", () => {
@@ -127,7 +112,6 @@ describe("useLogsStore", () => {
   });
 
   it("clearTodayWaterLogs removes only today's entries", () => {
-    // Inject a fake old entry directly via setState
     useLogsStore.setState({
       waterLogs: [
         { date: "2020-01-01", amountMl: 999 },
@@ -201,7 +185,6 @@ describe("useCommerceStore", () => {
     const s = useCommerceStore.getState();
     expect(s.orderHistory).toHaveLength(1);
     expect(s.orderHistory[0].id).toBe("ord-1");
-    // marketplace item cleared, meal item retained
     expect(s.cart).toHaveLength(1);
     expect(s.cart[0].type).toBe("meal");
   });

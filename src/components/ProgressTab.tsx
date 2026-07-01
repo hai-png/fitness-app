@@ -1,13 +1,10 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { WeightLog, WaterLog, WorkoutLog } from "../types";
+import React, { useState, useMemo } from "react";
+import { DailyWeightLog, WaterLog, WorkoutLog } from "../engine";
 import {
   Plus,
-  Trash2,
   Flame,
   Droplet,
   Scale,
-  CheckCircle2,
-  Calendar,
   Sparkles,
   TrendingDown,
   TrendingUp,
@@ -16,7 +13,6 @@ import {
   Award,
   Clock,
   Info,
-  ChevronDown,
   ChevronUp,
   Share2,
   Filter,
@@ -43,12 +39,19 @@ import {
 } from "../data/analyticsEngine";
 import { EXERCISE_DATABASE } from "../data/workoutTemplates";
 import { useLogsStore } from "../store/useLogsStore";
+import { useUserStore } from "../store/useUserStore";
+import { useIntakeStore } from "../store/useIntakeStore";
 import { toast, confirmDialog } from "./Toast";
 import { OneRMEstimator } from "./OneRMEstimator";
+import {
+  weeklyAverageWeightKg,
+  weeklyRateLbPerWeek,
+  interpretWeightTrend,
+} from "../engine";
 import { WorkoutHeatmap } from "./WorkoutHeatmap";
 
 interface ProgressTabProps {
-  weightLogs: WeightLog[];
+  weightLogs: DailyWeightLog[];
   waterLogs: WaterLog[];
   workoutLogs: WorkoutLog[];
   onAddWeightLog: (weight: number) => void;
@@ -147,8 +150,8 @@ export default function ProgressTab({
   const todayStr = new Date().toISOString().split("T")[0];
 
   // Weight metrics
-  const currentWeight = weightLogs.length > 0 ? weightLogs[weightLogs.length - 1].value : 75;
-  const initialWeight = weightLogs.length > 0 ? weightLogs[0].value : 75;
+  const currentWeight = weightLogs.length > 0 ? weightLogs[weightLogs.length - 1].weight_kg : 75;
+  const initialWeight = weightLogs.length > 0 ? weightLogs[0].weight_kg : 75;
   const weightDiff = currentWeight - initialWeight;
 
   // Water metrics
@@ -1675,6 +1678,12 @@ export default function ProgressTab({
               Log Weight
             </button>
           </form>
+
+          {/* Engine Trend Analysis — uses the engine's weeklyRateLbPerWeek + interpretWeightTrend */}
+          <EngineTrendAnalysis weightLogs={weightLogs} />
+
+          {/* Daily intake logger — feeds the adaptive TDEE engine */}
+          <DailyIntakeLogger />
         </div>
       </div>
 
@@ -1851,6 +1860,281 @@ export default function ProgressTab({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ===========================================================================
+// Engine Trend Analysis — uses the engine's weeklyRateLbPerWeek +
+// interpretWeightTrend functions to surface evidence-based weight-trend
+// insights in the Logs tab. Implements Step 1 of IMPLEMENTATION_REPORT.md.
+// ===========================================================================
+
+interface EngineTrendAnalysisProps {
+  weightLogs: DailyWeightLog[];
+}
+
+function EngineTrendAnalysis({ weightLogs }: EngineTrendAnalysisProps) {
+  // Pull the user's primary goal + engine profile to determine cut/bulk phase.
+  const onboardingInput = useUserStore((s) => s.onboardingInput);
+  const engineProfile = useUserStore((s) => s.engineProfile);
+  const intakeLogs = useIntakeStore((s) => s.intakeLogs);
+
+  // DailyWeightLog is an alias for engine DailyWeightLog — no mapping needed.
+  const dailyWeights = weightLogs;
+
+  // Compute weekly average + rate using the engine functions.
+  const weeklyAvg = useMemo(() => weeklyAverageWeightKg(dailyWeights), [dailyWeights]);
+  const rateLbPerWeek = useMemo(() => weeklyRateLbPerWeek(dailyWeights), [dailyWeights]);
+
+  // Determine the phase for trend interpretation.
+  const phase: "cut" | "bulk" | "recomp" | "maintain" = (() => {
+    const goal = onboardingInput?.goal;
+    if (goal === "weight-loss") return "cut";
+    if (goal === "muscle-gain" || goal === "strength") return "bulk";
+    return "maintain";
+  })();
+
+  // Days/weeks into phase — approximate from first weight log.
+  const daysIntoPhase = dailyWeights.length;
+  const weeksIntoPhase = Math.floor(daysIntoPhase / 7);
+
+  const trend = useMemo(
+    () => interpretWeightTrend(dailyWeights, phase, daysIntoPhase, weeksIntoPhase),
+    [dailyWeights, phase, daysIntoPhase, weeksIntoPhase],
+  );
+
+  // Intake logging stats (for adaptive TDEE convergence info).
+  const intakeDays = intakeLogs.length;
+  const avgIntake =
+    intakeDays > 0
+      ? Math.round(intakeLogs.reduce((s, l) => s + l.kcal, 0) / intakeDays)
+      : null;
+
+  // Show the panel only after we have at least 1 week of data.
+  if (dailyWeights.length < 7) {
+    return (
+      <div className="mt-3 bg-[#E63946]/5 border border-[#E63946]/15 p-3 rounded-none">
+        <div className="flex items-start gap-2">
+          <TrendingUp className="w-3.5 h-3.5 text-[#E63946] flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-[10px] font-bold text-[#1A1A1A]">
+              Engine trend analysis needs more data
+            </p>
+            <p className="text-[9px] text-[#1A1A1A]/60 font-serif italic mt-0.5">
+              Log weight daily for at least 7 days to unlock evidence-based trend insights
+              (weekly rate, adaptation-phase detection, cut/bulk adjustment recommendations).
+              Currently have {dailyWeights.length}/7 days.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const actionColor =
+    trend.action === "act"
+      ? "text-amber-700 bg-amber-50 border-amber-200"
+      : trend.action === "wait"
+        ? "text-blue-700 bg-blue-50 border-blue-200"
+        : trend.action === "adaptation_phase"
+          ? "text-purple-700 bg-purple-50 border-purple-200"
+          : "text-emerald-700 bg-emerald-50 border-emerald-200";
+
+  return (
+    <div className="mt-3 bg-white border border-[#1A1A1A]/10 p-3 rounded-none">
+      <div className="flex items-center gap-1.5 mb-2">
+        <TrendingUp className="w-3.5 h-3.5 text-[#E63946]" />
+        <span className="text-[10px] font-bold uppercase tracking-wider text-[#1A1A1A] font-mono">
+          Engine Trend Analysis
+        </span>
+      </div>
+
+      <div className="grid grid-cols-3 gap-1.5 mb-2">
+        <div className="bg-[#F9F8F6] p-1.5 border border-[#1A1A1A]/5 text-center">
+          <span className="block text-[8px] uppercase text-[#1A1A1A]/40">Weekly Avg</span>
+          <span className="text-[11px] font-bold text-[#1A1A1A]">
+            {weeklyAvg !== null ? `${weeklyAvg.toFixed(1)} kg` : "—"}
+          </span>
+        </div>
+        <div className="bg-[#F9F8F6] p-1.5 border border-[#1A1A1A]/5 text-center">
+          <span className="block text-[8px] uppercase text-[#1A1A1A]/40">Rate</span>
+          <span
+            className={`text-[11px] font-bold ${
+              rateLbPerWeek !== null && rateLbPerWeek < 0
+                ? "text-emerald-600"
+                : rateLbPerWeek !== null && rateLbPerWeek > 0
+                  ? "text-amber-600"
+                  : "text-[#1A1A1A]"
+            }`}
+          >
+            {rateLbPerWeek !== null ? `${rateLbPerWeek.toFixed(2)} lb/wk` : "—"}
+          </span>
+        </div>
+        <div className="bg-[#F9F8F6] p-1.5 border border-[#1A1A1A]/5 text-center">
+          <span className="block text-[8px] uppercase text-[#1A1A1A]/40">Phase</span>
+          <span className="text-[11px] font-bold text-[#E63946] uppercase">{phase}</span>
+        </div>
+      </div>
+
+      <div className={`p-2 border rounded-none ${actionColor}`}>
+        <div className="flex items-center gap-1.5">
+          <Activity className="w-3 h-3 flex-shrink-0" />
+          <span className="text-[10px] font-bold uppercase tracking-wider">
+            {trend.action.replace(/_/g, " ")}
+          </span>
+        </div>
+        <p className="text-[9px] mt-0.5 font-serif italic">{trend.reason}</p>
+      </div>
+
+      {/* Intake logging status */}
+      <div className="mt-2 flex items-center justify-between text-[9px] text-[#1A1A1A]/60 font-mono">
+        <span>
+          Intake logs: {intakeDays} day(s)
+          {avgIntake !== null && ` · avg ${avgIntake} kcal`}
+        </span>
+        <span className="text-[#E63946]">
+          {intakeDays >= 30
+            ? "Adaptive TDEE ready"
+            : `${30 - intakeDays} days to adaptive TDEE`}
+        </span>
+      </div>
+
+      {engineProfile.is_currently_in_deficit !== undefined && (
+        <p className="text-[8px] text-[#1A1A1A]/40 font-serif italic mt-1">
+          Deficit flag: {engineProfile.is_currently_in_deficit ? "active (−5% BMR)" : "inactive"}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ===========================================================================
+// Daily Intake Logger — feeds the adaptive TDEE engine with daily calorie
+// + macro intake. Required for the adaptive TDEE to converge from prior-heavy
+// (formula-based) to data-driven after ~30 days of paired intake+weight data.
+// ===========================================================================
+
+function DailyIntakeLogger() {
+  const intakeLogs = useIntakeStore((s) => s.intakeLogs);
+  const addIntakeLog = useIntakeStore((s) => s.addIntakeLog);
+  const clearTodayIntakeLog = useIntakeStore((s) => s.clearTodayIntakeLog);
+  const [kcal, setKcal] = useState("");
+  const [protein, setProtein] = useState("");
+  const [carbs, setCarbs] = useState("");
+  const [fat, setFat] = useState("");
+
+  const todayStr = new Date().toISOString().split("T")[0];
+  const todayLog = intakeLogs.find((l) => l.date === todayStr);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const k = parseFloat(kcal);
+    if (Number.isNaN(k) || k <= 0) {
+      toast.error("Invalid calories", "Enter a positive number for kcal.");
+      return;
+    }
+    addIntakeLog({
+      kcal: k,
+      protein_g: parseFloat(protein) || 0,
+      carbs_g: parseFloat(carbs) || 0,
+      fat_g: parseFloat(fat) || 0,
+    });
+    setKcal("");
+    setProtein("");
+    setCarbs("");
+    setFat("");
+    toast.success("Intake logged", `${k} kcal for today.`);
+  };
+
+  return (
+    <div className="mt-3 bg-white border border-[#1A1A1A]/10 p-3 rounded-none">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          <Flame className="w-3.5 h-3.5 text-[#E63946]" />
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#1A1A1A] font-mono">
+            Daily Intake Logger
+          </span>
+        </div>
+        {todayLog && (
+          <button
+            type="button"
+            onClick={() => {
+              clearTodayIntakeLog();
+              toast.info("Today's intake cleared");
+            }}
+            className="text-[9px] text-[#1A1A1A]/50 hover:text-[#E63946] font-mono uppercase tracking-wider"
+          >
+            Clear Today
+          </button>
+        )}
+      </div>
+
+      {todayLog ? (
+        <div className="bg-emerald-50 border border-emerald-200 p-2 rounded-none mb-2">
+          <div className="flex items-center gap-1.5">
+            <Check className="w-3 h-3 text-emerald-700" />
+            <span className="text-[10px] font-bold text-emerald-700">
+              Today: {todayLog.kcal} kcal · P{todayLog.protein_g}g · C{todayLog.carbs_g}g · F{todayLog.fat_g}g
+            </span>
+          </div>
+        </div>
+      ) : (
+        <p className="text-[9px] text-[#1A1A1A]/50 font-serif italic mb-2">
+          No intake logged today. Log your daily totals to feed the adaptive TDEE engine.
+        </p>
+      )}
+
+      <form onSubmit={handleSubmit} className="grid grid-cols-4 gap-1.5">
+        <input
+          type="number"
+          step="1"
+          placeholder="kcal"
+          value={kcal}
+          onChange={(e) => setKcal(e.target.value)}
+          required
+          className="engine-input text-center"
+          aria-label="Calories"
+        />
+        <input
+          type="number"
+          step="0.1"
+          placeholder="P (g)"
+          value={protein}
+          onChange={(e) => setProtein(e.target.value)}
+          className="engine-input text-center"
+          aria-label="Protein grams"
+        />
+        <input
+          type="number"
+          step="0.1"
+          placeholder="C (g)"
+          value={carbs}
+          onChange={(e) => setCarbs(e.target.value)}
+          className="engine-input text-center"
+          aria-label="Carbs grams"
+        />
+        <input
+          type="number"
+          step="0.1"
+          placeholder="F (g)"
+          value={fat}
+          onChange={(e) => setFat(e.target.value)}
+          className="engine-input text-center"
+          aria-label="Fat grams"
+        />
+        <button
+          type="submit"
+          className="col-span-4 py-2 bg-[#1A1A1A] hover:bg-[#E63946] text-white text-[10px] font-bold uppercase tracking-wider font-mono transition-all"
+        >
+          Log Today's Intake
+        </button>
+      </form>
+
+      <p className="text-[8px] text-[#1A1A1A]/40 font-serif italic mt-1.5">
+        Macros are optional but help with future features. One entry per day — submitting
+        overwrites today's log.
+      </p>
     </div>
   );
 }

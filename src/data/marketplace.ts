@@ -1,4 +1,4 @@
-import { MarketplaceProduct } from "../types";
+import { MarketplaceProduct } from "../engine";
 
 export const MARKETPLACE_PRODUCTS: MarketplaceProduct[] = [
   // --- APPAREL ---

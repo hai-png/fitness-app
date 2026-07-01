@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { MEAL_PRODUCTS } from "../data/meals";
-import { Assessment, MealProduct, CartItem, Order, PersonalPlan } from "../types";
+import { OnboardingInput, MealProduct, CartItem, Order, NutritionPlan } from "../engine";
 import { toast } from "./Toast";
 import {
   ShoppingBag,
@@ -23,8 +23,8 @@ import {
 } from "lucide-react";
 
 interface MealOrderingTabProps {
-  assessment: Assessment;
-  personalPlan: PersonalPlan;
+  assessment: OnboardingInput;
+  nutritionPlan: NutritionPlan | null;
   cart: CartItem[];
   onAddToCart: (item: CartItem) => void;
   onRemoveFromCart: (id: string) => void;
@@ -42,7 +42,7 @@ interface DayPlan {
 
 export default function MealOrderingTab({
   assessment,
-  personalPlan,
+  nutritionPlan,
   cart,
   onAddToCart,
   onRemoveFromCart,
@@ -69,9 +69,9 @@ export default function MealOrderingTab({
   const [isOrderSuccess, setIsOrderSuccess] = useState<boolean>(false);
 
   const targetCalories =
-    personalPlan?.nutritionPlan?.dailyCalories || Math.round(assessment.weight * 26);
+    nutritionPlan?.target_calories_kcal || Math.round(assessment.weight * 26);
   const targetProtein =
-    personalPlan?.nutritionPlan?.macros?.protein || Math.round(assessment.weight * 1.8);
+    nutritionPlan?.protein_g || Math.round(assessment.weight * 1.8);
 
   // Filter products by dietary restriction and allergy
   const getEligibleMeals = (): MealProduct[] => {

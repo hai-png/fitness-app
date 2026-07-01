@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { MARKETPLACE_PRODUCTS } from "../data/marketplace";
-import { MarketplaceProduct, CartItem, Order } from "../types";
+import { MarketplaceProduct, CartItem, Order } from "../engine";
 import {
   ShoppingBag,
   Search,

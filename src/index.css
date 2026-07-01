@@ -40,3 +40,25 @@
 .animate-spin-slow {
   animation: spin 6s linear infinite;
 }
+
+/* Engine form input — shared style for AssessmentSettings + NutritionPlanPanel. */
+@utility engine-input {
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  color: #1a1a1a;
+  background-color: #f9f8f6;
+  border: 1px solid rgba(26, 26, 26, 0.1);
+  border-radius: 0;
+  outline: none;
+  transition: border-color 0.15s ease;
+  &:focus {
+    border-color: #e63946;
+    background-color: #fff;
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}

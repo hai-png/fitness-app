@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { WorkoutPlan, WeeklyScheduleDay, WorkoutLog, Exercise } from "../types";
+import { WorkoutPlan, WeeklyScheduleDay, WorkoutLog, Exercise } from "../engine";
 import { toast } from "./Toast";
 import {
   Calendar,

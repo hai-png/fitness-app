@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { CartItem, Order } from "../types";
+import type { CartItem, Order } from "../engine";
 
 /**
  * Commerce store — cart + order history. Persisted so a refresh doesn't

@@ -1,4 +1,4 @@
-import { MealProduct } from "../types";
+import { MealProduct } from "../engine";
 
 export const MEAL_PRODUCTS: MealProduct[] = [
   {

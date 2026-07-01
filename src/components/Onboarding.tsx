@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Assessment, PersonalPlan } from "../types";
+import type { OnboardingInput, WorkoutPlan } from "../engine";
 import { toast } from "./Toast";
-import { generateLocalPlan } from "../data/fallbackPlan";
+import { generateWorkoutPlan } from "../data/planGenerator";
 import {
   Activity,
   ChevronRight,
@@ -137,7 +137,7 @@ const MACHINE_CATEGORIES = {
 };
 
 interface OnboardingProps {
-  onComplete: (plan: PersonalPlan, assessment: Assessment) => void;
+  onComplete: (plan: WorkoutPlan, input: OnboardingInput) => void;
 }
 
 export default function Onboarding({ onComplete }: OnboardingProps) {
@@ -164,7 +164,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const [locationSearch, setLocationSearch] = useState<string>("Downtown Aether");
   const [isScanningGyms, setIsScanningGyms] = useState<boolean>(false);
 
-  const [form, setForm] = useState<Assessment>({
+  const [form, setForm] = useState<OnboardingInput>({
     name: "",
     age: 26,
     gender: "male",
@@ -192,7 +192,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     setStep((prev) => Math.max(0, prev - 1));
   };
 
-  const handleFieldChange = (field: keyof Assessment, value: any) => {
+  const handleFieldChange = (field: keyof OnboardingInput, value: any) => {
     setForm((prev) => ({
       ...prev,
       [field]: value,
@@ -229,7 +229,15 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
           loadingIntervalRef.current = null;
         }
         try {
-          const plan = generateLocalPlan(form);
+          // Generate the workout plan locally. The nutrition plan is computed
+          // by the engine (runAssessment + buildNutritionPlan) via the useEngine
+          // hook — no need to generate it here.
+          const plan = generateWorkoutPlan(form);
+          console.info("[planGenerator] Workout plan generated.", {
+            title: plan.title,
+            days: plan.weeklySchedule.length,
+            durationWeeks: plan.durationWeeks,
+          });
           onComplete(plan, form);
         } catch (e) {
           setError("Failed to generate fallback plan.");
@@ -256,7 +264,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         throw new Error(errData.error || "Generation endpoint returned an error");
       }
 
-      const planData: PersonalPlan = await response.json();
+      const planData: WorkoutPlan = await response.json();
       onComplete(planData, form);
     } catch (err: any) {
       console.warn("Gemini generation failed or unconfigured:", err);
