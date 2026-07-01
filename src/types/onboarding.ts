@@ -38,6 +38,17 @@ export type OnboardingDietType =
   | "gluten-free"
   | "mediterranean";
 
+export type OnboardingCuisinePreference =
+  | "american"
+  | "ethiopian"
+  | "mexican"
+  | "italian"
+  | "thai"
+  | "mediterranean"
+  | "indian"
+  | "japanese"
+  | "no-preference";
+
 export type OnboardingGender =
   | "male"
   | "female"
@@ -61,6 +72,7 @@ export interface OnboardingInput {
   workoutPreference: OnboardingWorkoutPreference;
   frequency: number; // days per week
   dietType: OnboardingDietType;
+  cuisinePreference: OnboardingCuisinePreference;
   allergies: string;
   selectedGymName?: string;
   availableMachines?: string[];

@@ -3,17 +3,8 @@ import type { OnboardingStepProps } from "./Step0Profile";
 /**
  * Step 3 — Nutritional foundation.
  *
- * Renders: dietary category (anything / vegetarian / vegan / keto / low-carb /
- * gluten-free / mediterranean) and a free-text allergies & sensitivities
- * input.
- *
- * (Naming note: the A-05 task brief described this slot as "Review/summary",
- * but the actual JSX in Onboarding.tsx is the dietary + allergies form. The
- * file is named `Step3Review.tsx` per the brief; this docstring records the
- * true content for future maintainers.)
- *
- * Extracted verbatim from Onboarding.tsx (A-05 decomposition). No JSX, CSS
- * classes, ids, or business logic were modified.
+ * Renders: dietary category, cuisine preference (including Ethiopian),
+ * and a free-text allergies & sensitivities input.
  */
 export default function Step3Review({ form, handleFieldChange }: OnboardingStepProps) {
   return (
@@ -50,6 +41,34 @@ export default function Step3Review({ form, handleFieldChange }: OnboardingStepP
             </button>
           ))}
         </div>
+      </div>
+
+      <div>
+        <label
+          htmlFor="select-cuisine-preference"
+          className="block text-[10px] font-bold text-[#1A1A1A]/60 mb-2 uppercase tracking-wider mt-4"
+        >
+          Cuisine Preference
+        </label>
+        <select
+          id="select-cuisine-preference"
+          value={form.cuisinePreference}
+          onChange={(e) => handleFieldChange("cuisinePreference", e.target.value)}
+          className="w-full bg-white border border-[#1A1A1A]/15 rounded-none px-4 py-3 text-[#1A1A1A] text-sm focus:border-[#1A1A1A] focus:outline-none"
+        >
+          <option value="no-preference">No preference (variety)</option>
+          <option value="american">American</option>
+          <option value="ethiopian">Ethiopian 🇪🇹</option>
+          <option value="mexican">Mexican</option>
+          <option value="italian">Italian</option>
+          <option value="thai">Thai</option>
+          <option value="mediterranean">Mediterranean</option>
+          <option value="indian">Indian</option>
+          <option value="japanese">Japanese</option>
+        </select>
+        <p className="text-[10px] text-[#1A1A1A]/50 mt-1.5 font-serif italic leading-relaxed">
+          Your meal delivery plan will prefer recipes from this cuisine when available.
+        </p>
       </div>
 
       <div>

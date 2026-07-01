@@ -1,9 +1,5 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { MEAL_PRODUCTS } from "../data/meals";
-// A-24: targeted type-only import from schemas — these are pure types.
-// Using `import type` + targeted module path lets the bundler elide this
-// entire statement at build time and avoids pulling the full engine barrel
-// (assessment + nutrition + adaptiveTdee) into the MealOrdering bundle.
 import type {
   OnboardingInput,
   MealProduct,
@@ -14,6 +10,7 @@ import type {
 import { toast } from "./Toast";
 import { useSafeTimeout } from "../hooks/useSafeTimeout";
 import { Modal } from "./Modal";
+import { findSwapAlternatives, computeMealTargets } from "../engine/mealSwap";
 import {
   ShoppingBag,
   AlertTriangle,
@@ -646,6 +643,84 @@ export default function MealOrderingTab({
               </button>
             );
           })}
+
+          {/* Recipe alternatives from the 305-recipe database — matched by
+              diet, allergies, cuisine preference, and macro targets. */}
+          {(() => {
+            if (!swapTarget || !nutritionPlan) return null;
+            const slot = mealPlan[swapTarget.dayIndex]?.meals[swapTarget.mealIndex];
+            if (!slot) return null;
+            const mealType = slot.slot.toLowerCase() as "breakfast" | "lunch" | "dinner";
+            const targets = computeMealTargets(nutritionPlan, mealsPerDay as 2 | 3);
+            const target = targets[mealType] ?? targets.lunch;
+            const userGoal = nutritionPlan.phase === "cut" ? "cut" : nutritionPlan.phase === "bulk" ? "bulk" : "maintenance";
+            const alternatives = findSwapAlternatives(
+              target,
+              assessment.dietType,
+              assessment.allergies,
+              mealType,
+              userGoal,
+              assessment.cuisinePreference === "no-preference" ? "" : assessment.cuisinePreference,
+              6,
+            );
+            if (alternatives.length === 0) return null;
+            return (
+              <>
+                <p className="text-[9px] text-[#E63946] font-mono uppercase pt-2 border-t border-[#1A1A1A]/10">
+                  Recipe Alternatives ({alternatives.length})
+                </p>
+                {alternatives.map(({ recipe, kcalDelta }) => (
+                  <button
+                    key={`recipe-swap-${recipe.id}`}
+                    type="button"
+                    onClick={() => {
+                      if (swapTarget) {
+                        const recipeMeal: MealProduct = {
+                          id: `recipe-${recipe.id}`,
+                          name: recipe.name,
+                          description: `${recipe.cuisine} cuisine`,
+                          price: basePricePerMeal,
+                          calories: Math.round(recipe.nutrition.kcal),
+                          protein: Math.round(recipe.nutrition.proteinG),
+                          carbs: Math.round(recipe.nutrition.carbG),
+                          fat: Math.round(recipe.nutrition.fatG),
+                          image: recipe.imageUrl,
+                          category: "balanced",
+                        };
+                        handleSwap(swapTarget.dayIndex, swapTarget.mealIndex, recipeMeal);
+                      }
+                    }}
+                    className="w-full text-left p-2.5 border bg-white border-[#1A1A1A]/10 hover:border-[#E63946]/30 transition-all flex gap-3"
+                  >
+                    {recipe.imageUrl && (
+                      <img
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                        src={recipe.imageUrl}
+                        alt={recipe.name}
+                        className="w-12 h-12 object-cover flex-shrink-0"
+                      />
+                    )}
+                    <div className="flex-grow min-w-0">
+                      <h5 className="text-xs font-bold uppercase tracking-tight text-[#1A1A1A] truncate">
+                        {recipe.name}
+                      </h5>
+                      <p className="text-[10px] text-[#1A1A1A]/50 font-serif italic">
+                        {recipe.cuisine} · {recipe.prepTimeMin + recipe.cookTimeMin}min
+                      </p>
+                      <div className="flex gap-2.5 mt-0.5 text-[9px] font-mono text-[#1A1A1A]/60">
+                        <span>{Math.round(recipe.nutrition.kcal)} kcal</span>
+                        <span>{Math.round(recipe.nutrition.proteinG)}g Pro</span>
+                        <span className={kcalDelta < 0 ? "text-emerald-700" : "text-amber-700"}>
+                          {kcalDelta >= 0 ? "+" : ""}{Math.round(kcalDelta)} kcal
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </>
+            );
+          })()}
         </div>
       </Modal>
 

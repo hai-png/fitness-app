@@ -16,6 +16,7 @@ const SAMPLE_INPUT: OnboardingInput = {
   workoutPreference: "gym",
   frequency: 3,
   dietType: "anything",
+  cuisinePreference: "no-preference",
   allergies: "",
 };
 

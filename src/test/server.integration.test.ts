@@ -24,7 +24,8 @@ const VALID_ONBOARDING = {
   activityLevel: "moderate" as const,
   workoutPreference: "gym" as const,
   frequency: 3,
-  dietType: "anything" as const,
+  dietType: "anything",
+  cuisinePreference: "no-preference" as const,
   allergies: "",
 };
 

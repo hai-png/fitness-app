@@ -47,6 +47,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     workoutPreference: "hybrid",
     frequency: 3,
     dietType: "anything",
+    cuisinePreference: "no-preference",
     allergies: "",
     selectedGymName: "",
     availableMachines: [],

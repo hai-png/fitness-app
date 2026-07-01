@@ -1636,6 +1636,7 @@ describe("E-27 / createUserFromOnboarding + mapping helpers", () => {
     workoutPreference: "gym",
     frequency: 4,
     dietType: "vegetarian",
+    cuisinePreference: "no-preference",
     allergies: "",
   };
 
