@@ -1,32 +1,22 @@
 import { useState, useEffect } from "react";
 import { WorkoutPlan, WeeklyScheduleDay, WorkoutLog, Exercise } from "../engine";
 import { toast } from "./Toast";
-import { Modal } from "./Modal";
 import {
-  Flame,
   CheckCircle2,
   Play,
   ChevronDown,
   ChevronUp,
   Award,
   Circle,
-  Timer,
-  VolumeX,
-  Volume2,
   Sliders,
-  Plus,
-  Trash2,
   Video,
   TrendingUp,
-  Check,
-  BookOpen,
 } from "lucide-react";
-import {
-  EXERCISE_DATABASE,
-  SPLIT_TEMPLATES,
-  DURATION_PROGRAMS,
-  ProgramPreset,
-} from "../data/workoutTemplates";
+import { EXERCISE_DATABASE, SPLIT_TEMPLATES, ProgramPreset } from "../data/workoutTemplates";
+import RestTimer from "./training-tab/RestTimer";
+import ProgramSelectorModal from "./training-tab/ProgramSelectorModal";
+import TutorialVideoModal from "./training-tab/TutorialVideoModal";
+import SplitBuilderModal from "./training-tab/SplitBuilderModal";
 
 interface TrainingTabProps {
   workoutPlan: WorkoutPlan;
@@ -335,9 +325,6 @@ export default function TrainingTab({
     selectedDay.exercises.length > 0 &&
     selectedDay.exercises.every((_, idx) => completedExercises[idx]);
 
-  // Categories list for exercise DB lookup
-  const categories = ["Chest", "Back", "Legs", "Shoulders", "Arms", "Core", "Cardio"];
-
   return (
     <div className="flex flex-col h-full bg-[#F9F8F6] text-[#1A1A1A] overflow-y-auto p-4 md:p-6 pb-24">
       {/* 1. Duration-Based Plan Header & Weekly Timeline Progress */}
@@ -486,39 +473,12 @@ export default function TrainingTab({
         </div>
 
         {/* Rest Timer display (when active) */}
-        {isWorkoutActive && (
-          <div className="bg-[#1A1A1A]/5 border border-[#1A1A1A]/10 p-3 mb-4 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#E63946] opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#E63946]"></span>
-              </span>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[#E63946]">
-                Workout Active
-              </span>
-            </div>
-
-            {timerSeconds > 0 && (
-              <div className="flex items-center gap-1.5 text-xs bg-[#E63946]/10 text-[#E63946] border border-[#E63946]/20 px-2.5 py-1 font-mono">
-                <Timer className="w-3.5 h-3.5 animate-pulse" />
-                <span>Rest Countdown: {timerSeconds}s</span>
-              </div>
-            )}
-
-            <button
-              id="btn-log-completion"
-              onClick={handleFinishWorkout}
-              disabled={!isAllCompleted}
-              className={`text-[10px] font-bold uppercase tracking-widest px-3.5 py-1.5 transition-all ${
-                isAllCompleted
-                  ? "bg-[#1A1A1A] text-white hover:bg-[#E63946] shadow-sm"
-                  : "bg-[#1A1A1A]/5 text-[#1A1A1A]/30 cursor-not-allowed"
-              }`}
-            >
-              Finish Log
-            </button>
-          </div>
-        )}
+        <RestTimer
+          isWorkoutActive={isWorkoutActive}
+          timerSeconds={timerSeconds}
+          isAllCompleted={isAllCompleted}
+          onFinish={handleFinishWorkout}
+        />
 
         {/* Exercises list */}
         <div className="space-y-3">
@@ -665,628 +625,58 @@ export default function TrainingTab({
 
       {/* MODAL 1: DURATION-BASED PROGRAM PRESETS SELECTOR — F-C2: uses the
           accessible <Modal> component (role=dialog, aria-modal, Escape-to-close,
-          focus trap, restore focus). */}
-      <Modal
+          focus trap, restore focus). Now lives in ProgramSelectorModal. */}
+      <ProgramSelectorModal
         open={isProgramSelectorOpen}
         onClose={() => setIsProgramSelectorOpen(false)}
-        title="Preset Programs"
-        maxWidthClass="max-w-md"
-      >
-        <div className="p-4 overflow-y-auto space-y-4 max-h-[70vh]">
-          <p className="text-xs text-[#1A1A1A]/60 font-serif italic mb-2 leading-relaxed">
-            Choose a structured, duration-based athletic program designed with target sets, reps
-            and progressions mapped for your direct goal:
-          </p>
-
-          {DURATION_PROGRAMS.map((prog) => (
-            <button
-              type="button"
-              key={prog.id}
-              className="bg-white border border-[#1A1A1A]/10 p-4 relative overflow-hidden group hover:border-[#1A1A1A]/30 transition-all cursor-pointer w-full text-left block"
-              onClick={() => handleApplyPresetProgram(prog)}
-            >
-              <div className="absolute right-3 top-3 bg-[#E63946] text-white text-[8px] font-bold px-2 py-0.5 uppercase tracking-widest font-mono">
-                {prog.durationWeeks} Weeks
-              </div>
-
-              <h4 className="text-sm font-bold uppercase tracking-tight text-[#1A1A1A] group-hover:text-[#E63946] transition-colors">
-                {prog.name}
-              </h4>
-              <p className="text-[11px] text-[#1A1A1A]/50 uppercase tracking-widest font-mono font-semibold mt-0.5">
-                Goal: {prog.goal.replace("-", " ")}
-              </p>
-
-              <p className="text-xs mt-2 text-[#1A1A1A]/70 leading-relaxed font-serif italic">
-                {prog.description}
-              </p>
-
-              <div className="mt-3 pt-2.5 border-t border-[#1A1A1A]/5 flex justify-between items-center text-[10px] uppercase font-bold text-[#1A1A1A]/50">
-                <span>Split: {prog.splitTemplate.name}</span>
-                <span className="text-[#E63946] flex items-center gap-1 font-mono">
-                  Apply Program →
-                </span>
-              </div>
-            </button>
-          ))}
-        </div>
-      </Modal>
+        onApplyProgram={handleApplyPresetProgram}
+      />
 
       {/* MODAL 2: INTERACTIVE FORM TUTORIAL PLAYER — F-C2: uses the accessible
           <Modal> component. The dark-themed tutorial body is preserved; the
-          Modal renders its own light header with the X close button. */}
-      <Modal
-        open={!!activeTutorialExercise}
+          Modal renders its own light header with the X close button. Now lives
+          in TutorialVideoModal. */}
+      <TutorialVideoModal
+        activeExercise={activeTutorialExercise}
         onClose={() => setActiveTutorialExercise(null)}
-        title="Exercise Tutorial"
-        maxWidthClass="max-w-sm"
-      >
-        {activeTutorialExercise && (
-          <div className="bg-[#1A1A1A] text-white flex flex-col max-h-[80vh]">
-            {/* Simulated Active Video Screen */}
-            <div className="relative aspect-video bg-neutral-900 border-b border-white/5 overflow-hidden flex items-center justify-center group">
-              {/* Dynamic Muscle Target Grid background */}
-              <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]" />
-
-              {/* Looping animation representing concentric mechanical tension */}
-              <div className="relative flex flex-col items-center justify-center p-6 text-center z-10">
-                {isVideoPlaying ? (
-                  <div className="relative flex items-center justify-center">
-                    <div className="absolute w-20 h-20 rounded-full border border-dashed border-[#E63946] animate-[spin_20s_linear_infinite]" />
-                    <div className="absolute w-14 h-14 rounded-full border border-double border-white/20 animate-pulse" />
-                    <Flame className="w-8 h-8 text-[#E63946] animate-pulse" />
-                  </div>
-                ) : (
-                  <Play className="w-10 h-10 text-white/50 fill-current" />
-                )}
-
-                <span className="text-[10px] mt-4 font-mono uppercase tracking-[0.15em] text-white/50">
-                  {isVideoPlaying ? `Form Simulation Loop: ${videoProgress}%` : "Coach Paused"}
-                </span>
-                <span className="text-[11px] font-serif italic text-white/80 mt-1 max-w-[200px]">
-                  Target Focus: {activeTutorialExercise.targetMuscle || "Muscular Tension"}
-                </span>
-              </div>
-
-              {/* Video Timeline controls overlay */}
-              <div className="absolute bottom-0 left-0 right-0 p-2.5 bg-gradient-to-t from-black/80 to-transparent flex items-center justify-between gap-3 text-white/80 text-[10px] font-mono">
-                <button
-                  id="btn-play-pause-video"
-                  onClick={() => setIsVideoPlaying(!isVideoPlaying)}
-                  className="hover:text-[#E63946] transition-colors"
-                >
-                  {isVideoPlaying ? "PAUSE" : "PLAY"}
-                </button>
-
-                <div className="flex-grow h-1.5 bg-white/15 relative overflow-hidden">
-                  <div
-                    className="h-full bg-[#E63946] transition-all duration-300"
-                    style={{ width: `${videoProgress}%` }}
-                  />
-                </div>
-
-                <button
-                  aria-label={tutorialMuted ? "Unmute" : "Mute"}
-                  id="btn-toggle-mute"
-                  onClick={() => setTutorialMuted(!tutorialMuted)}
-                  className="hover:text-white"
-                >
-                  {tutorialMuted ? (
-                    <VolumeX className="w-3.5 h-3.5" />
-                  ) : (
-                    <Volume2 className="w-3.5 h-3.5 text-[#E63946]" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Instruction Checklist & Coach Guidelines */}
-            <div className="p-4 overflow-y-auto space-y-4 flex-grow">
-              <div className="bg-white/5 p-3 border-l-2 border-[#E63946]">
-                <span className="text-[8px] font-bold uppercase tracking-wider text-white/40 block mb-0.5">
-                  {" "}
-                  COACH COMMENT:
-                </span>
-                <p className="text-xs text-white/80 font-serif italic leading-relaxed">
-                  &quot;{activeTutorialExercise.instruction}&quot;
-                </p>
-              </div>
-
-              {/* Form cues interactive checklist */}
-              {activeTutorialExercise.steps && activeTutorialExercise.steps.length > 0 && (
-                <div>
-                  <h4 className="text-[9px] uppercase tracking-wider font-bold text-white/40 mb-2">
-                    Form Cues & Movement Checklist
-                  </h4>
-                  <div className="space-y-1.5">
-                    {activeTutorialExercise.steps.map((step, sidx) => {
-                      const checked = completedFormSteps[sidx];
-                      return (
-                        <button
-                          key={sidx}
-                          id={`btn-form-step-${sidx}`}
-                          onClick={() =>
-                            setCompletedFormSteps((prev) => ({ ...prev, [sidx]: !prev[sidx] }))
-                          }
-                          className="w-full flex items-start gap-2.5 text-left p-2 rounded bg-white/[0.02] border border-white/5 hover:border-white/15 transition-all text-xs"
-                        >
-                          <span
-                            className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 mt-0.5 transition-all ${
-                              checked
-                                ? "bg-[#E63946] border-[#E63946] text-white"
-                                : "border-white/20"
-                            }`}
-                          >
-                            {checked && <Check className="w-3 h-3" />}
-                          </span>
-                          <span
-                            className={checked ? "text-white/40 line-through" : "text-white/80"}
-                          >
-                            {step}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Footer action */}
-            <div className="p-4 border-t border-white/5 bg-black/20 flex gap-2">
-              <button
-                id="btn-close-tutorial-footer"
-                onClick={() => setActiveTutorialExercise(null)}
-                className="w-full py-3 bg-[#E63946] hover:bg-[#d62828] text-white text-xs font-bold uppercase tracking-widest transition-all text-center"
-              >
-                Understood, Got Form!
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
+        isVideoPlaying={isVideoPlaying}
+        setIsVideoPlaying={setIsVideoPlaying}
+        videoProgress={videoProgress}
+        tutorialMuted={tutorialMuted}
+        setTutorialMuted={setTutorialMuted}
+        completedFormSteps={completedFormSteps}
+        setCompletedFormSteps={setCompletedFormSteps}
+      />
 
       {/* MODAL 3: GRANULAR WORKOUT SPLIT BUILDER & SCRATCH CREATOR — F-C2:
           uses the accessible <Modal> component. The dark custom header was
-          replaced by the Modal's standard header; body + footer are preserved. */}
-      <Modal
+          replaced by the Modal's standard header; body + footer are preserved.
+          Now lives in SplitBuilderModal. */}
+      <SplitBuilderModal
         open={isSplitBuilderOpen}
         onClose={() => setIsSplitBuilderOpen(false)}
-        title="Split Builder"
-        maxWidthClass="max-w-md"
-      >
-        <div className="flex flex-col max-h-[85vh]">
-            {/* Body */}
-            <div className="p-4 overflow-y-auto space-y-4 flex-grow">
-              {/* Quick Config templates */}
-              <div className="bg-white border border-[#1A1A1A]/10 p-3 mb-2">
-                <span className="text-[9px] uppercase tracking-wider font-bold text-[#1A1A1A]/50 block mb-2">
-                  Load Preset Split Configuration
-                </span>
-                <div className="grid grid-cols-2 gap-2">
-                  {SPLIT_TEMPLATES.map((t, idx) => (
-                    <button
-                      key={idx}
-                      id={`btn-load-template-${idx}`}
-                      onClick={() => handleBuilderApplyTemplate(idx)}
-                      type="button"
-                      className="p-2 border border-[#1A1A1A]/10 bg-[#F9F8F6] hover:bg-[#1A1A1A] hover:text-white transition-all text-left rounded-none text-xs"
-                    >
-                      <strong className="block uppercase tracking-tight text-[10px]">
-                        {t.name}
-                      </strong>
-                      <span className="text-[9px] opacity-70 italic font-serif block mt-0.5 truncate">
-                        {t.description}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Global Metadata Inputs */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label
-                    htmlFor="input-builder-title"
-                    className="block text-[9px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
-                  >
-                    Routine Title
-                  </label>
-                  <input
-                    id="input-builder-title"
-                    type="text"
-                    value={builderTitle}
-                    onChange={(e) => setBuilderTitle(e.target.value)}
-                    className="w-full bg-white border border-[#1A1A1A]/15 px-3 py-2 text-xs focus:border-[#1A1A1A] focus:outline-none"
-                    placeholder="My Tailored Workout Split"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="select-builder-difficulty"
-                    className="block text-[9px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
-                  >
-                    Workout Difficulty
-                  </label>
-                  <select
-                    id="select-builder-difficulty"
-                    value={builderDifficulty}
-                    onChange={(e) => setBuilderDifficulty(e.target.value)}
-                    className="w-full bg-white border border-[#1A1A1A]/15 px-3 py-2 text-xs focus:border-[#1A1A1A] focus:outline-none"
-                  >
-                    <option value="Beginner-Friendly">Beginner-Friendly</option>
-                    <option value="Intermediate">Intermediate</option>
-                    <option value="Advanced">Advanced</option>
-                    <option value="All Levels">All Levels</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="textarea-builder-desc"
-                  className="block text-[9px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
-                >
-                  Split Description
-                </label>
-                <textarea
-                  id="textarea-builder-desc"
-                  rows={2}
-                  value={builderDescription}
-                  onChange={(e) => setBuilderDescription(e.target.value)}
-                  className="w-full bg-white border border-[#1A1A1A]/15 px-3 py-1.5 text-xs focus:border-[#1A1A1A] focus:outline-none font-serif italic"
-                  placeholder="Tell us what makes this split effective..."
-                />
-              </div>
-
-              {/* Days Tab Manager */}
-              <div className="border-t border-[#1A1A1A]/10 pt-3">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-[10px] uppercase tracking-wider font-bold text-[#1A1A1A]/60">
-                    Customize Specific Split Days
-                  </span>
-                  <button
-                    id="btn-builder-add-day"
-                    type="button"
-                    onClick={handleBuilderAddDay}
-                    className="flex items-center gap-1 text-[10px] font-bold bg-[#1A1A1A] text-white hover:bg-[#E63946] px-2 py-1 transition-all"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Add Day
-                  </button>
-                </div>
-
-                {/* Day Buttons Tabs */}
-                {builderSchedule.length === 0 ? (
-                  <div className="text-center py-6 text-[#1A1A1A]/30 text-xs italic font-serif">
-                    No training days are scheduled. Click &quot;Add Day&quot; or load a template
-                    split above to start from scratch!
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                      {builderSchedule.map((day, dIdx) => (
-                        <button
-                          key={dIdx}
-                          id={`btn-builder-day-tab-${dIdx}`}
-                          type="button"
-                          onClick={() => setSelectedBuilderDayIndex(dIdx)}
-                          className={`flex-shrink-0 px-3 py-2 text-xs font-mono font-bold uppercase tracking-tight border ${
-                            selectedBuilderDayIndex === dIdx
-                              ? "bg-[#1A1A1A] text-white border-[#1A1A1A]"
-                              : "bg-white text-[#1A1A1A]/50 border-[#1A1A1A]/10 hover:border-[#1A1A1A]/20"
-                          }`}
-                        >
-                          Day {dIdx + 1}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Active Builder Day Editor */}
-                    {builderSchedule[selectedBuilderDayIndex] && (
-                      <div className="bg-white border border-[#1A1A1A]/10 p-3 mt-2.5 space-y-3.5">
-                        {/* Day fields */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 items-end">
-                          <div className="md:col-span-2">
-                            <label
-                              htmlFor={`input-builder-day-name-${selectedBuilderDayIndex}`}
-                              className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/40 mb-1"
-                            >
-                              Day Name
-                            </label>
-                            <input
-                              id={`input-builder-day-name-${selectedBuilderDayIndex}`}
-                              type="text"
-                              value={builderSchedule[selectedBuilderDayIndex].day}
-                              onChange={(e) => handleBuilderUpdateDayField("day", e.target.value)}
-                              className="w-full bg-white border border-[#1A1A1A]/15 px-2.5 py-1.5 text-xs font-bold focus:border-[#1A1A1A]"
-                            />
-                          </div>
-                          <div>
-                            <label
-                              htmlFor={`input-builder-day-duration-${selectedBuilderDayIndex}`}
-                              className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/40 mb-1"
-                            >
-                              Duration (Min)
-                            </label>
-                            <input
-                              id={`input-builder-day-duration-${selectedBuilderDayIndex}`}
-                              type="number"
-                              value={builderSchedule[selectedBuilderDayIndex].durationMinutes}
-                              onChange={(e) =>
-                                handleBuilderUpdateDayField(
-                                  "durationMinutes",
-                                  parseInt(e.target.value) || 45,
-                                )
-                              }
-                              className="w-full bg-white border border-[#1A1A1A]/15 px-2.5 py-1.5 text-xs focus:border-[#1A1A1A]"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                          <div>
-                            <label
-                              htmlFor={`select-builder-day-focus-${selectedBuilderDayIndex}`}
-                              className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/40 mb-1"
-                            >
-                              Split Focus
-                            </label>
-                            <select
-                              id={`select-builder-day-focus-${selectedBuilderDayIndex}`}
-                              value={builderSchedule[selectedBuilderDayIndex].activityType}
-                              onChange={(e) =>
-                                handleBuilderUpdateDayField("activityType", e.target.value)
-                              }
-                              className="w-full bg-white border border-[#1A1A1A]/15 px-2.5 py-1.5 text-xs"
-                            >
-                              <option value="Strength">Strength / Hypertrophy</option>
-                              <option value="Cardio">Metabolic Cardio / HIIT</option>
-                              <option value="Rest">Dedicated Rest Recovery</option>
-                              <option value="Stretching">Active Stretching / Yoga</option>
-                            </select>
-                          </div>
-                          <div className="flex items-center justify-end">
-                            <button
-                              id="btn-builder-remove-day"
-                              type="button"
-                              onClick={() => handleBuilderRemoveDay(selectedBuilderDayIndex)}
-                              className="flex items-center gap-1 text-[10px] font-bold text-red-600 hover:text-white hover:bg-red-600 px-2.5 py-1.5 border border-red-600/20 transition-all font-mono"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" /> Delete Day{" "}
-                              {selectedBuilderDayIndex + 1}
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Exercise List Editor */}
-                        <div className="border-t border-[#1A1A1A]/5 pt-3">
-                          <span className="text-[9px] uppercase tracking-wider font-bold text-[#1A1A1A]/40 block mb-2">
-                            Exercises in this split day
-                          </span>
-
-                          {builderSchedule[selectedBuilderDayIndex].exercises.length === 0 ? (
-                            <div className="text-center py-5 text-[#1A1A1A]/30 text-xs italic font-serif bg-[#F9F8F6]">
-                              No exercises loaded. Add from the exercise database below!
-                            </div>
-                          ) : (
-                            <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-1">
-                              {builderSchedule[selectedBuilderDayIndex].exercises.map(
-                                (ex, exIdx) => (
-                                  <div
-                                    key={exIdx}
-                                    className="bg-[#F9F8F6] border border-[#1A1A1A]/5 p-2 flex flex-col gap-2 relative"
-                                  >
-                                    {/* Top line Name & Delete */}
-                                    <div className="flex justify-between items-center gap-2">
-                                      <span className="text-xs font-bold text-[#1A1A1A] uppercase tracking-tight">
-                                        {exIdx + 1}. {ex.name}
-                                      </span>
-                                      <button
-                                        aria-label="Remove exercise"
-                                        id={`btn-builder-delete-ex-${exIdx}`}
-                                        type="button"
-                                        onClick={() => handleBuilderRemoveExerciseFromDay(exIdx)}
-                                        className="text-[#1A1A1A]/40 hover:text-red-600 transition-colors"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-
-                                    {/* Inputs sets, reps, rest, instruction */}
-                                    <div className="grid grid-cols-3 gap-1.5 text-[10px]">
-                                      <div>
-                                        <label
-                                          htmlFor={`input-builder-ex-sets-${exIdx}`}
-                                          className="block text-[8px] text-[#1A1A1A]/40 font-bold uppercase mb-0.5"
-                                        >
-                                          Sets
-                                        </label>
-                                        <input
-                                          id={`input-builder-ex-sets-${exIdx}`}
-                                          type="number"
-                                          value={ex.sets}
-                                          onChange={(e) =>
-                                            handleBuilderUpdateExerciseField(
-                                              exIdx,
-                                              "sets",
-                                              parseInt(e.target.value) || 3,
-                                            )
-                                          }
-                                          className="w-full bg-white border border-[#1A1A1A]/10 px-2 py-1"
-                                        />
-                                      </div>
-                                      <div>
-                                        <label
-                                          htmlFor={`input-builder-ex-reps-${exIdx}`}
-                                          className="block text-[8px] text-[#1A1A1A]/40 font-bold uppercase mb-0.5"
-                                        >
-                                          Reps
-                                        </label>
-                                        <input
-                                          id={`input-builder-ex-reps-${exIdx}`}
-                                          type="text"
-                                          value={ex.reps}
-                                          onChange={(e) =>
-                                            handleBuilderUpdateExerciseField(
-                                              exIdx,
-                                              "reps",
-                                              e.target.value,
-                                            )
-                                          }
-                                          className="w-full bg-white border border-[#1A1A1A]/10 px-2 py-1 font-mono"
-                                        />
-                                      </div>
-                                      <div>
-                                        <label
-                                          htmlFor={`input-builder-ex-rest-${exIdx}`}
-                                          className="block text-[8px] text-[#1A1A1A]/40 font-bold uppercase mb-0.5"
-                                        >
-                                          Rest (Sec)
-                                        </label>
-                                        <input
-                                          id={`input-builder-ex-rest-${exIdx}`}
-                                          type="number"
-                                          value={ex.restSeconds}
-                                          onChange={(e) =>
-                                            handleBuilderUpdateExerciseField(
-                                              exIdx,
-                                              "restSeconds",
-                                              parseInt(e.target.value) || 60,
-                                            )
-                                          }
-                                          className="w-full bg-white border border-[#1A1A1A]/10 px-2 py-1"
-                                        />
-                                      </div>
-                                    </div>
-
-                                    <div>
-                                      <label
-                                        htmlFor={`input-builder-ex-instruction-${exIdx}`}
-                                        className="block text-[8px] text-[#1A1A1A]/40 font-bold uppercase mb-0.5"
-                                      >
-                                        Instruction Notes
-                                      </label>
-                                      <input
-                                        id={`input-builder-ex-instruction-${exIdx}`}
-                                        type="text"
-                                        value={ex.instruction}
-                                        onChange={(e) =>
-                                          handleBuilderUpdateExerciseField(
-                                            exIdx,
-                                            "instruction",
-                                            e.target.value,
-                                          )
-                                        }
-                                        className="w-full bg-white border border-[#1A1A1A]/10 px-2 py-1 text-[11px]"
-                                      />
-                                    </div>
-                                  </div>
-                                ),
-                              )}
-                            </div>
-                          )}
-
-                          {/* ADD NEW EXERCISE FROM DATABASE SECTION */}
-                          <div className="mt-3 bg-[#F9F8F6]/80 border border-[#1A1A1A]/10 p-3">
-                            <span className="text-[8.5px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 flex items-center gap-1 mb-2">
-                              <BookOpen className="w-3.5 h-3.5" /> Exercise Database Search / Filter
-                            </span>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                              {/* Category Filter */}
-                              <div>
-                                <label
-                                  htmlFor="select-builder-muscle-category"
-                                  className="block text-[8px] uppercase font-semibold text-[#1A1A1A]/40 mb-0.5"
-                                >
-                                  Filter Muscles
-                                </label>
-                                <select
-                                  id="select-builder-muscle-category"
-                                  value={selectedDBCategory}
-                                  onChange={(e) => setSelectedDBCategory(e.target.value)}
-                                  className="w-full bg-white border border-[#1A1A1A]/15 px-2 py-1 text-xs"
-                                >
-                                  {categories.map((cat) => (
-                                    <option key={cat} value={cat}>
-                                      {cat}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-
-                              {/* Target Exercise select */}
-                              <div>
-                                <label
-                                  htmlFor="select-builder-exercise-name"
-                                  className="block text-[8px] uppercase font-semibold text-[#1A1A1A]/40 mb-0.5"
-                                >
-                                  Select Exercise
-                                </label>
-                                <select
-                                  id="select-builder-exercise-name"
-                                  value={selectedDBExerciseName}
-                                  onChange={(e) => setSelectedDBExerciseName(e.target.value)}
-                                  className="w-full bg-white border border-[#1A1A1A]/15 px-2 py-1 text-xs font-bold"
-                                >
-                                  {EXERCISE_DATABASE.filter(
-                                    (e) =>
-                                      e.targetMuscle.toLowerCase() ===
-                                        selectedDBCategory.toLowerCase() ||
-                                      (selectedDBCategory === "Core" &&
-                                        ["Core", "Lower Abs", "Obliques"].includes(
-                                          e.targetMuscle,
-                                        )) ||
-                                      (selectedDBCategory === "Back" &&
-                                        ["Lats", "Mid Back", "Upper Back", "Lower Back"].includes(
-                                          e.targetMuscle,
-                                        )) ||
-                                      (selectedDBCategory === "Legs" &&
-                                        ["Quads", "Hamstrings", "Glutes"].includes(e.targetMuscle)),
-                                  ).map((e) => (
-                                    <option key={e.name} value={e.name}>
-                                      {e.name} ({e.targetMuscle})
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                            </div>
-
-                            <button
-                              id="btn-builder-add-ex"
-                              type="button"
-                              onClick={handleBuilderAddExerciseToDay}
-                              disabled={!selectedDBExerciseName}
-                              className="w-full mt-3.5 py-1.5 bg-[#1A1A1A] hover:bg-[#E63946] disabled:bg-neutral-300 disabled:cursor-not-allowed text-white text-[10px] font-bold uppercase tracking-widest transition-all"
-                            >
-                              Add Selected Exercise to Day {selectedBuilderDayIndex + 1}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="p-4 bg-white border-t border-[#1A1A1A]/10 flex justify-between gap-3">
-              <button
-                id="btn-builder-cancel"
-                onClick={() => setIsSplitBuilderOpen(false)}
-                className="text-xs uppercase font-bold bg-[#1A1A1A]/5 text-[#1A1A1A]/60 border border-[#1A1A1A]/10 px-5 py-3 hover:bg-[#1A1A1A] hover:text-white transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                id="btn-builder-save"
-                onClick={handleSaveBuilderPlan}
-                className="text-xs uppercase font-bold bg-[#E63946] hover:bg-[#d62828] text-white px-6 py-3 transition-all font-mono"
-              >
-                Save New Splitting Routine
-              </button>
-            </div>
-          </div>
-      </Modal>
+        builderSchedule={builderSchedule}
+        builderTitle={builderTitle}
+        setBuilderTitle={setBuilderTitle}
+        builderDescription={builderDescription}
+        setBuilderDescription={setBuilderDescription}
+        builderDifficulty={builderDifficulty}
+        setBuilderDifficulty={setBuilderDifficulty}
+        selectedBuilderDayIndex={selectedBuilderDayIndex}
+        setSelectedBuilderDayIndex={setSelectedBuilderDayIndex}
+        selectedDBCategory={selectedDBCategory}
+        setSelectedDBCategory={setSelectedDBCategory}
+        selectedDBExerciseName={selectedDBExerciseName}
+        setSelectedDBExerciseName={setSelectedDBExerciseName}
+        handleBuilderAddDay={handleBuilderAddDay}
+        handleBuilderRemoveDay={handleBuilderRemoveDay}
+        handleBuilderUpdateDayField={handleBuilderUpdateDayField}
+        handleBuilderAddExerciseToDay={handleBuilderAddExerciseToDay}
+        handleBuilderRemoveExerciseFromDay={handleBuilderRemoveExerciseFromDay}
+        handleBuilderUpdateExerciseField={handleBuilderUpdateExerciseField}
+        handleSaveBuilderPlan={handleSaveBuilderPlan}
+        handleBuilderApplyTemplate={handleBuilderApplyTemplate}
+      />
     </div>
   );
 }
