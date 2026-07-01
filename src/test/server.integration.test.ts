@@ -79,12 +79,26 @@ async function stopServer(): Promise<void> {
   });
 }
 
+// S-01: cookie jar to persist the session cookie across requests (needed
+// for per-session rate limiting to work in the rate-limit test).
+let cookieJar = "";
+
 async function post(pathname: string, body: unknown, headers: Record<string, string> = {}) {
   const res = await fetch(`${BASE}${pathname}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...headers },
+    headers: {
+      "Content-Type": "application/json",
+      ...(cookieJar ? { Cookie: cookieJar } : {}),
+      ...headers,
+    },
     body: typeof body === "string" ? body : JSON.stringify(body),
   });
+  // Capture Set-Cookie for subsequent requests.
+  const setCookie = res.headers.get("set-cookie");
+  if (setCookie) {
+    const cookiePart = setCookie.split(";")[0];
+    cookieJar = cookiePart;
+  }
   const text = await res.text();
   let json: unknown = null;
   try {

@@ -7,6 +7,7 @@ import type {
   NutritionPlan,
 } from "../engine";
 import type { EngineProfile } from "../engine/assessment";
+import { createEncryptedStorage } from "../lib/encryptedStorage";
 
 /**
  * User store — holds the onboarding input, engine profile, workout plan,
@@ -93,7 +94,9 @@ export const useUserStore = create<UserState>()(
     }),
     {
       name: "fitlife:user",
-      storage: createJSONStorage(() => localStorage),
+      // S-03: use AES-GCM encrypted storage for health data. Falls back to
+      // plaintext if Web Crypto / IndexedDB is unavailable.
+      storage: createJSONStorage(() => createEncryptedStorage(() => localStorage)),
       version: 3, // bumped from 2 — renamed assessment→onboardingInput, personalPlan→workoutPlan
       // A-15/F-C1: migrate preserves user data across schema changes.
       // Without this, any version bump silently wipes localStorage.

@@ -1,14 +1,15 @@
 import React, { useState, useMemo } from "react";
 import { DailyWeightLog, WaterLog, WorkoutLog } from "../engine";
-// A-04: extracted sub-components (were inline functions at the bottom of this file).
-import EngineTrendAnalysis from "./EngineTrendAnalysis";
-import DailyIntakeLogger from "./DailyIntakeLogger";
 // A-04 sub-tab extraction: the four giant render functions that used to live
 // inline in this file are now standalone components under ./progress-tab/.
 import CoreMetricsView from "./progress-tab/CoreMetricsView";
 import MuscleVolumeView from "./progress-tab/MuscleVolumeView";
 import ExerciseProgressionView from "./progress-tab/ExerciseProgressionView";
 import VisualsView from "./progress-tab/VisualsView";
+// A-04-further: extracted the legacy health logger + custom set logger modal
+// out of this file into ./progress-tab/ for further size reduction.
+import CustomSetLoggerModal from "./progress-tab/CustomSetLoggerModal";
+import LegacyHealthLogger from "./progress-tab/LegacyHealthLogger";
 import type { FlexCard, ProgressAnalytics } from "./progress-tab/types";
 import { Plus, Flame, Droplet, Scale, Filter, RotateCcw } from "lucide-react";
 import {
@@ -24,7 +25,6 @@ import {
 import { EXERCISE_DATABASE } from "../data/workoutTemplates";
 import { useLogsStore } from "../store/useLogsStore";
 import { toast, confirmDialog } from "./Toast";
-import { Modal } from "./Modal";
 
 interface ProgressTabProps {
   weightLogs: DailyWeightLog[];
@@ -518,112 +518,17 @@ export default function ProgressTab({
       </div>
 
       {/* Standard weight and water log blocks rendered at bottom for compatibility with legacy props */}
-      <div className="mt-8 border-t border-[#1A1A1A]/10 pt-6 space-y-6">
-        <h3 className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#1A1A1A]/40 mb-3">
-          Standard Health Logger
-        </h3>
-
-        {/* Legacy Water glass */}
-        <div className="bg-white border border-[#1A1A1A]/10 rounded-none p-4 shadow-sm">
-          <div className="flex justify-between items-start mb-3">
-            <div>
-              <h4 className="font-serif font-bold text-sm text-[#1A1A1A] flex items-center gap-1.5">
-                <Droplet className="w-4 h-4 text-[#1A1A1A]" />
-                Daily Liquid Hydration
-              </h4>
-              <p className="text-[10px] text-[#1A1A1A]/60 mt-0.5 font-serif italic">
-                Target: 3.0 Liters • Today: {todayWaterTotal} ml
-              </p>
-            </div>
-            <button
-              id="btn-clear-water-legacy"
-              onClick={onClearWaterLogs}
-              className="text-[9px] font-mono font-bold text-[#1A1A1A]/60 hover:text-[#E63946] transition-all border border-[#1A1A1A]/10 hover:border-[#E63946] px-2.5 py-1 bg-white"
-            >
-              Reset
-            </button>
-          </div>
-
-          <div className="flex items-center gap-4 py-1">
-            <div className="relative w-12 h-18 border border-[#1A1A1A]/20 bg-[#F9F8F6] overflow-hidden flex flex-col justify-end">
-              <div
-                style={{ height: `${waterPercent}%` }}
-                className="w-full bg-[#E63946] transition-all"
-              />
-              <div className="absolute inset-0 flex items-center justify-center text-[8.5px] font-mono font-bold text-[#1A1A1A]">
-                {waterPercent}%
-              </div>
-            </div>
-
-            <div className="flex-grow grid grid-cols-2 gap-2">
-              <button
-                id="btn-add-water-legacy-250"
-                onClick={() => onAddWaterLog(250)}
-                className="py-1.5 text-center bg-white border border-[#1A1A1A]/10 hover:border-[#1A1A1A] text-[10px] text-[#1A1A1A] font-bold uppercase tracking-wider"
-              >
-                +250ml Glass
-              </button>
-              <button
-                id="btn-add-water-legacy-500"
-                onClick={() => onAddWaterLog(500)}
-                className="py-1.5 text-center bg-white border border-[#1A1A1A]/10 hover:border-[#1A1A1A] text-[10px] text-[#1A1A1A] font-bold uppercase tracking-wider"
-              >
-                +500ml Bottle
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Legacy Weight history */}
-        <div className="bg-white border border-[#1A1A1A]/10 rounded-none p-4 shadow-sm">
-          <div className="flex justify-between items-center mb-3">
-            <h4 className="font-serif font-bold text-sm text-[#1A1A1A] flex items-center gap-1.5">
-              <Scale className="w-4 h-4 text-[#E63946]" />
-              Body Weight Trajectory
-            </h4>
-            <span className="text-[9px] font-mono text-[#E63946] font-bold">
-              {weightDiff >= 0 ? "+" : ""}
-              {weightDiff.toFixed(1)}kg Over Time
-            </span>
-          </div>
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              const val = parseFloat(newWeight);
-              if (!isNaN(val) && val > 0) {
-                onAddWeightLog(val);
-                setNewWeight("");
-              }
-            }}
-            className="flex gap-2"
-          >
-            <input
-              id="input-weight-log-legacy"
-              type="number"
-              step="0.1"
-              placeholder="Log today's weight (kg)..."
-              value={newWeight}
-              onChange={(e) => setNewWeight(e.target.value)}
-              required
-              className="flex-grow bg-white border border-[#1A1A1A]/15 rounded-none px-2.5 py-1.5 text-xs focus:outline-none"
-            />
-            <button
-              id="btn-submit-weight-legacy"
-              type="submit"
-              className="bg-[#1A1A1A] hover:bg-[#E63946] text-white font-bold px-3 py-1.5 text-[10px] uppercase tracking-wider font-mono"
-            >
-              Log Weight
-            </button>
-          </form>
-
-          {/* Engine Trend Analysis — uses the engine's weeklyRateLbPerWeek + interpretWeightTrend */}
-          <EngineTrendAnalysis weightLogs={weightLogs} />
-
-          {/* Daily intake logger — feeds the adaptive TDEE engine */}
-          <DailyIntakeLogger />
-        </div>
-      </div>
+      <LegacyHealthLogger
+        newWeight={newWeight}
+        setNewWeight={setNewWeight}
+        weightLogs={weightLogs}
+        onAddWeightLog={onAddWeightLog}
+        onAddWaterLog={onAddWaterLog}
+        onClearWaterLogs={onClearWaterLogs}
+        todayWaterTotal={todayWaterTotal}
+        waterPercent={waterPercent}
+        weightDiff={weightDiff}
+      />
 
       {/* MODAL: CUSTOM LOAD SET LOGGER FORM — F-C2: uses the accessible
           <Modal> component. The dark custom header was replaced by the
@@ -635,173 +540,23 @@ export default function ProgressTab({
           active. Moving it into the exercises sub-tab component would
           silently no-op when the user clicks "Log Custom Set" from another
           sub-tab. */}
-      <Modal
-        open={isLogFormOpen}
-        onClose={() => setIsLogFormOpen(false)}
-        title="Log Custom Set"
-        maxWidthClass="max-w-sm"
-      >
-        <form onSubmit={handleLogCustomSetSubmit} className="p-4 space-y-3.5">
-          {/* Category selector */}
-          <div>
-            <label
-              htmlFor="select-custom-log-category"
-              className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
-            >
-              Muscle Category
-            </label>
-            <select
-              id="select-custom-log-category"
-              value={logExMuscle}
-              onChange={(e) => handleMuscleCategoryChange(e.target.value)}
-              className="w-full bg-white border border-[#1A1A1A]/15 px-2.5 py-1.5 text-xs focus:outline-none"
-            >
-              <option value="Chest">Chest</option>
-              <option value="Lats">Lats</option>
-              <option value="Mid Back">Mid Back</option>
-              <option value="Upper Back">Upper Back</option>
-              <option value="Quads">Quads</option>
-              <option value="Hamstrings">Hamstrings</option>
-              <option value="Glutes">Glutes</option>
-              <option value="Shoulders">Shoulders</option>
-              <option value="Biceps">Biceps</option>
-              <option value="Triceps">Triceps</option>
-              <option value="Core">Core</option>
-              <option value="Cardio">Cardio</option>
-            </select>
-          </div>
-
-          {/* Exercise Selection list depending on category */}
-          <div>
-            <label
-              htmlFor="select-custom-log-exercise-name"
-              className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
-            >
-              Exercise Name
-            </label>
-            <select
-              id="select-custom-log-exercise-name"
-              value={logExName}
-              onChange={(e) => setLogExName(e.target.value)}
-              className="w-full bg-white border border-[#1A1A1A]/15 px-2.5 py-1.5 text-xs focus:outline-none"
-            >
-              {EXERCISE_DATABASE.filter(
-                (e) =>
-                  e.targetMuscle.toLowerCase() === logExMuscle.toLowerCase() ||
-                  (logExMuscle === "Core" &&
-                    ["Core", "Lower Abs", "Obliques"].includes(e.targetMuscle)) ||
-                  (logExMuscle === "Lats" &&
-                    ["Lats", "Mid Back", "Upper Back"].includes(e.targetMuscle)) ||
-                  (logExMuscle === "Mid Back" &&
-                    ["Lats", "Mid Back", "Upper Back"].includes(e.targetMuscle)) ||
-                  (logExMuscle === "Upper Back" &&
-                    ["Lats", "Mid Back", "Upper Back"].includes(e.targetMuscle)) ||
-                  (logExMuscle === "Quads" &&
-                    ["Quads", "Hamstrings", "Glutes"].includes(e.targetMuscle)) ||
-                  (logExMuscle === "Hamstrings" &&
-                    ["Quads", "Hamstrings", "Glutes"].includes(e.targetMuscle)) ||
-                  (logExMuscle === "Glutes" &&
-                    ["Quads", "Hamstrings", "Glutes"].includes(e.targetMuscle)),
-              ).map((e) => (
-                <option key={e.name} value={e.name}>
-                  {e.name}
-                </option>
-              ))}
-              {/* Default back up option if none filtered */}
-              <option value={logExName}>{logExName}</option>
-            </select>
-          </div>
-
-          {/* Load weight & Reps */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label
-                htmlFor="input-custom-log-weight"
-                className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
-              >
-                Weight Load (kg)
-              </label>
-              <input
-                id="input-custom-log-weight"
-                type="number"
-                step="0.5"
-                value={logExWeight}
-                onChange={(e) => setLogExWeight(e.target.value)}
-                className="w-full bg-white border border-[#1A1A1A]/15 px-2.5 py-1.5 text-xs focus:outline-none focus:border-[#E63946]"
-                required
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="input-custom-log-reps"
-                className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
-              >
-                Repetitions
-              </label>
-              <input
-                id="input-custom-log-reps"
-                type="number"
-                value={logExReps}
-                onChange={(e) => setLogExReps(e.target.value)}
-                className="w-full bg-white border border-[#1A1A1A]/15 px-2.5 py-1.5 text-xs focus:outline-none focus:border-[#E63946]"
-                required
-              />
-            </div>
-          </div>
-
-          {/* Set category type and Warm-Up toggle */}
-          <div className="grid grid-cols-2 gap-3 items-center pt-1">
-            <div>
-              <label
-                htmlFor="select-custom-log-set-type"
-                className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
-              >
-                Set Intensity Type
-              </label>
-              <select
-                id="select-custom-log-set-type"
-                value={logExType}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                  setLogExType(e.target.value as "Normal" | "AMRAP" | "Failure" | "Drop Set")
-                }
-                className="w-full bg-white border border-[#1A1A1A]/15 px-2.5 py-1.5 text-xs"
-              >
-                <option value="Normal">Normal Set</option>
-                <option value="AMRAP">AMRAP Set</option>
-                <option value="Failure">To Failure Set</option>
-                <option value="Drop Set">Drop Set</option>
-              </select>
-            </div>
-
-            <div className="flex items-center gap-2 pt-4">
-              <input
-                id="checkbox-custom-log-warmup"
-                type="checkbox"
-                checked={logExIsWarmUp}
-                onChange={(e) => setLogExIsWarmUp(e.target.checked)}
-                className="w-4 h-4 accent-[#E63946]"
-              />
-              <label
-                htmlFor="checkbox-custom-log-warmup"
-                className="text-[10px] font-bold uppercase text-[#1A1A1A]/60"
-              >
-                Warm-Up Set
-              </label>
-            </div>
-          </div>
-
-          {/* Submit button (Modal provides X + Escape + overlay-click for closing) */}
-          <div className="pt-4 border-t border-[#1A1A1A]/5">
-            <button
-              id="btn-submit-custom-log"
-              type="submit"
-              className="w-full py-2.5 text-center bg-[#E63946] text-white font-bold uppercase tracking-wider text-[10px] font-mono hover:bg-[#d62828]"
-            >
-              Log Set
-            </button>
-          </div>
-        </form>
-      </Modal>
+      <CustomSetLoggerModal
+        isLogFormOpen={isLogFormOpen}
+        setIsLogFormOpen={setIsLogFormOpen}
+        logExName={logExName}
+        setLogExName={setLogExName}
+        logExMuscle={logExMuscle}
+        logExWeight={logExWeight}
+        setLogExWeight={setLogExWeight}
+        logExReps={logExReps}
+        setLogExReps={setLogExReps}
+        logExType={logExType}
+        setLogExType={setLogExType}
+        logExIsWarmUp={logExIsWarmUp}
+        setLogExIsWarmUp={setLogExIsWarmUp}
+        handleLogCustomSetSubmit={handleLogCustomSetSubmit}
+        handleMuscleCategoryChange={handleMuscleCategoryChange}
+      />
     </div>
   );
 }

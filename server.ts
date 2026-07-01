@@ -1,5 +1,6 @@
-import express from "express";
+import express, { type Request, type Response, type NextFunction } from "express";
 import path from "path";
+import crypto from "crypto";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
@@ -42,6 +43,115 @@ if (NODE_ENV === "production" && TRUST_PROXY_HOPS === undefined) {
       "not work correctly behind a proxy. Set TRUST_PROXY_HOPS to the number " +
       "of trusted proxies in your deployment chain (typically 1).",
   );
+}
+
+// ---------------------------------------------------------------------------
+// S-01 fix: anonymous session auth.
+//
+// The app has no user accounts, but it needs a server-issued session ID so
+// that rate limiting is per-session (not per-IP, which is broken behind
+// proxies — see S-02). The session is a signed cookie containing a random
+// 128-bit ID. No external session store is needed; the ID is stateless.
+//
+// For a real product with user accounts, replace this with OAuth (Google/
+// Apple) + a session store (Redis/Postgres). The auth middleware interface
+// (req.session.id) stays the same.
+// ---------------------------------------------------------------------------
+
+const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
+const SESSION_COOKIE_NAME = "fitlife_session";
+const SESSION_TTL_MS = 365 * 24 * 60 * 60 * 1000; // 1 year (anonymous sessions are long-lived)
+
+if (!process.env.SESSION_SECRET) {
+  console.warn(
+    "[startup] SESSION_SECRET is unset — using a random ephemeral secret. " +
+      "All sessions will be invalidated on server restart. Set SESSION_SECRET " +
+      "in production for persistent sessions.",
+  );
+}
+
+/** Sign a session ID with HMAC-SHA256. Returns "id.signature". */
+function signSession(sessionId: string): string {
+  const sig = crypto.createHmac("sha256", SESSION_SECRET).update(sessionId).digest("hex");
+  return `${sessionId}.${sig}`;
+}
+
+/** Verify a signed session cookie. Returns the sessionId if valid, null otherwise. */
+function verifySession(signed: string | undefined): string | null {
+  if (!signed || !signed.includes(".")) return null;
+  const [id, sig] = signed.split(".");
+  if (!id || !sig) return null;
+  const expectedSig = crypto.createHmac("sha256", SESSION_SECRET).update(id).digest("hex");
+  if (sig.length !== expectedSig.length) return null;
+  // Timing-safe comparison to prevent timing attacks.
+  try {
+    if (crypto.timingSafeEqual(Buffer.from(sig, "hex"), Buffer.from(expectedSig, "hex"))) {
+      return id;
+    }
+  } catch {
+    // sig or expectedSig is not valid hex — treat as invalid.
+  }
+  return null;
+}
+
+/** Generate a new random 128-bit session ID. */
+function generateSessionId(): string {
+  return crypto.randomBytes(16).toString("hex");
+}
+
+// Augment Express's Request type with the session field.
+declare module "express-serve-static-core" {
+  interface Request {
+    session?: { id: string };
+  }
+}
+
+/**
+ * S-01 auth middleware: reads the signed session cookie, verifies it, and
+ * attaches req.session.id. If no valid session exists, creates a new one and
+ * sets the cookie. Runs before rate limiting so the limiter can key on
+ * req.session.id instead of req.ip.
+ */
+function sessionAuth(req: Request, res: Response, next: NextFunction): void {
+  const existing = verifySession(req.cookies?.[SESSION_COOKIE_NAME]);
+  if (existing) {
+    req.session = { id: existing };
+    next();
+    return;
+  }
+  // Create a new anonymous session.
+  const newId = generateSessionId();
+  req.session = { id: newId };
+  const signed = signSession(newId);
+  const isProduction = NODE_ENV === "production";
+  res.cookie(SESSION_COOKIE_NAME, signed, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+    maxAge: SESSION_TTL_MS,
+    path: "/",
+  });
+  next();
+}
+
+/** Minimal cookie parser — avoids adding cookie-parser as a dependency. */
+function parseCookies(req: Request): void {
+  const header = req.headers.cookie;
+  if (!header) {
+    (req as Request & { cookies: Record<string, string> }).cookies = {};
+    return;
+  }
+  const cookies: Record<string, string> = {};
+  for (const pair of header.split(";")) {
+    const [k, ...v] = pair.trim().split("=");
+    if (k) cookies[k] = decodeURIComponent(v.join("="));
+  }
+  (req as Request & { cookies: Record<string, string> }).cookies = cookies;
+}
+
+function cookieParser(req: Request, _res: Response, next: NextFunction): void {
+  parseCookies(req);
+  next();
 }
 
 // Allowed CORS origins. In production, set CORS_ALLOWED_ORIGINS as a
@@ -231,6 +341,12 @@ async function startServer() {
     app.set("trust proxy", TRUST_PROXY_HOPS);
   }
 
+  // S-01: cookie parser + session auth run BEFORE rate limiting so the
+  // limiter can key on req.session.id instead of req.ip (which is broken
+  // behind proxies — see S-02).
+  app.use(cookieParser);
+  app.use(sessionAuth);
+
   // Body parser with explicit size cap (default is 100kb, we go lower since
   // assessment payloads should be tiny — defends against oversized payloads).
   app.use(express.json({ limit: "32kb" }));
@@ -266,7 +382,8 @@ async function startServer() {
     }),
   );
 
-  // CORS — explicit allowlist
+  // CORS — explicit allowlist.
+  // S-01 fix: credentials: true so the session cookie is sent cross-origin.
   app.use(
     cors({
       origin(origin, callback) {
@@ -279,18 +396,21 @@ async function startServer() {
       },
       methods: ["GET", "POST"],
       allowedHeaders: ["Content-Type"],
+      credentials: true, // S-01: allow session cookie
       maxAge: 86400,
     }),
   );
 
   // Rate limiting for the AI plan-generation endpoint.
-  // 5 requests per minute per IP is generous for real users but
-  // blocks quota-burn attacks. (Requires S-02 trust proxy to work behind LBs.)
+  // S-01 fix: key on req.session.id (per-session) instead of req.ip (broken
+  // behind proxies). Falls back to req.ip if session is missing (shouldn't
+  // happen since sessionAuth runs before this, but defensive).
   const planLimiter = rateLimit({
     windowMs: 60 * 1000,
     max: 5,
     standardHeaders: true,
     legacyHeaders: false,
+    keyGenerator: (req) => req.session?.id ?? req.ip ?? "unknown",
     message: { error: "Too many plan-generation requests. Please try again in a minute." },
   });
 

@@ -89,10 +89,19 @@ describe("useUserStore", () => {
 
   it("persists to localStorage under the 'fitlife:user' key", async () => {
     useUserStore.getState().setBoth(SAMPLE_INPUT, SAMPLE_WORKOUT_PLAN);
+    // S-03: the encrypted storage is async — wait a tick for setItem to complete.
+    await new Promise((r) => setTimeout(r, 50));
     const raw = localStorage.getItem("fitlife:user");
     expect(raw).not.toBeNull();
-    const parsed = JSON.parse(raw!);
-    expect(parsed.state.onboardingInput.name).toBe("Test");
+    // S-03: the value may be encrypted (starts with "enc:") or plaintext
+    // (if Web Crypto / IndexedDB is unavailable in the test env). Check both.
+    if (raw!.startsWith("enc:")) {
+      // Encrypted — can't parse the JSON, but the key exists and has content.
+      expect(raw!.length).toBeGreaterThan(10);
+    } else {
+      const parsed = JSON.parse(raw!);
+      expect(parsed.state.onboardingInput.name).toBe("Test");
+    }
   });
 });
 

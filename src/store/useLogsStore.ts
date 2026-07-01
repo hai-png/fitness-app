@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { DailyWeightLog, WaterLog, WorkoutLog } from "../engine";
 import type { ExerciseLog } from "../data/analyticsEngine";
+import { createEncryptedStorage } from "../lib/encryptedStorage";
 
 /**
  * Logs store — holds all user-entered progress data.
@@ -65,7 +66,8 @@ export const useLogsStore = create<LogsState>()(
     }),
     {
       name: "fitlife:logs",
-      storage: createJSONStorage(() => localStorage),
+      // S-03: encrypted storage for health data.
+      storage: createJSONStorage(() => createEncryptedStorage(() => localStorage)),
       version: 1,
       // A-15/F-C1: identity migrate — no field renames yet, but the presence
       // of this function means the next schema change has a place to land
