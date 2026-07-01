@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { Flame, Play, VolumeX, Volume2, Check } from "lucide-react";
 import { Modal } from "../Modal";
-import type { Exercise } from "../../engine";
+import type { Exercise } from "../../engine/schemas";
 
 /**
  * TutorialVideoModal — the interactive form-tutorial player (Modal #2 in
@@ -131,7 +131,7 @@ export default function TutorialVideoModal({
                     const checked = completedFormSteps[sidx];
                     return (
                       <button
-                        key={sidx}
+                        key={`form-step-${sidx}-${step.slice(0, 12)}`}
                         id={`btn-form-step-${sidx}`}
                         onClick={() =>
                           setCompletedFormSteps((prev) => ({ ...prev, [sidx]: !prev[sidx] }))

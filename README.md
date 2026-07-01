@@ -29,6 +29,10 @@ Built on React 19 + Vite 6 + Express + Google Gemini. Originally scaffolded in G
 
 ```bash
 # 1. Install dependencies
+# --legacy-peer-deps is required because React 19 (released Dec 2024) is
+# newer than some peer-dependency ranges declared by @testing-library and
+# other ecosystem packages. Once the ecosystem catches up, this flag can
+# be dropped. See: https://github.com/facebook/react/issues/30958
 npm install --legacy-peer-deps
 
 # 2. Configure your Gemini API key

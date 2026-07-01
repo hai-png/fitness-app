@@ -8,6 +8,23 @@
 import React from "react";
 import { Award, Sliders, User } from "lucide-react";
 import type { ProgressAnalytics } from "./types";
+import type { MuscleVolumeZone } from "../../data/analyticsEngine";
+
+// F-M10: icon prefix for the Stimulus Zone Badge. Encodes the load-vs-
+// recovery direction as a non-color cue (▲ above, ✓ on, ▼ below target).
+function zoneIcon(zone: MuscleVolumeZone["zone"]): string {
+  switch (zone) {
+    case "Max Recoverable (MRV)":
+      return "▲";
+    case "Adaptive (MAV)":
+    case "Effective (MEV)":
+      return "✓";
+    case "Maintenance (MV)":
+    case "Active Recovery":
+    default:
+      return "▼";
+  }
+}
 
 interface MuscleVolumeViewProps {
   analytics: ProgressAnalytics;
@@ -139,9 +156,19 @@ export default function MuscleVolumeView({
                   <span className="text-[8px] font-mono font-bold text-[#1A1A1A]/40 block uppercase mb-0.5">
                     Stimulus Zone Badge
                   </span>
+                  {/* F-M10 fix: prefix the zone badge with a non-color cue
+                      (▲ / ✓ / ▼) so the badge is legible without color
+                      (colorblind users, monochrome prints, screen-reader
+                      text). The icon encodes the load-vs-recovery direction:
+                      ▲ above target (MRV — over-reaching), ✓ on target
+                      (MEV/MAV — effective/adaptive), ▼ below target
+                      (MV/Active Recovery — under-loading). */}
                   <span
                     className={`text-[9.5px] font-mono font-bold px-1.5 py-0.5 border uppercase tracking-wider block text-center rounded ${selectedMuscleData.colorClass}`}
                   >
+                    <span aria-hidden="true" className="mr-1">
+                      {zoneIcon(selectedMuscleData.zone)}
+                    </span>
                     {selectedMuscleData.zone.replace(/\(.*\)/, "")}
                   </span>
                 </div>

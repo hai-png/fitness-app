@@ -1,7 +1,7 @@
-import type { Dispatch, SetStateAction } from "react";
+import { useMemo, type Dispatch, type SetStateAction } from "react";
 import { Plus, Trash2, BookOpen } from "lucide-react";
 import { Modal } from "../Modal";
-import type { Exercise, WeeklyScheduleDay } from "../../engine";
+import type { Exercise, WeeklyScheduleDay } from "../../engine/schemas";
 import { EXERCISE_DATABASE, SPLIT_TEMPLATES } from "../../data/workoutTemplates";
 
 /**
@@ -83,6 +83,26 @@ export default function SplitBuilderModal({
   handleSaveBuilderPlan,
   handleBuilderApplyTemplate,
 }: SplitBuilderModalProps) {
+  // F-M3 fix: memoize the filtered exercise database so we don't re-run the
+  // filter on every render. The filter predicate is stable across re-renders
+  // unless selectedDBCategory changes, so useMemo keyed on that single string
+  // avoids the O(n) scan on every keystroke in the title/description inputs.
+  const filteredExercises = useMemo(() => {
+    const cat = selectedDBCategory.toLowerCase();
+    return EXERCISE_DATABASE.filter(
+      (e) =>
+        e.targetMuscle.toLowerCase() === cat ||
+        (selectedDBCategory === "Core" &&
+          ["Core", "Lower Abs", "Obliques"].includes(e.targetMuscle)) ||
+        (selectedDBCategory === "Back" &&
+          ["Lats", "Mid Back", "Upper Back", "Lower Back"].includes(
+            e.targetMuscle,
+          )) ||
+        (selectedDBCategory === "Legs" &&
+          ["Quads", "Hamstrings", "Glutes"].includes(e.targetMuscle)),
+    );
+  }, [selectedDBCategory]);
+
   return (
     <Modal open={open} onClose={onClose} title="Split Builder" maxWidthClass="max-w-md">
       <div className="flex flex-col max-h-[85vh]">
@@ -96,7 +116,7 @@ export default function SplitBuilderModal({
             <div className="grid grid-cols-2 gap-2">
               {SPLIT_TEMPLATES.map((t, idx) => (
                 <button
-                  key={idx}
+                  key={`template-${idx}-${t.name}`}
                   id={`btn-load-template-${idx}`}
                   onClick={() => handleBuilderApplyTemplate(idx)}
                   type="button"
@@ -196,7 +216,7 @@ export default function SplitBuilderModal({
                 <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
                   {builderSchedule.map((day, dIdx) => (
                     <button
-                      key={dIdx}
+                      key={`builder-day-${dIdx}-${day.day.slice(0, 10)}`}
                       id={`btn-builder-day-tab-${dIdx}`}
                       type="button"
                       onClick={() => setSelectedBuilderDayIndex(dIdx)}
@@ -303,7 +323,7 @@ export default function SplitBuilderModal({
                           {builderSchedule[selectedBuilderDayIndex].exercises.map(
                             (ex, exIdx) => (
                               <div
-                                key={exIdx}
+                                key={`builder-ex-${exIdx}-${ex.name}`}
                                 className="bg-[#F9F8F6] border border-[#1A1A1A]/5 p-2 flex flex-col gap-2 relative"
                               >
                                 {/* Top line Name & Delete */}
@@ -458,21 +478,7 @@ export default function SplitBuilderModal({
                               onChange={(e) => setSelectedDBExerciseName(e.target.value)}
                               className="w-full bg-white border border-[#1A1A1A]/15 px-2 py-1 text-xs font-bold"
                             >
-                              {EXERCISE_DATABASE.filter(
-                                (e) =>
-                                  e.targetMuscle.toLowerCase() ===
-                                    selectedDBCategory.toLowerCase() ||
-                                  (selectedDBCategory === "Core" &&
-                                    ["Core", "Lower Abs", "Obliques"].includes(
-                                      e.targetMuscle,
-                                    )) ||
-                                  (selectedDBCategory === "Back" &&
-                                    ["Lats", "Mid Back", "Upper Back", "Lower Back"].includes(
-                                      e.targetMuscle,
-                                    )) ||
-                                  (selectedDBCategory === "Legs" &&
-                                    ["Quads", "Hamstrings", "Glutes"].includes(e.targetMuscle)),
-                              ).map((e) => (
+                              {filteredExercises.map((e) => (
                                 <option key={e.name} value={e.name}>
                                   {e.name} ({e.targetMuscle})
                                 </option>

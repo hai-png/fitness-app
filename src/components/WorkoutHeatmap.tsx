@@ -67,7 +67,10 @@ export function WorkoutHeatmap({ exerciseLogs }: WorkoutHeatmapProps) {
   }, [exerciseLogs]);
 
   return (
-    <div className="border border-[#1A1A1A]/10 p-3 bg-white">
+    <div
+      className="border border-[#1A1A1A]/10 p-3 bg-white"
+      aria-hidden="true"
+    >
       <div className="flex justify-between items-center text-[8.5px] font-mono text-[#1A1A1A]/40 uppercase mb-2">
         <span>Muscular Output Density Map</span>
         <span>

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useUserStore } from "../store/useUserStore";
 import { useLogsStore } from "../store/useLogsStore";
 import { useCommerceStore } from "../store/useCommerceStore";
+import { useIntakeStore } from "../store/useIntakeStore";
 import type { OnboardingInput, WorkoutPlan, CartItem, Order } from "../engine";
 
 const SAMPLE_INPUT: OnboardingInput = {
@@ -49,6 +50,7 @@ beforeEach(() => {
   useUserStore.getState().reset();
   useLogsStore.getState().reset();
   useCommerceStore.getState().reset();
+  useIntakeStore.getState().reset();
   localStorage.clear();
 });
 
@@ -85,6 +87,72 @@ describe("useUserStore", () => {
     useUserStore.getState().reset();
     expect(useUserStore.getState().onboardingInput).toBeNull();
     expect(useUserStore.getState().workoutPlan).toBeNull();
+  });
+
+  // -------------------------------------------------------------------------
+  // A-29: Engine-cache method coverage. updateEngineProfile, cacheEngineOutputs,
+  // and clearEngineCaches were previously untested.
+  // -------------------------------------------------------------------------
+
+  it("updateEngineProfile merges a partial into engineProfile and clears cached engine outputs", async () => {
+    useUserStore.getState().setBoth(SAMPLE_INPUT, SAMPLE_WORKOUT_PLAN);
+    // Seed the caches so we can assert they're cleared by the update.
+    useUserStore.getState().cacheEngineOutputs(
+      { user_id: "u1", timestamp: "t" } as never,
+      { user_id: "u1", plan_id: "p1", created_at: "t" } as never,
+    );
+    expect(useUserStore.getState().cachedAssessmentResult).not.toBeNull();
+    expect(useUserStore.getState().cachedNutritionPlan).not.toBeNull();
+
+    useUserStore.getState().updateEngineProfile({ sex: "female", body_fat_pct: 22 });
+
+    const s = useUserStore.getState();
+    expect(s.engineProfile.sex).toBe("female");
+    expect(s.engineProfile.body_fat_pct).toBe(22);
+    // Untouched fields stay undefined (not present in EMPTY_ENGINE_PROFILE).
+    expect(s.engineProfile.waist_cm).toBeUndefined();
+    // The update invalidates the caches so the useEngine hook re-runs.
+    expect(s.cachedAssessmentResult).toBeNull();
+    expect(s.cachedNutritionPlan).toBeNull();
+  });
+
+  it("updateEngineProfile is additive across calls (does not replace the whole profile)", async () => {
+    useUserStore.getState().setBoth(SAMPLE_INPUT, SAMPLE_WORKOUT_PLAN);
+    useUserStore.getState().updateEngineProfile({ sex: "male" });
+    useUserStore.getState().updateEngineProfile({ waist_cm: 85 });
+    useUserStore.getState().updateEngineProfile({ neck_cm: 38 });
+    const { engineProfile } = useUserStore.getState();
+    expect(engineProfile).toMatchObject({
+      sex: "male",
+      waist_cm: 85,
+      neck_cm: 38,
+    });
+  });
+
+  it("cacheEngineOutputs stores both assessment and nutrition plan", async () => {
+    useUserStore.getState().setBoth(SAMPLE_INPUT, SAMPLE_WORKOUT_PLAN);
+    const fakeAssessment = { user_id: "u1", timestamp: "2026-08-01T00:00:00Z" } as never;
+    const fakeNutrition = { user_id: "u1", plan_id: "p1", created_at: "2026-08-01" } as never;
+    useUserStore.getState().cacheEngineOutputs(fakeAssessment, fakeNutrition);
+    const s = useUserStore.getState();
+    expect(s.cachedAssessmentResult).toBe(fakeAssessment);
+    expect(s.cachedNutritionPlan).toBe(fakeNutrition);
+  });
+
+  it("clearEngineCaches nulls both caches without touching onboarding/profile", async () => {
+    useUserStore.getState().setBoth(SAMPLE_INPUT, SAMPLE_WORKOUT_PLAN);
+    useUserStore.getState().updateEngineProfile({ sex: "male" });
+    useUserStore.getState().cacheEngineOutputs(
+      { user_id: "u1", timestamp: "t" } as never,
+      { user_id: "u1", plan_id: "p1", created_at: "t" } as never,
+    );
+    useUserStore.getState().clearEngineCaches();
+    const s = useUserStore.getState();
+    expect(s.cachedAssessmentResult).toBeNull();
+    expect(s.cachedNutritionPlan).toBeNull();
+    // The user's data is untouched — clearing caches is a pure cache invalidation.
+    expect(s.onboardingInput?.name).toBe("Test");
+    expect(s.engineProfile.sex).toBe("male");
   });
 
   it("persists to localStorage under the 'fitlife:user' key", async () => {
@@ -196,6 +264,85 @@ describe("useCommerceStore", () => {
     expect(s.orderHistory[0].id).toBe("ord-1");
     expect(s.cart).toHaveLength(1);
     expect(s.cart[0].type).toBe("meal");
+  });
+});
+
+// ===========================================================================
+// A-29: useIntakeStore coverage. The store had zero tests prior to this audit.
+// These tests cover the four public actions: addIntakeLog (with same-day
+// dedup), setIntakeLogs, clearTodayIntakeLog, and reset. They also exercise
+// the optional `date` field override on addIntakeLog (callers can back-fill a
+// past day rather than always logging "today").
+// ===========================================================================
+
+describe("useIntakeStore", () => {
+  it("addIntakeLog inserts a new entry when no log exists for today", async () => {
+    useIntakeStore.getState().addIntakeLog({
+      kcal: 2200,
+      protein_g: 160,
+      carbs_g: 220,
+      fat_g: 70,
+    });
+    const logs = useIntakeStore.getState().intakeLogs;
+    expect(logs).toHaveLength(1);
+    expect(logs[0].kcal).toBe(2200);
+    expect(logs[0].protein_g).toBe(160);
+    // Date defaults to today's local YYYY-MM-DD.
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    expect(logs[0].date).toBe(todayStr);
+  });
+
+  it("addIntakeLog dedupes by date — a second log for today replaces the first", async () => {
+    useIntakeStore.getState().addIntakeLog({ kcal: 1800, protein_g: 100, carbs_g: 200, fat_g: 60 });
+    useIntakeStore.getState().addIntakeLog({ kcal: 2400, protein_g: 180, carbs_g: 250, fat_g: 80 });
+    const logs = useIntakeStore.getState().intakeLogs;
+    expect(logs).toHaveLength(1);
+    expect(logs[0].kcal).toBe(2400);
+    expect(logs[0].protein_g).toBe(180);
+  });
+
+  it("addIntakeLog with an explicit past date keeps today's log intact (no dedup across days)", async () => {
+    useIntakeStore.getState().addIntakeLog({ kcal: 2000, protein_g: 150, carbs_g: 200, fat_g: 65 });
+    useIntakeStore.getState().addIntakeLog({
+      date: "2026-01-15",
+      kcal: 1900,
+      protein_g: 140,
+      carbs_g: 180,
+      fat_g: 60,
+    });
+    const logs = useIntakeStore.getState().intakeLogs;
+    expect(logs).toHaveLength(2);
+    expect(logs.some((l) => l.date === "2026-01-15" && l.kcal === 1900)).toBe(true);
+  });
+
+  it("clearTodayIntakeLog removes only today's entry and leaves historical entries intact", async () => {
+    useIntakeStore.getState().setIntakeLogs([
+      { date: "2026-01-01", kcal: 1800, protein_g: 100, carbs_g: 200, fat_g: 60 },
+      { date: "2026-01-02", kcal: 1900, protein_g: 110, carbs_g: 210, fat_g: 65 },
+      // Today's entry will be added by addIntakeLog below.
+    ]);
+    useIntakeStore.getState().addIntakeLog({ kcal: 2200, protein_g: 160, carbs_g: 220, fat_g: 70 });
+    expect(useIntakeStore.getState().intakeLogs).toHaveLength(3);
+
+    useIntakeStore.getState().clearTodayIntakeLog();
+    const logs = useIntakeStore.getState().intakeLogs;
+    expect(logs).toHaveLength(2);
+    expect(logs.every((l) => l.kcal !== 2200)).toBe(true);
+  });
+
+  it("setIntakeLogs replaces the entire log array and reset empties it", async () => {
+    useIntakeStore.getState().addIntakeLog({ kcal: 2000, protein_g: 150, carbs_g: 200, fat_g: 65 });
+    expect(useIntakeStore.getState().intakeLogs).toHaveLength(1);
+
+    useIntakeStore.getState().setIntakeLogs([
+      { date: "2026-02-01", kcal: 2100, protein_g: 155, carbs_g: 205, fat_g: 68 },
+      { date: "2026-02-02", kcal: 2200, protein_g: 160, carbs_g: 210, fat_g: 70 },
+    ]);
+    expect(useIntakeStore.getState().intakeLogs).toHaveLength(2);
+
+    useIntakeStore.getState().reset();
+    expect(useIntakeStore.getState().intakeLogs).toHaveLength(0);
   });
 });
 

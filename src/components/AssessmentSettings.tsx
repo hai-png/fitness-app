@@ -11,13 +11,17 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
+// A-24: targeted type-only import from schemas — AssessmentSettings is a
+// type-only consumer of the engine. Using the targeted module path lets the
+// bundler elide this statement at build time and keeps the engine barrel
+// (which re-exports assessment/nutrition/adaptiveTdee) out of this bundle.
 import type {
   ActivityLevel,
   BodyFatMethod,
+  EngineProfile,
   Sex,
   TrainingStatus,
-} from "../engine";
-import type { EngineProfile } from "../engine/assessment";
+} from "../engine/schemas";
 import { toast } from "./Toast";
 
 interface AssessmentSettingsProps {
@@ -29,12 +33,6 @@ interface AssessmentSettingsProps {
   onReset?: () => void;
   /** Legacy gender from Assessment — used as fallback for the sex selector. */
   fallbackGender?: string;
-  /**
-   * Optional remount key. When this value changes, the component's internal
-   * form state is re-initialized from engineProfile. This avoids the
-   * setState-in-effect anti-pattern by leveraging React's remount mechanism.
-   */
-  resetKey?: string | number;
 }
 
 /**
@@ -46,9 +44,10 @@ interface AssessmentSettingsProps {
  *
  * Implements Step 2 of IMPLEMENTATION_REPORT.md next steps.
  *
- * Note: The parent should pass a `resetKey` that changes when the form
- * should re-initialize (e.g. after a save or clear). This triggers a React
- * remount via the `key` prop, avoiding the setState-in-effect anti-pattern.
+ * F-M15 fix: removed the dead `resetKey` prop — it was documented as the
+ * remount trigger for re-initializing the form, but the parent actually
+ * remounts via the `key={formResetKey}` prop on the <AssessmentSettings>
+ * element (see ProfileTab.tsx). The interface prop was never read here.
  */
 export default function AssessmentSettings({
   engineProfile,
@@ -200,7 +199,6 @@ export default function AssessmentSettings({
                   <option value="durnin_womersley">Durnin-Womersley 4-site</option>
                   <option value="cun_bae">CUN-BAE (BMI-based)</option>
                   <option value="dexa">DEXA scan</option>
-                  <option value="ai_photo">AI photo analysis</option>
                 </select>
               </Field>
             </div>

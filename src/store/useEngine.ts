@@ -24,9 +24,7 @@ import {
 export function useEngine(): {
   assessmentResult: AssessmentResult | null;
   nutritionPlan: NutritionPlan | null;
-  recompute: () => void;
   applyAdjustment: (updated: NutritionPlan) => void;
-  isReady: boolean;
 } {
   const onboardingInput = useUserStore((s) => s.onboardingInput);
   const engineProfile = useUserStore((s) => s.engineProfile);
@@ -93,25 +91,10 @@ export function useEngine(): {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onboardingInput, engineProfile, latestWeight]);
 
-  const recompute = () => {
-    if (!onboardingInput) return;
-    try {
-      // A-16 fix: read fresh state via getState() so applyAdjustment /
-      // recompute called right after clearEngineCaches doesn't no-op on
-      // a stale closure. Also removed the redundant `as EngineProfile`
-      // cast — engineProfile is already typed as EngineProfile.
-      const user = createUserFromOnboarding(onboardingInput, engineProfile);
-      const assessment = runAssessment(user);
-      const nutrition = buildNutritionPlan({
-        user,
-        assessment,
-        existing_plan: useUserStore.getState().cachedNutritionPlan ?? undefined,
-      });
-      cacheEngineOutputs(assessment, nutrition);
-    } catch (err) {
-      console.warn("[useEngine] Manual recompute failed:", err);
-    }
-  };
+  // F-I3 fix: removed the unused `recompute` function — it was returned but
+  // never consumed by any caller. The hook already recomputes on every
+  // onboardingInput / engineProfile / latestWeight change via the useEffect
+  // above; the manual recompute path was dead code.
 
   const applyAdjustment = (updated: NutritionPlan) => {
     // A-16 fix: read the assessment fresh from the store so a recent
@@ -126,8 +109,6 @@ export function useEngine(): {
   return {
     assessmentResult: cachedAssessmentResult,
     nutritionPlan: cachedNutritionPlan,
-    recompute,
     applyAdjustment,
-    isReady: cachedAssessmentResult !== null && cachedNutritionPlan !== null,
   };
 }

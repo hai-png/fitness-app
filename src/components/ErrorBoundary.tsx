@@ -29,8 +29,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    // In production, forward to a monitoring service (Sentry, Datadog, etc.)
-    console.error("[ErrorBoundary] Uncaught render error:", error, errorInfo);
+    // F-L6 fix: telemetry hook. The structured log line below mirrors the
+    // shape a production Sentry/Datadog breadcrumb would emit (error +
+    // componentStack). In production this should be replaced with
+    // `Sentry.captureException(error, { contexts: { react: { componentStack:
+    // errorInfo.componentStack } } })` (or the equivalent for the chosen
+    // monitoring service). The console.error is retained in dev so the error
+    // is visible in the browser console without a Sentry round-trip.
+    console.error("[ErrorBoundary]", error, errorInfo);
   }
 
   handleReset = (): void => {

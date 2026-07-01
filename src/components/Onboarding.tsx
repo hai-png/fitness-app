@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import type { OnboardingInput, WorkoutPlan } from "../engine";
+import type { OnboardingInput, WorkoutPlan } from "../engine/schemas";
 import { useSafeTimeout } from "../hooks/useSafeTimeout";
 import { toast } from "./Toast";
 import { generateWorkoutPlan } from "../data/planGenerator";
@@ -203,8 +203,28 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
     } catch (err: unknown) {
       console.warn("Gemini generation failed or unconfigured:", err);
+      const errMsg = err instanceof Error ? err.message : "";
+
+      // A-13: When the server returns 400 because GEMINI_API_KEY is missing
+      // (the most common failure in self-hosted deploys), auto-trigger the
+      // local fallback plan generator so the user never has to click the
+      // "Generate Local Calculated Plan Instead" button. Keep the loading
+      // state visible — submitQuestionnaire(true) re-primes the message
+      // interval — and surface a non-blocking toast so the user knows why
+      // they're getting a local plan instead of an AI one.
+      if (errMsg.includes("GEMINI_API_KEY is not configured")) {
+        toast.info(
+          "Using local plan generator",
+          "AI coach not configured — falling back to local calculator.",
+        );
+        // submitQuestionnaire(true) resets error to null, restarts the
+        // loading-message interval, and calls onComplete after ~2.5s.
+        void submitQuestionnaire(true);
+        return;
+      }
+
       setError(
-        (err instanceof Error ? err.message : "") ||
+        errMsg ||
           "The AI Coach could not connect. This is usually because your GEMINI_API_KEY is not configured yet.",
       );
       setLoading(false);
@@ -275,9 +295,9 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
 
             {/* Steps Progress dots */}
             <div className="flex items-center gap-1.5 mb-6">
-              {steps.map((_, i) => (
+              {steps.map((s, i) => (
                 <div
-                  key={i}
+                  key={`step-dot-${i}-${s.title.slice(0, 12)}`}
                   className={`h-1 rounded-none transition-all duration-300 ${
                     i === step
                       ? "w-8 bg-[#1A1A1A]"
@@ -362,9 +382,10 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
               id="btn-back"
               type="button"
               onClick={prevStep}
-              className={`flex items-center gap-1.5 px-5 py-3 rounded-none border text-xs font-bold uppercase tracking-widest transition-all ${
+              disabled={step === 0}
+              className={`flex items-center gap-1.5 px-5 py-3 rounded-none border text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-30 disabled:pointer-events-none ${
                 step === 0
-                  ? "opacity-30 pointer-events-none border-[#1A1A1A]/5 text-[#1A1A1A]/30"
+                  ? "border-[#1A1A1A]/5 text-[#1A1A1A]/30"
                   : "bg-white border-[#1A1A1A]/15 text-[#1A1A1A] hover:bg-[#F9F8F6]"
               }`}
             >

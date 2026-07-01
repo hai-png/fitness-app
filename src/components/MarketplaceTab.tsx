@@ -1,6 +1,11 @@
 import React, { useState } from "react";
 import { MARKETPLACE_PRODUCTS } from "../data/marketplace";
-import { MarketplaceProduct, CartItem, Order } from "../engine";
+// A-24: targeted type-only import from schemas — these are pure types
+// (MarketplaceProduct, CartItem, Order). The `import type` keyword +
+// targeted module path lets the bundler elide this entire statement at
+// build time and prevents the engine barrel from pulling the assessment +
+// nutrition + adaptiveTdee formula modules into the Marketplace bundle.
+import type { MarketplaceProduct, CartItem, Order } from "../engine/schemas";
 import { useSafeTimeout } from "../hooks/useSafeTimeout";
 import { Modal } from "./Modal";
 import {
@@ -363,7 +368,8 @@ export default function MarketplaceTab({
                         aria-label="Decrease quantity"
                         id={`btn-cart-minus-mkt-${item.id}`}
                         onClick={() => onUpdateCartQty(item.id, item.quantity - 1)}
-                        className="p-1 rounded-none bg-white border border-[#1A1A1A]/10 text-[#1A1A1A]"
+                        // F-M11 fix: 44×44 px minimum touch target (WCAG 2.5.5).
+                        className="p-1 rounded-none bg-white border border-[#1A1A1A]/10 text-[#1A1A1A] min-w-[44px] min-h-[44px] flex items-center justify-center"
                       >
                         <Minus className="w-3 h-3" />
                       </button>
@@ -374,7 +380,8 @@ export default function MarketplaceTab({
                         aria-label="Increase quantity"
                         id={`btn-cart-plus-mkt-${item.id}`}
                         onClick={() => onUpdateCartQty(item.id, item.quantity + 1)}
-                        className="p-1 rounded-none bg-white border border-[#1A1A1A]/10 text-[#1A1A1A]"
+                        // F-M11 fix: 44×44 px minimum touch target (WCAG 2.5.5).
+                        className="p-1 rounded-none bg-white border border-[#1A1A1A]/10 text-[#1A1A1A] min-w-[44px] min-h-[44px] flex items-center justify-center"
                       >
                         <Plus className="w-3 h-3" />
                       </button>

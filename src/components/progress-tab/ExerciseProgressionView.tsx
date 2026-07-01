@@ -132,7 +132,7 @@ export default function ExerciseProgressionView({
 
           {/* Nodes */}
           {coords.map((c, i) => (
-            <g key={i}>
+            <g key={`pt-${i}-${c.date}`}>
               <circle
                 cx={c.x}
                 cy={c.y}
@@ -321,7 +321,7 @@ export default function ExerciseProgressionView({
 
             return (
               <div
-                key={idx}
+                key={`anomaly-log-${idx}-${log.exerciseName}-${log.date}`}
                 className="bg-[#F9F8F6] border border-[#1A1A1A]/5 p-3 rounded-none text-xs"
               >
                 <div className="flex justify-between items-start">
@@ -351,7 +351,7 @@ export default function ExerciseProgressionView({
 
                     return (
                       <div
-                        key={sIdx}
+                        key={`set-${sIdx}-${set.type}`}
                         className="border-l-2 border-[#E63946] pl-2.5 py-1 text-[10.5px] text-[#1A1A1A]/75 leading-relaxed font-serif italic"
                       >
                         <strong className="font-sans not-italic font-bold text-[8.5px] text-[#1A1A1A]/50 block uppercase mb-0.5">

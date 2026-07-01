@@ -34,6 +34,7 @@ import type {
 import {
   CALORIE_FLOOR,
   enforceCalorieFloor,
+  enforceCalorieCeiling,
   effectiveWeeklyLossCapLb,
 } from "./assessment";
 
@@ -369,6 +370,16 @@ export function reverseDietSchedule(args: {
 }): { weeks_to_maintenance: number; weekly_calories: number[] } {
   const inc = REVERSE_DIET_TIERS[args.tier].weekly_increment_kcal;
   const gap = args.maintenance_calories - args.current_calories;
+  // E-19 fix: if the user is already at or above maintenance, there is nothing
+  // to ramp up. Previously the function would still push `inc` kcal onto the
+  // current intake for at least one week (Math.max(1, …)) — taking a user who
+  // was 100 kcal above maintenance and "reversing" them 100 kcal higher.
+  if (gap <= 0) {
+    return {
+      weeks_to_maintenance: 0,
+      weekly_calories: [args.current_calories],
+    };
+  }
   const weeks = Math.max(1, Math.ceil(gap / inc));
   const schedule: number[] = [];
   for (let w = 0; w <= weeks; w++) {
@@ -709,11 +720,15 @@ export function ketoDecision(input: KetoDecisionInput): {
  *   recomp: +8 weeks (no adjustment during recomp; switch to cut/bulk when progress stalls)
  *   maintain: +12 weeks (no adjustment expected)
  *   reverse_diet: +1 week (weekly increment)
+ *
+ * E-61 fix: removed the unused `sex` parameter — the comment above noted
+ * women still use the same 4-week cut window, and no sex-based extension
+ * existed in the body. Dropping the param eliminates the `void sex` no-op
+ * and makes the function signature honest. Call sites updated.
  */
 export function nextAdjustmentEligibleDate(
   phase: NutritionPhase,
   phase_start_date: string,
-  sex: Sex,
 ): string {
   const start = new Date(phase_start_date);
   let days: number;
@@ -734,8 +749,6 @@ export function nextAdjustmentEligibleDate(
     default:
       days = 84;
   }
-  // Female cut: still 4 weeks (one full menstrual cycle), but UI should compare same-phase weeks.
-  void sex; // currently no sex-based extension; reserved for future cycle-aware logic.
   start.setDate(start.getDate() + days);
   return start.toISOString().slice(0, 10);
 }
@@ -743,6 +756,14 @@ export function nextAdjustmentEligibleDate(
 /**
  * Compute target calories for a given phase.
  * Applies Alpert cap and 2-lb/wk cap for cuts; floor for all phases.
+ *
+ * E-55: `bmr_kcal` (when provided) is forwarded to `enforceCalorieFloor` so
+ * the floor is raised to max(CALORIE_FLOOR, bmr × 1.1) — never cut below 110%
+ * of BMR.
+ *
+ * E-56: `bmr_kcal` (when provided) also enables `enforceCalorieCeiling` for
+ * the bulk branch, capping the surplus at 2.5 × BMR — extreme surpluses
+ * beyond this are likely NEAT-buffered or harmful.
  */
 export function computeTargetCalories(args: {
   tdee_kcal: number;
@@ -752,6 +773,7 @@ export function computeTargetCalories(args: {
   body_fat_pct?: number;
   target_rate_pct?: number; // % per week (cut) or % per month (bulk)
   training_status: TrainingStatus;
+  bmr_kcal?: number; // E-55/E-56: enables BMR-aware floor + ceiling
 }): {
   target_calories_kcal: number;
   calorie_delta_kcal: number;
@@ -760,10 +782,13 @@ export function computeTargetCalories(args: {
   weekly_loss_cap_lb: number;
   calorie_floor_kcal: number;
 } {
-  const floor = CALORIE_FLOOR[args.sex];
+  const bmr = args.bmr_kcal;
+  const floor = bmr !== undefined
+    ? Math.max(CALORIE_FLOOR[args.sex], bmr * 1.1)
+    : CALORIE_FLOOR[args.sex];
 
   if (args.phase === "maintain") {
-    const target = enforceCalorieFloor(args.sex, args.tdee_kcal);
+    const target = enforceCalorieFloor(args.sex, args.tdee_kcal, bmr);
     return {
       target_calories_kcal: target,
       calorie_delta_kcal: 0,
@@ -774,8 +799,10 @@ export function computeTargetCalories(args: {
   }
 
   if (args.phase === "cut") {
-    // Default target rate: 0.625% (sweet spot midpoint).
-    const rate_pct = args.target_rate_pct ?? CUT_SWEET_SPOT_PCT.low + 0.025;
+    // E-14 fix: default target rate is 0.65% — the midpoint of the sweet spot
+    // [0.6, 0.7]. The previous value (CUT_SWEET_SPOT_PCT.low + 0.025 = 0.625)
+    // was the midpoint of [0.6, 0.65], not the sweet spot, despite the comment.
+    const rate_pct = args.target_rate_pct ?? CUT_SWEET_SPOT_PCT.low + 0.05;
     const body_weight_lb = args.body_weight_kg * 2.2046226218;
     const target_rate_lb_per_week = (rate_pct / 100) * body_weight_lb;
 
@@ -790,7 +817,7 @@ export function computeTargetCalories(args: {
         : undefined;
 
     let target = args.tdee_kcal - deficit_kcal;
-    target = enforceCalorieFloor(args.sex, target);
+    target = enforceCalorieFloor(args.sex, target, bmr);
 
     return {
       target_calories_kcal: target,
@@ -813,7 +840,10 @@ export function computeTargetCalories(args: {
     );
     const surplus_kcal = bulkDailySurplusKcal(target_rate_lb_per_month);
     let target = args.tdee_kcal + surplus_kcal;
-    target = enforceCalorieFloor(args.sex, target);
+    target = enforceCalorieFloor(args.sex, target, bmr);
+    // E-56: never bulk above 2.5× BMR. Extreme surpluses beyond this are
+    // either NEAT-buffered (no actual mass gain) or harmful (excess fat).
+    target = enforceCalorieCeiling(target, bmr);
 
     return {
       target_calories_kcal: target,
@@ -827,7 +857,7 @@ export function computeTargetCalories(args: {
   if (args.phase === "recomp") {
     if (args.body_fat_pct === undefined) {
       // No BF% → cannot compute recomp potential; default to maintenance.
-      const target = enforceCalorieFloor(args.sex, args.tdee_kcal);
+      const target = enforceCalorieFloor(args.sex, args.tdee_kcal, bmr);
       return {
         target_calories_kcal: target,
         calorie_delta_kcal: 0,
@@ -841,6 +871,7 @@ export function computeTargetCalories(args: {
     const target = enforceCalorieFloor(
       args.sex,
       recomp_target?.target_kcal ?? args.tdee_kcal,
+      bmr,
     );
     return {
       target_calories_kcal: target,
@@ -852,7 +883,7 @@ export function computeTargetCalories(args: {
   }
 
   // reverse_diet: starts at current calories; handled by reverse-diet scheduler.
-  const target = enforceCalorieFloor(args.sex, args.tdee_kcal);
+  const target = enforceCalorieFloor(args.sex, args.tdee_kcal, bmr);
   return {
     target_calories_kcal: target,
     calorie_delta_kcal: 0,
@@ -917,6 +948,7 @@ export function buildNutritionPlan(args: {
       body_fat_pct: bf_pct,
       target_rate_pct: 0,
       training_status: user.training_status,
+      bmr_kcal: assessment.bmr_kcal,
     });
     const macros_safe = computeMacros({
       target_calories_kcal: calorie_result_safe.target_calories_kcal,
@@ -961,10 +993,13 @@ export function buildNutritionPlan(args: {
       veg_cups_per_day: fruitVegCups(calorie_result_safe.target_calories_kcal).veg,
       supplements: supplementStack({ diet_type: user.diet_type, sex: user.sex }),
       last_adjustment_date: prev?.last_adjustment_date,
-      next_adjustment_eligible_date: nextAdjustmentEligibleDate(safePhase, prev?.phase_start_date ?? today_safe, user.sex),
+      next_adjustment_eligible_date: nextAdjustmentEligibleDate(safePhase, prev?.phase_start_date ?? today_safe),
       adjustment_history: prev?.adjustment_history ?? [],
       macro_tolerance_pct: macroTolerancePct(user.sex, bf_pct),
       tolerance_compliance_target_pct: 0.9,
+      // E-57: forward the medical disclaimer from the assessment so the UI
+      // can surface it alongside the (de-fanged maintenance-only) plan.
+      disclaimer: assessment.disclaimer,
     };
   }
 
@@ -976,6 +1011,7 @@ export function buildNutritionPlan(args: {
     body_fat_pct: bf_pct,
     target_rate_pct: args.target_rate_pct,
     training_status: user.training_status,
+    bmr_kcal: assessment.bmr_kcal,
   });
 
   const macros = computeMacros({
@@ -1008,7 +1044,7 @@ export function buildNutritionPlan(args: {
   const phase_start_date = phaseChanged || !prev ? today : prev.phase_start_date;
   const last_adjustment_date = phaseChanged ? undefined : prev?.last_adjustment_date;
   const adjustment_history = phaseChanged ? [] : (prev?.adjustment_history ?? []);
-  const next_eligible = nextAdjustmentEligibleDate(phase, phase_start_date, user.sex);
+  const next_eligible = nextAdjustmentEligibleDate(phase, phase_start_date);
 
   return {
     user_id: user.id,
@@ -1043,6 +1079,8 @@ export function buildNutritionPlan(args: {
     adjustment_history,
     macro_tolerance_pct: macroTolerancePct(user.sex, bf_pct),
     tolerance_compliance_target_pct: 0.9,
+    // E-57: forward the medical disclaimer from the assessment.
+    disclaimer: assessment.disclaimer,
   };
 }
 
@@ -1053,7 +1091,8 @@ export function buildNutritionPlan(args: {
 /**
  * Apply a macro adjustment (Part 3.5.6 / 3.6.8) to an existing plan.
  * For cuts: split reduction 1:1 to 2:1 carbs:fats by kcal.
- * For bulks: split addition 3:1 to 2:1 carbs:fats by kcal (75:25).
+ * For bulks: split addition 3:1 carbs:fats by kcal (75:25) — matches
+ *   BULK_SURPLUS_SPLIT (E-15).
  * Protein held constant.
  */
 export function applyMacroAdjustment(args: {
@@ -1067,6 +1106,10 @@ export function applyMacroAdjustment(args: {
   const floored = Math.max(new_target, args.plan.calorie_floor_kcal);
   const actual_delta = floored - args.plan.target_calories_kcal;
 
+  // E-15 fix: bulk adjustment split now matches BULK_SURPLUS_SPLIT (75:25
+  // carbs:fats by kcal). Previously the comment cited a 3:1→2.5:1 midpoint
+  // (71.4/28.6) which was inconsistent with the 3:1 split defined above.
+  // Protein held constant.
   let carbs_kcal_delta: number;
   let fat_kcal_delta: number;
   if (args.plan.phase === "cut") {
@@ -1074,9 +1117,9 @@ export function applyMacroAdjustment(args: {
     carbs_kcal_delta = actual_delta * (1.5 / 2.5);
     fat_kcal_delta = actual_delta * (1 / 2.5);
   } else if (args.plan.phase === "bulk") {
-    // 3:1 to 2:1 → use 2.5:1 (midpoint).
-    carbs_kcal_delta = actual_delta * (2.5 / 3.5);
-    fat_kcal_delta = actual_delta * (1 / 3.5);
+    // E-15: 3:1 carbs:fats — same as BULK_SURPLUS_SPLIT (0.75 / 0.25).
+    carbs_kcal_delta = actual_delta * BULK_SURPLUS_SPLIT.carbs_pct;
+    fat_kcal_delta = actual_delta * BULK_SURPLUS_SPLIT.fat_pct;
   } else {
     // Default: 50/50.
     carbs_kcal_delta = actual_delta * 0.5;
@@ -1093,7 +1136,7 @@ export function applyMacroAdjustment(args: {
     carbs: (new_carb_g * 4) / total_kcal,
   };
 
-  const next_eligible = nextAdjustmentEligibleDate(args.plan.phase, date, "male"); // sex unused
+  const next_eligible = nextAdjustmentEligibleDate(args.plan.phase, date);
 
   return {
     ...args.plan,

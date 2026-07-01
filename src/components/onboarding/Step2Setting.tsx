@@ -287,20 +287,35 @@ export default function Step2Setting({
                     x="50"
                     y="44"
                     textAnchor="middle"
-                    className="text-[5px] font-sans font-bold fill-[#E63946] uppercase"
+                    className="text-[9px] font-sans font-bold fill-[#E63946] uppercase"
                   >
                     You
                   </text>
 
                   {NEARBY_GYMS.map((g) => {
                     const isSelected = form.selectedGymName === g.name;
+                    // F-M7 fix: extracted so the keyboard handler can fire
+                    // the same selection logic as the click handler.
+                    const selectGym = () => {
+                      handleFieldChange("selectedGymName", g.name);
+                      handleFieldChange("availableMachines", g.defaultMachines);
+                    };
                     return (
                       <g
                         key={g.id}
                         className="cursor-pointer"
-                        onClick={() => {
-                          handleFieldChange("selectedGymName", g.name);
-                          handleFieldChange("availableMachines", g.defaultMachines);
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Select ${g.name} gym`}
+                        onClick={selectGym}
+                        // F-M7 fix: keyboard handler so the SVG gym markers
+                        // are reachable via Tab + Enter/Space (matching the
+                        // gym card buttons below the map).
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            selectGym();
+                          }
                         }}
                       >
                         {isSelected && (
@@ -332,7 +347,10 @@ export default function Step2Setting({
                           x={g.coordinates.x}
                           y={g.coordinates.y - (isSelected ? 7 : 5)}
                           textAnchor="middle"
-                          className={`text-[4px] font-bold ${isSelected ? "fill-[#1A1A1A] font-black" : "fill-[#1A1A1A]/40"} uppercase`}
+                          // F-L3 fix: text-[4px] → text-[9px] (4px is below
+                          // the smallest readable size; 9px is the legibility
+                          // floor for SVG labels at this viewBox scale).
+                          className={`text-[9px] font-bold ${isSelected ? "fill-[#1A1A1A] font-black" : "fill-[#1A1A1A]/40"} uppercase`}
                         >
                           {g.name.split(" ")[0]}
                         </text>

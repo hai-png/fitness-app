@@ -1,11 +1,19 @@
 import { useState, useMemo } from "react";
-import type { OnboardingInput, NutritionPlan, Order } from "../engine";
+// A-24: targeted type-only imports from schemas — ProfileTab is a type-only
+// consumer of the engine. Using the targeted module path lets the bundler
+// elide this statement at build time and keeps the engine barrel (which
+// re-exports assessment/nutrition/adaptiveTdee) out of this bundle.
+import type {
+  OnboardingInput,
+  NutritionPlan,
+  Order,
+  EngineProfile,
+} from "../engine/schemas";
 import { toast, confirmDialog } from "./Toast";
 import AssessmentSettings from "./AssessmentSettings";
 import EngineInsights from "./EngineInsights";
 import NutritionPlanPanel from "./NutritionPlanPanel";
 import { useUserStore } from "../store/useUserStore";
-import type { EngineProfile } from "../engine/assessment";
 import { useLogsStore } from "../store/useLogsStore";
 import { useIntakeStore } from "../store/useIntakeStore";
 import { useEngine } from "../store/useEngine";
@@ -228,7 +236,7 @@ export default function ProfileTab({
           <div className="space-y-2.5">
             {guidelines.map((line, idx) => (
               <div
-                key={idx}
+                key={`guideline-${idx}-${line.slice(0, 12)}`}
                 className="flex gap-2 text-xs text-[#1A1A1A]/70 bg-[#F9F8F6]/30 p-2.5 rounded-none border border-[#1A1A1A]/5 leading-relaxed font-serif italic"
               >
                 <Heart className="w-4 h-4 text-[#E63946] flex-shrink-0 mt-0.5" />
@@ -248,7 +256,7 @@ export default function ProfileTab({
           <div className="space-y-3">
             {mealSuggestions.map((meal, idx) => (
               <div
-                key={idx}
+                key={`meal-${idx}-${meal.name.slice(0, 12)}`}
                 className="flex justify-between items-center gap-3 bg-[#F9F8F6] p-3 rounded-none border border-[#1A1A1A]/5"
               >
                 <div>
@@ -280,8 +288,19 @@ export default function ProfileTab({
           Paid Orders History
         </h3>
         {orderHistory.length === 0 ? (
-          <div className="text-center py-6 text-[#1A1A1A]/40 text-xs font-serif italic">
-            No completed purchases yet. Preps ordered or gear bought will appear here!
+          // F-L7 fix: standardized empty state (icon + heading +
+          // description + CTA) matching the MarketplaceTab pattern. The
+          // original was a single italic line of text with no visual
+          // hierarchy, no CTA, and no icon.
+          <div className="text-center py-8 px-4 flex flex-col items-center">
+            <ShoppingBag className="w-10 h-10 text-[#1A1A1A]/30 mb-2" />
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A]/80">
+              No Completed Orders Yet
+            </h4>
+            <p className="text-[10px] text-[#1A1A1A]/60 mt-1 font-serif italic max-w-xs leading-relaxed">
+              Preps ordered from the Meals Prep tab and gear purchased from the
+              Store will appear here with their delivery status.
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -298,7 +317,7 @@ export default function ProfileTab({
                 </div>
                 <div className="text-[10px] text-[#1A1A1A]/60 space-y-0.5 font-serif italic">
                   {ord.items.map((item, i) => (
-                    <div key={i} className="flex justify-between">
+                    <div key={`order-item-${i}-${item.id}`} className="flex justify-between">
                       <span className="truncate max-w-[200px]">
                         • {item.name} (x{item.quantity})
                       </span>

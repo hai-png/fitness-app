@@ -9,7 +9,7 @@
  * ProgressTab; this component only owns the layout.
  */
 import { Droplet, Scale } from "lucide-react";
-import type { DailyWeightLog } from "../../engine";
+import type { DailyWeightLog } from "../../engine/schemas";
 import EngineTrendAnalysis from "../EngineTrendAnalysis";
 import DailyIntakeLogger from "../DailyIntakeLogger";
 

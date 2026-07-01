@@ -24,6 +24,7 @@ import type {
   BodyFatMethod,
   DietType,
   DailyWeightLog,
+  EngineProfile,
   OnboardingInput,
   OnboardingGoal,
   OnboardingActivityLevel,
@@ -33,6 +34,11 @@ import type {
   TrainingStatus,
   User,
 } from "./schemas";
+
+// A-09: EngineProfile moved to schemas.ts (single source of truth per README).
+// Re-exported here for backward compatibility — existing imports from
+// "../engine/assessment" continue to work without touching call sites.
+export type { EngineProfile } from "./schemas";
 
 // ===========================================================================
 // Constants
@@ -232,7 +238,8 @@ export const BF_METHOD_ACCURACY: Record<
   navy: { plus_minus_pct: 3.5, label: "US Navy (circumference)" },
   dexa: { plus_minus_pct: 5, label: "DEXA scan" },
   cun_bae: { plus_minus_pct: 4.5, label: "CUN-BAE (BMI-based)" },
-  ai_photo: { plus_minus_pct: 3, label: "AI photo analysis (front+side)" },
+  // E-44: "ai_photo" removed — no implementation existed behind this enum
+  // value, and surfacing it in the UI as a selectable method was misleading.
   manual: { plus_minus_pct: 0, label: "Manual entry" },
 };
 
@@ -436,10 +443,15 @@ export function harrisBenedict1984(
 }
 
 /**
- * Cunningham (1991) / Katch-McArdle — Part 1.4.3.
+ * Katch-McArdle — Part 1.4.3.
  * Requires lean body mass. Use when BF% is known and user is athletic.
+ *
+ * E-01 fix: the function previously named `cunningham` actually implements
+ * the Katch-McArdle equation (370 + 21.6 × LBM). The true Cunningham (1991)
+ * equation is 500 + 22 × FFM — a different intercept and slope. Renamed so
+ * the function name matches what it computes.
  */
-export function cunningham(lean_body_mass_kg: number): number {
+export function katchMcArdle(lean_body_mass_kg: number): number {
   return 370 + 21.6 * lean_body_mass_kg;
 }
 
@@ -526,9 +538,38 @@ export function tdeeFromIomDlwEer(user: User): {
   return { tdee_kcal: eer, activity_factor: pa };
 }
 
-/** Enforce minimum calorie floor (Part 0.3). */
-export function enforceCalorieFloor(sex: Sex, kcal: number): number {
-  return Math.max(kcal, CALORIE_FLOOR[sex]);
+/** Enforce minimum calorie floor (Part 0.3).
+ *
+ * E-55 fix: when BMR is supplied, the floor is raised to max(CALORIE_FLOOR,
+ * bmr × 1.1) — never cut below 110% of BMR. Small users (e.g. a 4'11" 45 kg
+ * woman with BMR ≈ 1100) would otherwise be put on the CALORIE_FLOOR of
+ * 1200 kcal, which is below their BMR. Pass BMR through from
+ * `computeTargetCalories` / `buildNutritionPlan` so the floor is always
+ * physiologically safe.
+ */
+export function enforceCalorieFloor(
+  sex: Sex,
+  kcal: number,
+  bmr_kcal?: number,
+): number {
+  const base_floor = CALORIE_FLOOR[sex];
+  const bmr_floor = bmr_kcal !== undefined ? bmr_kcal * 1.1 : 0;
+  return Math.max(kcal, base_floor, bmr_floor);
+}
+
+/**
+ * Enforce an upper calorie ceiling for bulking (Part 3.6 — E-56).
+ *
+ * Caps the target at 2.5 × BMR. Extreme surpluses beyond this are either
+ * NEAT-buffered (no actual mass gain — the body fidgets away the extra
+ * kcal) or harmful (excess fat gain with diminishing muscle-protein
+ * synthesis returns). When `bmr_kcal` is undefined, the ceiling is a no-op.
+ *
+ * Used only for the bulk branch of `computeTargetCalories`.
+ */
+export function enforceCalorieCeiling(kcal: number, bmr_kcal?: number): number {
+  if (bmr_kcal === undefined) return kcal;
+  return Math.min(kcal, bmr_kcal * 2.5);
 }
 
 // ===========================================================================
@@ -649,6 +690,12 @@ export function rollingAverageWeightKg(
 /**
  * Compute weekly rate of weight change (lb/week) from a sorted daily-weights array.
  * Uses simple linear regression slope × 7.
+ *
+ * E-21 fix: previously used `xs = sorted.map((_, i) => i)` — index positions
+ * rather than actual dates — which made the slope kg/observation rather than
+ * kg/day. With uneven sampling (e.g. two logs 28 days apart plus daily logs
+ * in the middle), the slope was wrong. Now uses true day-of-year from each
+ * log's date so the slope is true kg/day, then converts to lb/week.
  */
 export function weeklyRateLbPerWeek(
   daily_weights: DailyWeightLog[],
@@ -656,7 +703,8 @@ export function weeklyRateLbPerWeek(
   if (daily_weights.length < 7) return null;
   const sorted = [...daily_weights].sort((a, b) => a.date.localeCompare(b.date));
   const n = sorted.length;
-  const xs = sorted.map((_, i) => i);
+  const MS_PER_DAY = 1000 * 60 * 60 * 24;
+  const xs = sorted.map((l) => new Date(l.date).getTime() / MS_PER_DAY);
   const ys = sorted.map((l) => l.weight_kg);
   const xMean = xs.reduce((s, x) => s + x, 0) / n;
   const yMean = ys.reduce((s, y) => s + y, 0) / n;
@@ -855,9 +903,9 @@ export function runAssessment(user: User): AssessmentResult {
     lean_body_mass_kg = leanBodyMass(user.weight_kg, body_fat_pct);
   } else if (
     user.body_fat_method === "navy" &&
-    user.waist_cm &&
-    user.neck_cm &&
-    user.height_cm
+    user.waist_cm !== undefined &&
+    user.neck_cm !== undefined &&
+    user.height_cm !== undefined
   ) {
     body_fat_pct = clampBfPct(
       user.sex,
@@ -881,7 +929,7 @@ export function runAssessment(user: User): AssessmentResult {
   // WHtR
   let whtr_val: number | undefined;
   let whtr_cat: string | undefined;
-  if (user.waist_cm && user.height_cm) {
+  if (user.waist_cm !== undefined && user.height_cm !== undefined) {
     whtr_val = whtr(user.waist_cm, user.height_cm);
     whtr_cat = whtrCategory(user.sex, whtr_val);
   }
@@ -889,14 +937,14 @@ export function runAssessment(user: User): AssessmentResult {
   // WHR
   let whr_val: number | undefined;
   let whr_cat: string | undefined;
-  if (user.waist_cm && user.hip_cm) {
+  if (user.waist_cm !== undefined && user.hip_cm !== undefined) {
     whr_val = whr(user.waist_cm, user.hip_cm);
     whr_cat = whrCategory(user.sex, whr_val);
   }
 
   // ABSI (z-score requires NHANES lookup tables — left undefined here)
   let absi_val: number | undefined;
-  if (user.waist_cm) {
+  if (user.waist_cm !== undefined) {
     absi_val = absi(user.waist_cm, user.weight_kg, user.height_cm);
   }
 
@@ -961,6 +1009,15 @@ export function runAssessment(user: User): AssessmentResult {
     is_breastfeeding: user.is_breastfeeding,
   });
 
+  // E-57: medical disclaimer. Always surfaced; extended when the user falls
+  // into an excluded population (pregnant, breastfeeding, ED history, kidney
+  // disease, <18). The UI renders this prominently above the plan.
+  const disclaimerBase =
+    "These estimates are for informational purposes only and are not medical advice. Consult a healthcare professional before making significant changes to your diet or exercise routine.";
+  const disclaimer = exclusions.excluded
+    ? `${disclaimerBase} IMPORTANT: You fall into an excluded population. Do not follow these recommendations without clinician supervision.`
+    : disclaimerBase;
+
   return {
     user_id: user.id,
     timestamp: new Date().toISOString(),
@@ -1000,6 +1057,7 @@ export function runAssessment(user: User): AssessmentResult {
     hydration_breakdown: hydration.breakdown,
     population_excluded: exclusions.excluded,
     exclusion_reasons: exclusions.reasons,
+    disclaimer,
   };
 }
 
@@ -1007,25 +1065,8 @@ export function runAssessment(user: User): AssessmentResult {
 // Factory: create engine User from OnboardingInput + EngineProfile
 // ===========================================================================
 
-/**
- * EngineProfile — optional fields captured post-onboarding that make the
- * engine's formulas more accurate (body-fat %, circumferences, training
- * status, etc.).
- */
-export interface EngineProfile {
-  sex?: Sex;
-  all_time_high_weight_kg?: number;
-  is_currently_in_deficit?: boolean;
-  body_fat_pct?: number;
-  body_fat_method?: BodyFatMethod;
-  waist_cm?: number;
-  hip_cm?: number;
-  neck_cm?: number;
-  training_status?: TrainingStatus;
-  activity_level?: ActivityLevel;
-  sleep_hours_avg?: number;
-  stress_0_5?: number;
-}
+// NOTE (A-09): The EngineProfile interface now lives in schemas.ts (single
+// source of truth for all types). See the re-export near the top of this file.
 
 function mapGoal(goal: OnboardingGoal): PrimaryGoal {
   switch (goal) {
@@ -1136,4 +1177,24 @@ export function createUserFromOnboarding(
     sleep_hours_avg: profile?.sleep_hours_avg,
     stress_0_5: profile?.stress_0_5,
   };
+}
+
+// ===========================================================================
+// Epley 1-rep-max estimation
+// ===========================================================================
+
+/**
+ * Estimate a one-rep maximum (1RM) from a submaximal set using the Epley
+ * formula: 1RM = weight × (1 + reps / 30).
+ *
+ * E-41 fix: this function previously lived in `src/data/analyticsEngine.ts`,
+ * which is a UI-facing analytics module. The formula is a pure
+ * biomechanics/engine calculation and belongs in the engine layer. It has
+ * been moved here; `src/data/analyticsEngine.ts` re-exports it for backward
+ * compatibility so existing UI imports continue to work.
+ */
+export function calculateEpley1RM(weight: number, reps: number): number {
+  if (reps <= 0) return 0;
+  if (reps === 1) return weight;
+  return weight * (1 + reps / 30);
 }

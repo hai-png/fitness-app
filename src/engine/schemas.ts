@@ -55,7 +55,6 @@ export type BodyFatMethod =
   | "jp7"
   | "durnin_womersley"
   | "cun_bae"
-  | "ai_photo"
   | "manual"
   | "dexa";
 
@@ -153,7 +152,7 @@ export interface AssessmentResult {
 
   // Energy
   bmr_kcal: number; // after RippedBody adjustments
-  bmr_formula: "mifflin_st_jeor" | "harris_benedict_1984" | "cunningham";
+  bmr_formula: "mifflin_st_jeor" | "harris_benedict_1984" | "katch_mc_ardle";
   tdee_kcal: number;
   tdee_method: "mifflin_x_saf" | "iom_dlw_eer" | "adaptive";
   activity_factor: number;
@@ -186,6 +185,9 @@ export interface AssessmentResult {
   // Population exclusion flags (echoed for UI gating)
   population_excluded: boolean;
   exclusion_reasons: string[];
+
+  // E-57: medical disclaimer surfaced alongside every assessment.
+  disclaimer?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -445,6 +447,9 @@ export interface NutritionPlan {
   // Tolerance
   macro_tolerance_pct: number;
   tolerance_compliance_target_pct: number;
+
+  // E-57: medical disclaimer surfaced alongside every nutrition plan.
+  disclaimer?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -509,6 +514,30 @@ export interface DailyIntakeLog {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+}
+
+// ---------------------------------------------------------------------------
+// EngineProfile — optional fields captured post-onboarding that make the
+// engine's formulas more accurate (body-fat %, circumferences, training
+// status, etc.). Lives in schemas.ts because this file is the single source
+// of truth for ALL TypeScript types in the app (per README + ARCHITECTURE.md).
+// `src/engine/assessment.ts` re-exports this interface for backward
+// compatibility with existing imports.
+// ---------------------------------------------------------------------------
+
+export interface EngineProfile {
+  sex?: Sex;
+  all_time_high_weight_kg?: number;
+  is_currently_in_deficit?: boolean;
+  body_fat_pct?: number;
+  body_fat_method?: BodyFatMethod;
+  waist_cm?: number;
+  hip_cm?: number;
+  neck_cm?: number;
+  training_status?: TrainingStatus;
+  activity_level?: ActivityLevel;
+  sleep_hours_avg?: number;
+  stress_0_5?: number;
 }
 
 // ===========================================================================

@@ -9,11 +9,25 @@
       content="FitLife Hub — AI-generated training & nutrition plans, premium meal delivery, a curated fitness marketplace, and detailed progress analytics."
     />
 
-    <!-- Preconnect to Google Fonts to speed up the stylesheet fetch.
-         The actual @import in index.css still loads the font CSS, but
-         preconnect eliminates the DNS/TLS round-trip latency. -->
+    <!-- Preconnect to Google Fonts to speed up the stylesheet fetch. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- F-M1 fix: load Google Fonts via <link> instead of CSS @import.
+         The @import in index.css was render-blocking and added a round-trip
+         on every page load. rel=preload + rel=stylesheet lets the browser
+         fetch the font CSS in parallel with the rest of the head and apply
+         it as soon as it arrives. display=swap avoids FOUT.
+         Weights loaded: Inter 5 + JetBrains Mono 3 + Playfair Display 6 (incl. italic). -->
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&display=swap"
+    />
 
     <title>FitLife Hub</title>
   </head>

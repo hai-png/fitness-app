@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
-import { WorkoutPlan, WeeklyScheduleDay, WorkoutLog, Exercise } from "../engine";
+// A-24: targeted import from the schemas module — type-only, no need to
+// pull the full engine barrel (which re-exports assessment/nutrition/
+// adaptiveTdee formula modules) into the Training tab's bundle graph.
+import type { WorkoutPlan, WeeklyScheduleDay, WorkoutLog, Exercise } from "../engine/schemas";
 import { toast } from "./Toast";
 import {
   CheckCircle2,
@@ -418,7 +421,7 @@ export default function TrainingTab({
 
             return (
               <button
-                key={idx}
+                key={`day-tab-${idx}-${sched.day.slice(0, 12)}`}
                 id={`btn-day-tab-${idx}`}
                 onClick={() => setSelectedDayIndex(idx)}
                 className={`flex-shrink-0 snap-start w-28 p-3 rounded-none border text-left transition-all ${
@@ -483,8 +486,19 @@ export default function TrainingTab({
         {/* Exercises list */}
         <div className="space-y-3">
           {selectedDay.exercises.length === 0 ? (
-            <div className="text-center py-10 text-[#1A1A1A]/40 text-xs font-serif italic">
-              This is a dedicated REST day. Let your muscles repair, hydrate heavily, and recover!
+            // F-L7 fix: standardized empty state (icon + heading +
+            // description). The original was a single italic line of text.
+            // No CTA — the correct action on a rest day is to rest, not to
+            // navigate elsewhere.
+            <div className="text-center py-10 px-4 flex flex-col items-center">
+              <Award className="w-10 h-10 text-[#1A1A1A]/30 mb-2" />
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A]/80">
+                Dedicated Rest & Recovery Day
+              </h4>
+              <p className="text-[10px] text-[#1A1A1A]/60 mt-1 font-serif italic max-w-xs leading-relaxed">
+                Let your muscles repair, hydrate heavily, and recover. Rest days
+                are when the training stimulus is converted into growth.
+              </p>
             </div>
           ) : (
             selectedDay.exercises.map((ex, idx) => {
@@ -493,7 +507,7 @@ export default function TrainingTab({
 
               return (
                 <div
-                  key={idx}
+                  key={`ex-${idx}-${ex.name}`}
                   className={`border rounded-none transition-all ${
                     isCompleted
                       ? "bg-[#1A1A1A]/5 border-[#1A1A1A]/5 opacity-60"
@@ -589,7 +603,7 @@ export default function TrainingTab({
                           </strong>
                           <ul className="space-y-1 font-sans text-[11px] list-disc list-inside">
                             {ex.steps.map((st, sidx) => (
-                              <li key={sidx} className="text-[#1A1A1A]/60">
+                              <li key={`step-${sidx}-${st.slice(0, 10)}`} className="text-[#1A1A1A]/60">
                                 {st}
                               </li>
                             ))}
@@ -613,7 +627,7 @@ export default function TrainingTab({
         <div className="space-y-2.5">
           {workoutPlan.tips.map((tip, idx) => (
             <div
-              key={idx}
+              key={`tip-${idx}-${tip.slice(0, 12)}`}
               className="flex gap-2.5 text-xs text-[#1A1A1A]/70 bg-white border border-[#1A1A1A]/10 p-4 rounded-none leading-relaxed font-serif italic shadow-sm"
             >
               <span className="text-[#E63946] font-bold select-none">•</span>

@@ -22,12 +22,13 @@ export default defineConfig({
         "src/components/ErrorBoundary.tsx", // hard to test without elaborate setup
       ],
       thresholds: {
-        // Conservative thresholds — we're starting from zero coverage.
-        // Phase 4 refactor should raise these.
-        statements: 0,
-        branches: 0,
-        functions: 0,
-        lines: 0,
+        // E-32: raised from 0 to current coverage minus a safety margin so
+        // coverage regressions fail CI. The previous 0% thresholds provided
+        // no protection against silently shipping untested code paths.
+        statements: 35,
+        branches: 25,
+        functions: 25,
+        lines: 35,
       },
     },
   },

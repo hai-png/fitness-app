@@ -8,14 +8,18 @@ import {
   AlertTriangle,
   Sparkles,
 } from "lucide-react";
+// A-24: targeted imports — types from schemas, functions from the engine
+// modules that actually define them. Avoids the barrel which `export *`s
+// the entire engine into this component's bundle graph.
 import type {
   AssessmentResult,
   DailyWeightLog,
   DailyIntakeLog,
   OnboardingInput,
-} from "../engine";
-import { computeAdaptiveTdee, detectOutliers, createUserFromOnboarding } from "../engine";
-import type { EngineProfile } from "../engine/assessment";
+  EngineProfile,
+} from "../engine/schemas";
+import { computeAdaptiveTdee, detectOutliers } from "../engine/adaptiveTdee";
+import { createUserFromOnboarding } from "../engine/assessment";
 
 interface EngineInsightsProps {
   /** The cached AssessmentResult from the engine. */
@@ -92,7 +96,8 @@ export default function EngineInsights({
           </div>
           <ul className="text-[10px] text-[#1A1A1A]/70 space-y-0.5 font-serif italic">
             {assessment.exclusion_reasons.map((r, i) => (
-              <li key={i}>• {r}</li>
+              // F-H6 fix: stable key derived from the reason text + index.
+              <li key={`excl-${i}-${r.slice(0, 12)}`}>• {r}</li>
             ))}
           </ul>
         </div>

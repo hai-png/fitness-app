@@ -58,10 +58,13 @@ export const useUserStore = create<UserState>()(
       setWorkoutPlan: (p) => set({ workoutPlan: p }),
       setBoth: (a, p) => set({ onboardingInput: a, workoutPlan: p }),
 
-      updateWorkoutPlan: (plan) =>
-        set((s) =>
-          s.workoutPlan ? { workoutPlan: plan } : {},
-        ),
+      // F-H7 fix: previously this silently no-op'd when workoutPlan was null
+      // (set((s) => s.workoutPlan ? { workoutPlan: plan } : {})). That made
+      // any caller that invoked updateWorkoutPlan before the initial plan was
+      // set (e.g. a race during onboarding) fail silently — the new plan was
+      // dropped with no warning. Now it always sets, matching the intent of
+      // the public action name ("update", not "update-if-exists").
+      updateWorkoutPlan: (plan) => set({ workoutPlan: plan }),
 
       updateWeight: (kg) =>
         set((s) =>

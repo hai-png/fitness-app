@@ -1,4 +1,11 @@
 // (EXERCISE_DATABASE import removed — no longer used by this module.)
+//
+// E-41 fix: calculateEpley1RM was moved to src/engine/assessment.ts (the
+// engine layer, where pure biomechanics formulas belong). Re-exported here
+// for backward compatibility so existing UI imports from
+// `../data/analyticsEngine` continue to work.
+import { calculateEpley1RM } from "../engine/assessment";
+export { calculateEpley1RM };
 
 export interface SetLog {
   id: string;
@@ -31,11 +38,7 @@ export const LIFETIME_TIERS = [
 ];
 
 // Helper to estimate 1RM using Epley Formula
-export function calculateEpley1RM(weight: number, reps: number): number {
-  if (reps <= 0) return 0;
-  if (reps === 1) return weight;
-  return weight * (1 + reps / 30);
-}
+// (Implementation lives in src/engine/assessment.ts — re-exported above.)
 
 // Core metrics summary calculator
 export function calculateCoreMetrics(logs: ExerciseLog[], multiplierSecondary: number = 0.5) {
@@ -75,17 +78,26 @@ export function calculateCoreMetrics(logs: ExerciseLog[], multiplierSecondary: n
 // params for narrowing the window, but the implementation never read them and
 // no caller ever passed them — removed to clear the no-unused-vars warning.
 export function calculateRollingTrends(logs: ExerciseLog[]) {
+  // E-20 fix: normalize `today` to UTC midnight so the rolling-window math is
+  // consistent with `new Date(l.date)`, which parses YYYY-MM-DD as UTC. Without
+  // this, a user in a timezone behind UTC could see "yesterday's" log excluded
+  // from the 7-day window because `today` was a local-time Date object and the
+  // log's UTC date was ahead of it.
   const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
 
   // Helper to filter logs in days relative to today.
   // Returns logs where the log date is between (today - startDaysAgo) and
   // (today - endDaysAgo). For example getLogsInWindow(7, 0) returns the last
   // 7 days; getLogsInWindow(14, 8) returns days 8-14 ago (the previous week).
+  //
+  // E-20: window bounds are also normalized to UTC so the comparison is
+  // timezone-stable regardless of where the user is.
   const getLogsInWindow = (startDaysAgo: number, endDaysAgo: number) => {
     const older = new Date(today);
-    older.setDate(today.getDate() - startDaysAgo);
+    older.setUTCDate(today.getUTCDate() - startDaysAgo);
     const newer = new Date(today);
-    newer.setDate(today.getDate() - endDaysAgo);
+    newer.setUTCDate(today.getUTCDate() - endDaysAgo);
 
     return logs.filter((l) => {
       const d = new Date(l.date);
@@ -285,9 +297,12 @@ export function calculatePersonalRecords(logs: ExerciseLog[]): PersonalRecord[] 
   });
 
   const prs: PersonalRecord[] = [];
+  // E-20: normalize `today` to UTC midnight so the 60-day silver window
+  // aligns with `new Date(l.date)` (which parses as UTC).
   const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
   const sixtyDaysAgo = new Date(today);
-  sixtyDaysAgo.setDate(today.getDate() - 60);
+  sixtyDaysAgo.setUTCDate(today.getUTCDate() - 60);
 
   Object.entries(grouped).forEach(([name, exLogs]) => {
     let goldWeight = 0;
@@ -406,9 +421,12 @@ export function calculateMuscleVolumesAndScores(
   let totalVolumeAll = 0;
 
   // Aggregate stats in the last 4 weeks (to estimate accurate weekly rates)
+  // E-20: normalize `today` to UTC midnight so the 28-day window aligns with
+  // `new Date(l.date)` (which parses as UTC).
   const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
   const fourWeeksAgo = new Date(today);
-  fourWeeksAgo.setDate(today.getDate() - 28);
+  fourWeeksAgo.setUTCDate(today.getUTCDate() - 28);
 
   const recentLogs = logs.filter((l) => new Date(l.date) >= fourWeeksAgo);
 

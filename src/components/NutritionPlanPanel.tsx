@@ -14,8 +14,11 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import type { NutritionPlan, DailyWeightLog } from "../engine";
-import { recommendAdjustment, applyMacroAdjustment } from "../engine";
+// A-24: targeted imports — types from schemas, functions from nutrition.
+// Avoids the engine barrel so the assessment + adaptiveTdee modules don't
+// get pulled into this panel's bundle graph unnecessarily.
+import type { NutritionPlan, DailyWeightLog } from "../engine/schemas";
+import { recommendAdjustment, applyMacroAdjustment } from "../engine/nutrition";
 import { toast } from "./Toast";
 
 interface NutritionPlanPanelProps {
@@ -275,7 +278,7 @@ export default function NutritionPlanPanel({
         </h3>
         <div className="space-y-1.5">
           {plan.supplements.map((s, i) => (
-            <div key={i} className="flex justify-between items-center bg-[#F9F8F6] p-2 border border-[#1A1A1A]/5">
+            <div key={`supp-${i}-${s.name}`} className="flex justify-between items-center bg-[#F9F8F6] p-2 border border-[#1A1A1A]/5">
               <div className="flex-1 min-w-0">
                 <span className="text-xs font-bold text-[#1A1A1A] block">{s.name}</span>
                 <span className="text-[9px] text-[#1A1A1A]/60 font-serif italic block">{s.rationale}</span>
@@ -306,7 +309,7 @@ export default function NutritionPlanPanel({
                 .slice()
                 .reverse()
                 .map((entry, i) => (
-                  <div key={i} className="flex justify-between items-center bg-[#F9F8F6] p-2 border border-[#1A1A1A]/5 text-[10px]">
+                  <div key={`adj-${i}-${entry.date}`} className="flex justify-between items-center bg-[#F9F8F6] p-2 border border-[#1A1A1A]/5 text-[10px]">
                     <div className="flex-1 min-w-0">
                       <span className="font-mono text-[#1A1A1A]/60">{entry.date}</span>
                       <span className="font-serif italic text-[#1A1A1A]/70 ml-2">{entry.reason}</span>

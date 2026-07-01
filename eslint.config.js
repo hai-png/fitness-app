@@ -4,6 +4,11 @@ import tseslint from "typescript-eslint";
 import reactPlugin from "eslint-plugin-react";
 import reactHooksPlugin from "eslint-plugin-react-hooks";
 import jsxA11yPlugin from "eslint-plugin-jsx-a11y";
+// A-32: eslint-plugin-import adds import/no-cycle to surface circular
+// dependencies at lint time. The plugin ships a flat-config-ready default
+// export; we activate just the rule we need (no preset) to keep the lint
+// surface minimal.
+import importPlugin from "eslint-plugin-import";
 import prettierConfig from "eslint-config-prettier";
 
 export default tseslint.config(
@@ -42,10 +47,20 @@ export default tseslint.config(
       react: reactPlugin,
       "react-hooks": reactHooksPlugin,
       "jsx-a11y": jsxA11yPlugin,
+      // A-32: register the import plugin so import/no-cycle is available.
+      import: importPlugin,
     },
     settings: {
       react: {
         version: "detect",
+      },
+      // A-32: tell eslint-plugin-import to resolve TS path aliases + extensionless
+      // imports via the TypeScript resolver. Without this, import/no-cycle flags
+      // false positives on `from "./schemas"` (no .ts extension).
+      "import/resolver": {
+        typescript: {
+          alwaysTryTypes: true,
+        },
       },
     },
     languageOptions: {
@@ -57,6 +72,12 @@ export default tseslint.config(
       ...reactPlugin.configs.recommended.rules,
       ...reactHooksPlugin.configs.recommended.rules,
       ...jsxA11yPlugin.configs.recommended.rules,
+
+      // A-32: surface circular dependencies as errors. Cycles cause bundler
+      // warnings, defeat tree-shaking, and create init-order hazards. If the
+      // lint:strict gate fails because of an existing cycle, that cycle is a
+      // real bug that should be tracked separately (do NOT silence this rule).
+      "import/no-cycle": "error",
 
       // React 19 + react-jsx transform: default React import is not required
       "react/react-in-jsx-scope": "off",

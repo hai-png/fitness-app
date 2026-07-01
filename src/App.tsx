@@ -69,14 +69,17 @@ function StatusBar() {
     return () => clearInterval(interval);
   }, []);
   return (
-    <div className="flex justify-between items-center px-6 pt-3 md:pt-4 pb-2.5 bg-[#F9F8F6] text-[#1A1A1A]/60 text-[11px] font-mono z-30 select-none flex-shrink-0 border-b border-[#1A1A1A]/5">
+    // F-M13 fix: status bar as a <header> landmark. The status bar is the
+    // top-of-app chrome (clock + signal/wifi/battery) — a banner landmark
+    // is the correct semantic role for this kind of masthead content.
+    <header className="flex justify-between items-center px-6 pt-3 md:pt-4 pb-2.5 bg-[#F9F8F6] text-[#1A1A1A]/60 text-[11px] font-mono z-30 select-none flex-shrink-0 border-b border-[#1A1A1A]/5">
       <span>{timeStr}</span>
       <div className="flex items-center gap-1.5 text-[#1A1A1A]/70">
         <Signal className="w-3.5 h-3.5" />
         <Wifi className="w-3.5 h-3.5" />
         <Battery className="w-4 h-4 text-[#1A1A1A] fill-current" />
       </div>
-    </div>
+    </header>
   );
 }
 
@@ -188,13 +191,20 @@ export default function App() {
       <ConfirmViewport />
 
       <div className="relative w-full md:w-[410px] h-screen md:h-[840px] md:max-h-[92vh] md:rounded-[48px] md:border-8 md:border-[#1A1A1A] bg-[#F9F8F6] text-[#1A1A1A] overflow-hidden flex flex-col shadow-[0_25px_60px_-15px_rgba(26,26,26,0.15)]">
+        {/* F-M12 fix: top-level h1 is visually hidden but provides an
+            accessible name for the app shell for screen-reader users
+            (otherwise the landmark roles below would be nameless). */}
+        <h1 className="sr-only">FitLife Hub</h1>
+
         <div className="hidden md:block absolute top-3 left-1/2 -translate-x-1/2 w-32 h-6 bg-[#1A1A1A] rounded-full z-50">
           <div className="absolute right-6 top-1.5 w-2.5 h-2.5 rounded-full bg-[#1A1A1A] border border-white/10" />
         </div>
 
+        {/* F-M13 fix: status bar as <header> landmark. */}
         <StatusBar />
 
-        <div className="flex-grow overflow-hidden relative pb-16">
+        {/* F-M13 fix: tab content area as <main> landmark. */}
+        <main className="flex-grow overflow-hidden relative pb-16">
           {!onboardingInput || !workoutPlan ? (
             // A-31: Onboarding is now lazy-loaded — wrap in Suspense.
             <Suspense
@@ -261,10 +271,14 @@ export default function App() {
               )}
             </Suspense>
           )}
-        </div>
+        </main>
 
         {onboardingInput && workoutPlan && (
-          <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-[#1A1A1A]/10 py-2.5 px-4 flex justify-between items-center z-30 flex-shrink-0 pb-5 md:pb-3.5">
+          // F-M13 fix: bottom tab bar as <nav aria-label="Primary"> landmark.
+          <nav
+            aria-label="Primary"
+            className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-[#1A1A1A]/10 py-2.5 px-4 flex justify-between items-center z-30 flex-shrink-0 pb-5 md:pb-3.5"
+          >
             {tabs.map((tab) => {
               const isActive = activeTab === tab.id;
               return (
@@ -272,7 +286,9 @@ export default function App() {
                   key={tab.id}
                   id={`btn-tab-${tab.id}`}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex flex-col items-center justify-center flex-1 transition-all py-1 ${
+                  // F-M11 fix: py-1 → py-2.5 so each tab button meets the
+                  // WCAG 2.5.5 44×44 px touch-target minimum on mobile.
+                  className={`flex flex-col items-center justify-center flex-1 transition-all py-2.5 ${
                     isActive
                       ? "text-[#E63946] scale-105 font-bold"
                       : "text-[#1A1A1A]/40 hover:text-[#1A1A1A]"
@@ -285,7 +301,7 @@ export default function App() {
                 </button>
               );
             })}
-          </div>
+          </nav>
         )}
 
         <div className="hidden md:block absolute bottom-1.5 left-1/2 -translate-x-1/2 w-32 h-1 bg-[#1A1A1A]/15 rounded-full z-40" />

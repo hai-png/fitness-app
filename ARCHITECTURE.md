@@ -144,6 +144,39 @@ The replacement (`src/components/Toast.tsx`) provides:
 
 ---
 
+## Code Conventions
+
+### Function declaration style (A-27)
+
+The codebase follows a layered convention for function declaration syntax so a
+reader can tell at a glance whether a symbol is exported, named, or a private
+helper:
+
+| Layer                              | Convention                        | Example                                           |
+| ---------------------------------- | --------------------------------- | ------------------------------------------------- |
+| Engine modules (`src/engine/*`)    | `export function foo()`           | `export function runAssessment(user): AssessmentResult` |
+| Top-level components               | `export default function Foo()`   | `export default function ProgressTab({ ... })`    |
+| Sub-components (`*/training-tab/`, `*/progress-tab/`, `*/onboarding/`) | `export default function Foo()` (when single-export) or `function Foo()` (no export, when used only by a sibling) | `export default function RestTimer({ ... })` |
+| Multi-export utility files (`Modal.tsx`, `Toast.tsx`) | `export function Foo()` (named export, no default) | `export function Modal({ ... })`, `export function ToastViewport()` |
+
+**Verified as of audit 2026-08:** every engine module (`assessment.ts`,
+`nutrition.ts`, `adaptiveTdee.ts`, `schemas.ts`) uses `export function` /
+`export interface` / `export type` consistently. Every top-level component
+used by `App.tsx` via `React.lazy` (`ProgressTab`, `TrainingTab`,
+`MealOrderingTab`, `MarketplaceTab`, `ProfileTab`, `Onboarding`) uses
+`export default function`. Sub-components under `progress-tab/`,
+`training-tab/`, and `onboarding/` use `export default function` when they
+are the file's sole export and `function` (no export) when consumed only by
+a sibling file.
+
+A handful of legacy single-export components (`WorkoutHeatmap.tsx`,
+`OneRMEstimator.tsx`) use `export function` rather than
+`export default function` — these are pre-existing exceptions and should use
+`export default function` if/when they're touched for other reasons, but no
+sweep is planned.
+
+---
+
 ## Analytics Engine Concepts
 
 The analytics engine (`src/data/analyticsEngine.ts`) is the most logic-dense part of the codebase. Here's a primer on the concepts it implements:

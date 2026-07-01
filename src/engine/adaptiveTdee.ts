@@ -115,10 +115,18 @@ export function computeObservedTdee(args: {
   const delta_weight_lb = delta_weight_kg * 2.2046226218;
 
   // TDEE_observed = mean_intake − (Δweight × energy_density) / N_days
-  const n_days = Math.abs(
-    new Date(recent_weight.date).getTime() - new Date(start_weight.date).getTime(),
-  ) / (1000 * 60 * 60 * 24);
-  if (n_days === 0) return null;
+  //
+  // E-18 fix: removed `Math.abs()` from the day-span calculation. Because
+  // `weights` is sorted ascending by date, `recent_weight.date` is always
+  // >= `start_weight.date`, so the difference is non-negative and abs was a
+  // no-op. Worse, it silently masked future bugs (e.g. unsorted input or
+  // clock skew) by returning a positive day count from a negative span.
+  // The explicit `n_days <= 0` guard now asserts the invariant and returns
+  // null instead of producing a divide-by-zero or sign-flipped TDEE.
+  const n_days =
+    (new Date(recent_weight.date).getTime() - new Date(start_weight.date).getTime()) /
+    (1000 * 60 * 60 * 24);
+  if (n_days <= 0) return null;
 
   const tdee = mean_intake - (delta_weight_lb * energy_density) / n_days;
   return { tdee_kcal: tdee, n_days, mean_intake, delta_weight_lb };

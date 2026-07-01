@@ -1,6 +1,16 @@
 import React, { useState, useMemo } from "react";
 import { MEAL_PRODUCTS } from "../data/meals";
-import { OnboardingInput, MealProduct, CartItem, Order, NutritionPlan } from "../engine";
+// A-24: targeted type-only import from schemas — these are pure types.
+// Using `import type` + targeted module path lets the bundler elide this
+// entire statement at build time and avoids pulling the full engine barrel
+// (assessment + nutrition + adaptiveTdee) into the MealOrdering bundle.
+import type {
+  OnboardingInput,
+  MealProduct,
+  CartItem,
+  Order,
+  NutritionPlan,
+} from "../engine/schemas";
 import { toast } from "./Toast";
 import { useSafeTimeout } from "../hooks/useSafeTimeout";
 import { Modal } from "./Modal";
@@ -441,7 +451,7 @@ export default function MealOrderingTab({
                 <div className="p-3.5 space-y-3 bg-[#F9F8F6]/40">
                   {dayPlan.meals.map((slotMeal, mIdx) => (
                     <div
-                      key={mIdx}
+                      key={`meal-${dayPlan.dayNumber}-${slotMeal.slot}-${slotMeal.meal.id}`}
                       className="bg-white border border-[#1A1A1A]/10 rounded-none p-3 flex gap-3 shadow-sm"
                     >
                       {/* Thumbnail Image */}

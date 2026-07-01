@@ -34,7 +34,7 @@ import {
   bmiHealthyRange,
   mifflinStJeor,
   harrisBenedict1984,
-  cunningham,
+  katchMcArdle,
   leanBodyMass,
   applyRippedBodyBmrAdjustments,
   isWeightReduced,
@@ -383,10 +383,13 @@ describe("Part 1.4 / RMR", () => {
     expect(result).toBeGreaterThan(mifflinStJeor("male", 80, 178, 30));
   });
 
-  it("Cunningham / Katch-McArdle — Part 1.4.3", () => {
+  it("Katch-McArdle — Part 1.4.3", () => {
     // RMR = 370 + 21.6 × LBM
+    // E-01 fix: function renamed from `cunningham` to `katchMcArdle`. The
+    // formula (370 + 21.6 × LBM) is Katch-McArdle; the true Cunningham (1991)
+    // is 500 + 22 × FFM. The old name was misleading.
     const lbm = 65;
-    expect(cunningham(lbm)).toBeCloseTo(370 + 21.6 * 65, 5);
+    expect(katchMcArdle(lbm)).toBeCloseTo(370 + 21.6 * 65, 5);
   });
 
   it("LBM = weight × (1 - BF%/100)", () => {
@@ -1214,12 +1217,13 @@ describe("Part 3.16 / buildNutritionPlan", () => {
   });
 
   it("next adjustment eligible date is +28 days for cut (Part 3.5.5)", () => {
-    const result = nextAdjustmentEligibleDate("cut", "2025-01-01", "male");
+    // E-61 fix: `sex` parameter removed (was unused — `void sex` no-op).
+    const result = nextAdjustmentEligibleDate("cut", "2025-01-01");
     expect(result).toBe("2025-01-29");
   });
 
   it("next adjustment eligible date is +49 days for bulk (Part 3.6.4)", () => {
-    const result = nextAdjustmentEligibleDate("bulk", "2025-01-01", "male");
+    const result = nextAdjustmentEligibleDate("bulk", "2025-01-01");
     expect(result).toBe("2025-02-19");
   });
 });
@@ -1356,7 +1360,7 @@ describe("Part 4.1 / Adaptive TDEE", () => {
     expect(result!.tdee_kcal).toBeCloseTo(2500, 0);
   });
 
-  it("computeObservedTdee: gaining 0.5 kg/wk + intake 3000 → TDEE ≈ 1880", () => {
+  it("computeObservedTdee: gaining 0.5 kg/wk + intake 3000 → TDEE ≈ 2450", () => {
     const intakes = Array.from({ length: 7 }, (_, i) => ({
       date: `2025-01-${String(i + 1).padStart(2, "0")}`,
       kcal: 3000,

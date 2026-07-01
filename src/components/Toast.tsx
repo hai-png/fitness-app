@@ -43,7 +43,18 @@ export const useToastStore = create<ToastState>((set) => ({
       message,
       duration: duration ?? 4000,
     };
-    set((s) => ({ toasts: [...s.toasts, toast] }));
+    // F-L4 fix: cap the visible toast stack at 5. When a new toast would
+    // exceed the cap, drop the oldest first (shift). This prevents an
+    // unbounded toast stack from overflowing the viewport on rapid-fire
+    // error paths (e.g. a tight loop calling toast.error).
+    set((s) => {
+      const next = [...s.toasts, toast];
+      if (next.length > 5) {
+        // Remove from the front (oldest) until we're at the cap.
+        return { toasts: next.slice(next.length - 5) };
+      }
+      return { toasts: next };
+    });
     return id;
   },
   dismiss: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),

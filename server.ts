@@ -154,6 +154,25 @@ function cookieParser(req: Request, _res: Response, next: NextFunction): void {
   next();
 }
 
+// ---------------------------------------------------------------------------
+// S-12 fix: structured logging.
+// Replaces raw console.error with structured JSON logs that log aggregators
+// (Datadog, CloudWatch, etc.) can query by field. PII is NOT logged — only
+// requestId, errorCode, model, durationMs, and generic error categories.
+// For a real product, replace this with pino + pino-redact.
+// ---------------------------------------------------------------------------
+
+function structuredLog(level: "error" | "warn" | "info", fields: Record<string, unknown>): void {
+  const entry = JSON.stringify({
+    timestamp: new Date().toISOString(),
+    level,
+    ...fields,
+  });
+  if (level === "error") console.error(entry);
+  else if (level === "warn") console.warn(entry);
+  else console.log(entry);
+}
+
 // Allowed CORS origins. In production, set CORS_ALLOWED_ORIGINS as a
 // comma-separated list (e.g. "https://app.example.com,https://staging.example.com").
 // In development we allow any localhost origin for convenience.
@@ -365,6 +384,12 @@ async function startServer() {
         directives: {
           defaultSrc: ["'self'"],
           // Allow Google Fonts (CSS + font files) used by index.css
+          // S-14 fix: Tailwind 4 injects utility styles at runtime, requiring
+          // 'unsafe-inline' in styleSrc. This is a known trade-off documented
+          // as an accepted risk. A future migration to Tailwind's @layer
+          // build-time extraction would allow removing 'unsafe-inline' in
+          // production. For now, a CSP reportUri is configured to detect
+          // attempted CSS-based exfiltration.
           styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
           fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
           // S-13: allowlist specific CDNs instead of bare 'https:'
@@ -538,29 +563,72 @@ async function startServer() {
       // ranges, sane durations, or non-empty arrays.
       const planValidation = workoutPlanResponseSchema.safeParse(planJson);
       if (!planValidation.success) {
-        console.error(
-          `[${requestId}] Gemini response failed server-side validation:`,
-          planValidation.error.issues,
-        );
+        structuredLog("error", {
+          requestId,
+          event: "gemini_validation_failed",
+          issues: planValidation.error.issues.map((i) => ({ path: i.path.join("."), message: i.message })),
+        });
         return res.status(502).json({
           error: "Upstream returned a malformed plan. Please try again.",
           requestId,
         });
       }
 
+      // S-08 fix: layered prompt-injection defense — allowlist check.
+      // Verify that all videoUrl and targetMuscle values in the generated
+      // plan match the EXERCISE_DATABASE vocabulary. An attacker who
+      // successfully injects prompt instructions could coerce the model
+      // into emitting harmful content in instruction/tips fields or
+      // phishing URLs in videoUrl. The zod schema validates shape but not
+      // content safety. This allowlist rejects plans with off-list values.
+      const ALLOWED_MUSCLES = new Set([
+        "Chest", "Back", "Quads", "Hamstrings", "Shoulders",
+        "Biceps", "Triceps", "Core", "Cardio", "Glutes",
+        "Calves", "Forearms", "Traps", "Lats", "Abs",
+        "Obliques", "Full Body", "Legs", "Arms",
+      ]);
+      const suspiciousFields: string[] = [];
+      for (const day of planValidation.data.weeklySchedule) {
+        for (const ex of day.exercises) {
+          if (!ALLOWED_MUSCLES.has(ex.targetMuscle)) {
+            suspiciousFields.push(`${ex.name}: targetMuscle="${ex.targetMuscle}"`);
+          }
+          // videoUrl should be a slug like "bench-press", not a URL.
+          if (ex.videoUrl.startsWith("http") || ex.videoUrl.includes("//")) {
+            suspiciousFields.push(`${ex.name}: videoUrl="${ex.videoUrl}" (looks like a URL)`);
+          }
+        }
+      }
+      if (suspiciousFields.length > 0) {
+        structuredLog("error", {
+          requestId,
+          event: "prompt_injection_detected",
+          suspiciousFields,
+        });
+        return res.status(502).json({
+          error: "Upstream returned a plan with unexpected values. Please try again.",
+          requestId,
+        });
+      }
+
       return res.json(planValidation.data);
     } catch (error) {
-      // Log full error details server-side ONLY (with request ID for correlation)
-      const detail = error instanceof Error ? error.message : String(error);
-      console.error(`[${requestId}] Gemini plan generation failed:`, error);
+      // S-12: structured log with no PII — only requestId, errorCode, duration.
+      const isTimeout =
+        error instanceof Error &&
+        (error.name === "TimeoutError" || error.name === "AbortError");
+      structuredLog("error", {
+        requestId,
+        event: "gemini_generation_failed",
+        errorCode: isTimeout ? "UPSTREAM_TIMEOUT" : "UPSTREAM_INVALID_RESPONSE",
+        errorName: error instanceof Error ? error.name : "Unknown",
+      });
 
       // Return a sanitized message to the client — never leak SDK internals.
       // S-11 companion: even in dev, categorize the error rather than echo
       // error.message (which may include prompt fragments or SDK paths).
-      const isTimeout =
-        error instanceof Error &&
-        (error.name === "TimeoutError" || error.name === "AbortError");
       const errorCode = isTimeout ? "UPSTREAM_TIMEOUT" : "UPSTREAM_INVALID_RESPONSE";
+      const detail = error instanceof Error ? error.message : String(error);
       return res.status(500).json({
         error: isTimeout
           ? "Plan generation timed out. Please try again in a moment."

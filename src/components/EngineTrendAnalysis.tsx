@@ -10,8 +10,15 @@
  */
 import { useState, useMemo, useEffect } from "react";
 import { TrendingUp, Activity } from "lucide-react";
-import type { DailyWeightLog } from "../engine";
-import { weeklyAverageWeightKg, weeklyRateLbPerWeek, interpretWeightTrend } from "../engine";
+// A-24: targeted imports — types from schemas, functions from assessment.
+// Avoids the engine barrel which `export *`s the entire engine (nutrition,
+// adaptiveTdee, etc.) into this component's bundle graph.
+import type { DailyWeightLog } from "../engine/schemas";
+import {
+  weeklyAverageWeightKg,
+  weeklyRateLbPerWeek,
+  interpretWeightTrend,
+} from "../engine/assessment";
 import { useUserStore } from "../store/useUserStore";
 import { useIntakeStore } from "../store/useIntakeStore";
 

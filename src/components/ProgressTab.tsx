@@ -1,5 +1,9 @@
 import React, { useState, useMemo } from "react";
-import { DailyWeightLog, WaterLog, WorkoutLog } from "../engine";
+// A-24: targeted import from the schemas module — these are pure types,
+// so the engine barrel's `export * from "./assessment"` would otherwise
+// pull the full assessment module (1000+ lines of formula code) into the
+// bundle graph for callers that only need the type definitions.
+import type { DailyWeightLog, WaterLog, WorkoutLog } from "../engine/schemas";
 // A-04 sub-tab extraction: the four giant render functions that used to live
 // inline in this file are now standalone components under ./progress-tab/.
 import CoreMetricsView from "./progress-tab/CoreMetricsView";
@@ -11,7 +15,7 @@ import VisualsView from "./progress-tab/VisualsView";
 import CustomSetLoggerModal from "./progress-tab/CustomSetLoggerModal";
 import LegacyHealthLogger from "./progress-tab/LegacyHealthLogger";
 import type { FlexCard, ProgressAnalytics } from "./progress-tab/types";
-import { Plus, Flame, Droplet, Scale, Filter, RotateCcw } from "lucide-react";
+import { Plus, Flame, Droplet, Scale, Filter, RotateCcw, Activity } from "lucide-react";
 import {
   SetLog,
   ExerciseLog,
@@ -425,6 +429,34 @@ export default function ProgressTab({
           </span>
         </div>
       </div>
+
+      {/* F-L7 fix: top-level empty state when the user hasn't logged any
+          training sets yet. Mirrors the MarketplaceTab pattern (icon +
+          heading + description + CTA). The sub-tabs below still render
+          (with zeros and empty charts) for users who want to explore, but
+          the banner makes it obvious how to populate the dashboard. */}
+      {exerciseLogs.length === 0 && (
+        <div className="bg-white border border-[#1A1A1A]/10 p-6 mb-5 text-center flex flex-col items-center">
+          <Activity className="w-10 h-10 text-[#1A1A1A]/30 mb-2" />
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#1A1A1A]/80">
+            No Training Logs Yet
+          </h4>
+          <p className="text-[10px] text-[#1A1A1A]/60 mt-1 font-serif italic max-w-xs leading-relaxed">
+            Log your first working set to populate volume trends, muscle balance,
+            PR tracking, and the workout heatmap. Weight and water logs work
+            independently.
+          </p>
+          <button
+            type="button"
+            id="btn-empty-log-workout-sets"
+            onClick={() => setIsLogFormOpen(true)}
+            className="mt-4 px-4 py-2 bg-[#E63946] hover:bg-[#d62828] text-white text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-1.5"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Log Custom Set
+          </button>
+        </div>
+      )}
 
       {/* Tab Selectors */}
       <div className="border-b border-[#1A1A1A]/10 mb-5 flex">
