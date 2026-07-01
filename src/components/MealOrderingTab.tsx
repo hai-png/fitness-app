@@ -556,80 +556,65 @@ export default function MealOrderingTab({
         </button>
       </div>
 
-      {/* CUSTOM SWAP MODAL */}
-      {swapTarget !== null && (
-        <div className="fixed inset-0 z-50 bg-[#1A1A1A]/80 flex items-center justify-center p-4">
-          <div className="bg-white border border-[#1A1A1A]/10 rounded-none max-w-sm w-full max-h-[85vh] flex flex-col justify-between overflow-hidden shadow-xl">
-            <div className="p-4 border-b border-[#1A1A1A]/10 flex justify-between items-center bg-[#F9F8F6]">
-              <div>
-                <h3 className="font-serif italic font-black text-[#1A1A1A] text-base leading-none">
-                  Select Replacement
-                </h3>
-                <p className="text-[9px] text-[#1A1A1A]/50 mt-1 font-mono uppercase">
-                  Diet Compliant Options ({eligibleMeals.length})
-                </p>
-              </div>
+      {/* CUSTOM SWAP MODAL — F-C2: uses the accessible <Modal> component. */}
+      <Modal
+        open={swapTarget !== null}
+        onClose={() => setSwapTarget(null)}
+        title="Swap Meal"
+        maxWidthClass="max-w-sm"
+      >
+        <div className="p-3 space-y-2.5 max-h-[70vh] overflow-y-auto">
+          <p className="text-[9px] text-[#1A1A1A]/50 font-mono uppercase">
+            Diet Compliant Options ({eligibleMeals.length})
+          </p>
+          {eligibleMeals.map((meal) => {
+            const isCurrentlySelected =
+              customPlan[swapTarget?.dayIndex ?? -1]?.meals[swapTarget?.mealIndex ?? -1]?.meal.id === meal.id;
+
+            return (
               <button
+                key={meal.id}
                 type="button"
-                id="btn-close-swap-modal"
-                onClick={() => setSwapTarget(null)}
-                className="text-[#1A1A1A]/60 hover:text-[#1A1A1A] text-[10px] font-bold uppercase tracking-widest"
+                id={`btn-select-swap-meal-${meal.id}`}
+                onClick={() => executeMealSwap(meal)}
+                className={`w-full text-left p-2.5 border transition-all flex gap-3 ${
+                  isCurrentlySelected
+                    ? "bg-[#1A1A1A]/5 border-[#1A1A1A]"
+                    : "bg-white border-[#1A1A1A]/10 hover:border-[#1A1A1A]/30"
+                }`}
               >
-                Close
+                <img
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  src={meal.image}
+                  alt={meal.name}
+                  className="w-12 h-12 object-cover flex-shrink-0"
+                />
+                <div className="flex-grow min-w-0">
+                  <div className="flex justify-between items-start">
+                    <h5 className="text-xs font-bold uppercase tracking-tight text-[#1A1A1A] truncate">
+                      {meal.name}
+                    </h5>
+                    {isCurrentlySelected && (
+                      <span className="text-[#E63946] text-[8px] font-bold uppercase tracking-wider flex items-center gap-0.5">
+                        <Check className="w-2.5 h-2.5" /> Current
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-[#1A1A1A]/50 font-serif italic truncate">
+                    {meal.description}
+                  </p>
+                  <div className="flex gap-2.5 mt-0.5 text-[9px] font-mono text-[#1A1A1A]/60">
+                    <span>{meal.calories} kcal</span>
+                    <span>{meal.protein}g Pro</span>
+                    <span>${meal.price}</span>
+                  </div>
+                </div>
               </button>
-            </div>
-
-            <div className="p-3 flex-grow overflow-y-auto space-y-2.5">
-              {eligibleMeals.map((meal) => {
-                const isCurrentlySelected =
-                  customPlan[swapTarget.dayIndex]?.meals[swapTarget.mealIndex]?.meal.id === meal.id;
-
-                return (
-                  <button
-                    key={meal.id}
-                    type="button"
-                    id={`btn-select-swap-meal-${meal.id}`}
-                    onClick={() => executeMealSwap(meal)}
-                    className={`w-full text-left p-2.5 border transition-all flex gap-3 ${
-                      isCurrentlySelected
-                        ? "bg-[#1A1A1A]/5 border-[#1A1A1A]"
-                        : "bg-white border-[#1A1A1A]/10 hover:border-[#1A1A1A]/30"
-                    }`}
-                  >
-                    <img
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
-                      src={meal.image}
-                      alt={meal.name}
-                      className="w-12 h-12 object-cover flex-shrink-0"
-                    />
-                    <div className="flex-grow min-w-0">
-                      <div className="flex justify-between items-start">
-                        <h5 className="text-xs font-bold uppercase tracking-tight text-[#1A1A1A] truncate">
-                          {meal.name}
-                        </h5>
-                        {isCurrentlySelected && (
-                          <span className="text-[#E63946] text-[8px] font-bold uppercase tracking-wider flex items-center gap-0.5">
-                            <Check className="w-2.5 h-2.5" /> Current
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-[#1A1A1A]/50 font-serif italic truncate">
-                        {meal.description}
-                      </p>
-                      <div className="flex gap-2.5 mt-0.5 text-[9px] font-mono text-[#1A1A1A]/60">
-                        <span>{meal.calories} kcal</span>
-                        <span>{meal.protein}g Pro</span>
-                        <span>${meal.price}</span>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+            );
+          })}
         </div>
-      )}
+      </Modal>
 
       {/* SECURE CHECKOUT — F-C2: uses the accessible <Modal> component. */}
       <Modal

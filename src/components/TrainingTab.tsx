@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { WorkoutPlan, WeeklyScheduleDay, WorkoutLog, Exercise } from "../engine";
 import { toast } from "./Toast";
+import { Modal } from "./Modal";
 import {
   Calendar,
   Flame,
@@ -16,11 +17,9 @@ import {
   VolumeX,
   Volume2,
   Sliders,
-  Sparkles,
   Plus,
   Trash2,
   Video,
-  X,
   TrendingUp,
   Check,
   RotateCcw,
@@ -642,101 +641,64 @@ export default function TrainingTab({
         </div>
       </div>
 
-      {/* MODAL 1: DURATION-BASED PROGRAM PRESETS SELECTOR */}
-      {isProgramSelectorOpen && (
-        <div className="fixed inset-0 bg-[#1A1A1A]/45 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#F9F8F6] border border-[#1A1A1A]/20 w-full max-w-md max-h-[85vh] flex flex-col rounded-none overflow-hidden shadow-2xl">
-            <div className="bg-[#1A1A1A] text-white p-4 flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#E63946]" />
-                <h3 className="font-serif italic font-bold text-base uppercase tracking-wider">
-                  Select Goal-Specific Plan
-                </h3>
-              </div>
-              <button
-                aria-label="Close"
-                id="btn-close-presets"
-                onClick={() => setIsProgramSelectorOpen(false)}
-                className="text-white/60 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {/* MODAL 1: DURATION-BASED PROGRAM PRESETS SELECTOR — F-C2: uses the
+          accessible <Modal> component (role=dialog, aria-modal, Escape-to-close,
+          focus trap, restore focus). */}
+      <Modal
+        open={isProgramSelectorOpen}
+        onClose={() => setIsProgramSelectorOpen(false)}
+        title="Preset Programs"
+        maxWidthClass="max-w-md"
+      >
+        <div className="p-4 overflow-y-auto space-y-4 max-h-[70vh]">
+          <p className="text-xs text-[#1A1A1A]/60 font-serif italic mb-2 leading-relaxed">
+            Choose a structured, duration-based athletic program designed with target sets, reps
+            and progressions mapped for your direct goal:
+          </p>
 
-            <div className="p-4 overflow-y-auto space-y-4 flex-grow">
-              <p className="text-xs text-[#1A1A1A]/60 font-serif italic mb-2 leading-relaxed">
-                Choose a structured, duration-based athletic program designed with target sets, reps
-                and progressions mapped for your direct goal:
+          {DURATION_PROGRAMS.map((prog) => (
+            <div
+              key={prog.id}
+              className="bg-white border border-[#1A1A1A]/10 p-4 relative overflow-hidden group hover:border-[#1A1A1A]/30 transition-all cursor-pointer"
+              onClick={() => handleApplyPresetProgram(prog)}
+            >
+              <div className="absolute right-3 top-3 bg-[#E63946] text-white text-[8px] font-bold px-2 py-0.5 uppercase tracking-widest font-mono">
+                {prog.durationWeeks} Weeks
+              </div>
+
+              <h4 className="text-sm font-bold uppercase tracking-tight text-[#1A1A1A] group-hover:text-[#E63946] transition-colors">
+                {prog.name}
+              </h4>
+              <p className="text-[11px] text-[#1A1A1A]/50 uppercase tracking-widest font-mono font-semibold mt-0.5">
+                Goal: {prog.goal.replace("-", " ")}
               </p>
 
-              {DURATION_PROGRAMS.map((prog) => (
-                <div
-                  key={prog.id}
-                  className="bg-white border border-[#1A1A1A]/10 p-4 relative overflow-hidden group hover:border-[#1A1A1A]/30 transition-all cursor-pointer"
-                  onClick={() => handleApplyPresetProgram(prog)}
-                >
-                  <div className="absolute right-3 top-3 bg-[#E63946] text-white text-[8px] font-bold px-2 py-0.5 uppercase tracking-widest font-mono">
-                    {prog.durationWeeks} Weeks
-                  </div>
+              <p className="text-xs mt-2 text-[#1A1A1A]/70 leading-relaxed font-serif italic">
+                {prog.description}
+              </p>
 
-                  <h4 className="text-sm font-bold uppercase tracking-tight text-[#1A1A1A] group-hover:text-[#E63946] transition-colors">
-                    {prog.name}
-                  </h4>
-                  <p className="text-[11px] text-[#1A1A1A]/50 uppercase tracking-widest font-mono font-semibold mt-0.5">
-                    Goal: {prog.goal.replace("-", " ")}
-                  </p>
-
-                  <p className="text-xs mt-2 text-[#1A1A1A]/70 leading-relaxed font-serif italic">
-                    {prog.description}
-                  </p>
-
-                  <div className="mt-3 pt-2.5 border-t border-[#1A1A1A]/5 flex justify-between items-center text-[10px] uppercase font-bold text-[#1A1A1A]/50">
-                    <span>Split: {prog.splitTemplate.name}</span>
-                    <span className="text-[#E63946] flex items-center gap-1 font-mono">
-                      Apply Program →
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="p-4 bg-white border-t border-[#1A1A1A]/10 flex justify-end">
-              <button
-                id="btn-close-presets-footer"
-                onClick={() => setIsProgramSelectorOpen(false)}
-                className="text-xs uppercase font-bold bg-[#1A1A1A]/5 text-[#1A1A1A]/60 border border-[#1A1A1A]/10 px-4 py-2 hover:bg-[#1A1A1A] hover:text-white transition-all"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 2: INTERACTIVE FORM TUTORIAL PLAYER */}
-      {activeTutorialExercise && (
-        <div className="fixed inset-0 bg-[#1A1A1A]/65 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#1A1A1A] text-white border border-white/10 w-full max-w-sm rounded-none overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-            {/* Header */}
-            <div className="p-4 border-b border-white/5 flex justify-between items-center bg-black/40">
-              <div>
-                <span className="text-[8px] font-mono font-bold uppercase tracking-[0.25em] text-[#E63946] block mb-0.5">
-                  FORM MASTERCLASS VIDEO
+              <div className="mt-3 pt-2.5 border-t border-[#1A1A1A]/5 flex justify-between items-center text-[10px] uppercase font-bold text-[#1A1A1A]/50">
+                <span>Split: {prog.splitTemplate.name}</span>
+                <span className="text-[#E63946] flex items-center gap-1 font-mono">
+                  Apply Program →
                 </span>
-                <h3 className="font-serif italic font-bold text-base leading-tight tracking-tight">
-                  {activeTutorialExercise.name}
-                </h3>
               </div>
-              <button
-                aria-label="Close"
-                id="btn-close-tutorial"
-                onClick={() => setActiveTutorialExercise(null)}
-                className="text-white/40 hover:text-white bg-white/5 hover:bg-white/10 p-1.5 rounded-full transition-all"
-              >
-                <X className="w-4 h-4" />
-              </button>
             </div>
+          ))}
+        </div>
+      </Modal>
 
+      {/* MODAL 2: INTERACTIVE FORM TUTORIAL PLAYER — F-C2: uses the accessible
+          <Modal> component. The dark-themed tutorial body is preserved; the
+          Modal renders its own light header with the X close button. */}
+      <Modal
+        open={!!activeTutorialExercise}
+        onClose={() => setActiveTutorialExercise(null)}
+        title="Exercise Tutorial"
+        maxWidthClass="max-w-sm"
+      >
+        {activeTutorialExercise && (
+          <div className="bg-[#1A1A1A] text-white flex flex-col max-h-[80vh]">
             {/* Simulated Active Video Screen */}
             <div className="relative aspect-video bg-neutral-900 border-b border-white/5 overflow-hidden flex items-center justify-center group">
               {/* Dynamic Muscle Target Grid background */}
@@ -857,31 +819,19 @@ export default function TrainingTab({
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
 
-      {/* MODAL 3: GRANULAR WORKOUT SPLIT BUILDER & SCRATCH CREATOR */}
-      {isSplitBuilderOpen && (
-        <div className="fixed inset-0 bg-[#1A1A1A]/45 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#F9F8F6] border border-[#1A1A1A]/20 w-full max-w-lg max-h-[90vh] flex flex-col rounded-none overflow-hidden shadow-2xl">
-            {/* Header */}
-            <div className="bg-[#1A1A1A] text-white p-4 flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-[#E63946]" />
-                <h3 className="font-serif italic font-bold text-base uppercase tracking-wider">
-                  Aether Workout Split Builder
-                </h3>
-              </div>
-              <button
-                aria-label="Close"
-                id="btn-close-builder"
-                onClick={() => setIsSplitBuilderOpen(false)}
-                className="text-white/60 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
+      {/* MODAL 3: GRANULAR WORKOUT SPLIT BUILDER & SCRATCH CREATOR — F-C2:
+          uses the accessible <Modal> component. The dark custom header was
+          replaced by the Modal's standard header; body + footer are preserved. */}
+      <Modal
+        open={isSplitBuilderOpen}
+        onClose={() => setIsSplitBuilderOpen(false)}
+        title="Split Builder"
+        maxWidthClass="max-w-md"
+      >
+        <div className="flex flex-col max-h-[85vh]">
             {/* Body */}
             <div className="p-4 overflow-y-auto space-y-4 flex-grow">
               {/* Quick Config templates */}
@@ -1313,8 +1263,7 @@ export default function TrainingTab({
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 }

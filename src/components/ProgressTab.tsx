@@ -9,7 +9,6 @@ import {
   Sparkles,
   TrendingDown,
   TrendingUp,
-  Dumbbell,
   Sliders,
   Award,
   Clock,
@@ -50,6 +49,7 @@ import {
   interpretWeightTrend,
 } from "../engine";
 import { WorkoutHeatmap } from "./WorkoutHeatmap";
+import { Modal } from "./Modal";
 
 interface ProgressTabProps {
   weightLogs: DailyWeightLog[];
@@ -1354,10 +1354,17 @@ export default function ProgressTab({
           ))}
         </div>
 
-        {/* MODAL SHARE CARD POPUP */}
-        {activeShareCard && (
-          <div className="fixed inset-0 bg-[#1A1A1A]/55 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-[#1A1A1A] text-white border border-white/10 w-full max-w-sm rounded-none overflow-hidden shadow-2xl flex flex-col">
+        {/* MODAL SHARE CARD POPUP — F-C2: uses the accessible <Modal>
+            component. The dark-themed card body is preserved; the Modal
+            renders its own light header with the X close button. */}
+        <Modal
+          open={!!activeShareCard}
+          onClose={() => setActiveShareCard(null)}
+          title="Share Card"
+          maxWidthClass="max-w-sm"
+        >
+          {activeShareCard && (
+            <div className="bg-[#1A1A1A] text-white flex flex-col">
               {/* Card visual showcase */}
               <div className="p-6 bg-black/40 border-b border-white/5 relative overflow-hidden flex flex-col items-center text-center">
                 <div className="absolute right-4 top-4 text-[#E63946]">
@@ -1393,18 +1400,11 @@ export default function ProgressTab({
               </div>
 
               {/* Actions */}
-              <div className="p-4 bg-black/20 border-t border-white/5 flex gap-2">
-                <button
-                  id="btn-close-share"
-                  onClick={() => setActiveShareCard(null)}
-                  className="flex-1 py-2.5 bg-white/10 hover:bg-white/15 text-white text-xs font-mono font-bold uppercase tracking-wider text-center"
-                >
-                  Cancel
-                </button>
+              <div className="p-4 bg-black/20 border-t border-white/5">
                 <button
                   id="btn-copy-share-text"
                   onClick={handleCopyShare}
-                  className="flex-1 py-2.5 bg-[#E63946] hover:bg-[#d62828] text-white text-xs font-mono font-bold uppercase tracking-wider text-center flex items-center justify-center gap-1.5"
+                  className="w-full py-2.5 bg-[#E63946] hover:bg-[#d62828] text-white text-xs font-mono font-bold uppercase tracking-wider text-center flex items-center justify-center gap-1.5"
                 >
                   {copiedShareText ? (
                     <Check className="w-3.5 h-3.5" />
@@ -1415,8 +1415,8 @@ export default function ProgressTab({
                 </button>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </Modal>
       </div>
     );
   };
@@ -1693,198 +1693,174 @@ export default function ProgressTab({
         </div>
       </div>
 
-      {/* MODAL: CUSTOM LOAD SET LOGGER FORM */}
-      {isLogFormOpen && (
-        <div className="fixed inset-0 bg-[#1A1A1A]/45 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#F9F8F6] border border-[#1A1A1A]/20 w-full max-w-sm rounded-none overflow-hidden shadow-2xl flex flex-col">
-            {/* Header */}
-            <div className="bg-[#1A1A1A] text-white p-4 flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <Dumbbell className="w-4 h-4 text-[#E63946]" />
-                <h3 className="font-serif italic font-bold text-base uppercase tracking-wider">
-                  Log Manual Training Set
-                </h3>
-              </div>
-              <button
-                aria-label="Close"
-                id="btn-close-log-form"
-                onClick={() => setIsLogFormOpen(false)}
-                className="text-white/60 hover:text-white"
+      {/* MODAL: CUSTOM LOAD SET LOGGER FORM — F-C2: uses the accessible
+          <Modal> component. The dark custom header was replaced by the
+          Modal's standard header; the form fields are preserved verbatim. */}
+      <Modal
+        open={isLogFormOpen}
+        onClose={() => setIsLogFormOpen(false)}
+        title="Log Custom Set"
+        maxWidthClass="max-w-sm"
+      >
+        <form onSubmit={handleLogCustomSetSubmit} className="p-4 space-y-3.5">
+          {/* Category selector */}
+          <div>
+            <label
+              htmlFor="select-custom-log-category"
+              className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
+            >
+              Muscle Category
+            </label>
+            <select
+              id="select-custom-log-category"
+              value={logExMuscle}
+              onChange={(e) => handleMuscleCategoryChange(e.target.value)}
+              className="w-full bg-white border border-[#1A1A1A]/15 px-2.5 py-1.5 text-xs focus:outline-none"
+            >
+              <option value="Chest">Chest</option>
+              <option value="Lats">Lats</option>
+              <option value="Mid Back">Mid Back</option>
+              <option value="Upper Back">Upper Back</option>
+              <option value="Quads">Quads</option>
+              <option value="Hamstrings">Hamstrings</option>
+              <option value="Glutes">Glutes</option>
+              <option value="Shoulders">Shoulders</option>
+              <option value="Biceps">Biceps</option>
+              <option value="Triceps">Triceps</option>
+              <option value="Core">Core</option>
+              <option value="Cardio">Cardio</option>
+            </select>
+          </div>
+
+          {/* Exercise Selection list depending on category */}
+          <div>
+            <label
+              htmlFor="select-custom-log-exercise-name"
+              className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
+            >
+              Exercise Name
+            </label>
+            <select
+              id="select-custom-log-exercise-name"
+              value={logExName}
+              onChange={(e) => setLogExName(e.target.value)}
+              className="w-full bg-white border border-[#1A1A1A]/15 px-2.5 py-1.5 text-xs focus:outline-none"
+            >
+              {EXERCISE_DATABASE.filter(
+                (e) =>
+                  e.targetMuscle.toLowerCase() === logExMuscle.toLowerCase() ||
+                  (logExMuscle === "Core" &&
+                    ["Core", "Lower Abs", "Obliques"].includes(e.targetMuscle)) ||
+                  (logExMuscle === "Lats" &&
+                    ["Lats", "Mid Back", "Upper Back"].includes(e.targetMuscle)) ||
+                  (logExMuscle === "Mid Back" &&
+                    ["Lats", "Mid Back", "Upper Back"].includes(e.targetMuscle)) ||
+                  (logExMuscle === "Upper Back" &&
+                    ["Lats", "Mid Back", "Upper Back"].includes(e.targetMuscle)) ||
+                  (logExMuscle === "Quads" &&
+                    ["Quads", "Hamstrings", "Glutes"].includes(e.targetMuscle)) ||
+                  (logExMuscle === "Hamstrings" &&
+                    ["Quads", "Hamstrings", "Glutes"].includes(e.targetMuscle)) ||
+                  (logExMuscle === "Glutes" &&
+                    ["Quads", "Hamstrings", "Glutes"].includes(e.targetMuscle)),
+              ).map((e) => (
+                <option key={e.name} value={e.name}>
+                  {e.name}
+                </option>
+              ))}
+              {/* Default back up option if none filtered */}
+              <option value={logExName}>{logExName}</option>
+            </select>
+          </div>
+
+          {/* Load weight & Reps */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label
+                htmlFor="input-custom-log-weight"
+                className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
               >
-                <Plus className="w-5 h-5 rotate-45" />
-              </button>
+                Weight Load (kg)
+              </label>
+              <input
+                id="input-custom-log-weight"
+                type="number"
+                step="0.5"
+                value={logExWeight}
+                onChange={(e) => setLogExWeight(e.target.value)}
+                className="w-full bg-white border border-[#1A1A1A]/15 px-2.5 py-1.5 text-xs focus:outline-none focus:border-[#E63946]"
+                required
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="input-custom-log-reps"
+                className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
+              >
+                Repetitions
+              </label>
+              <input
+                id="input-custom-log-reps"
+                type="number"
+                value={logExReps}
+                onChange={(e) => setLogExReps(e.target.value)}
+                className="w-full bg-white border border-[#1A1A1A]/15 px-2.5 py-1.5 text-xs focus:outline-none focus:border-[#E63946]"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Set category type and Warm-Up toggle */}
+          <div className="grid grid-cols-2 gap-3 items-center pt-1">
+            <div>
+              <label
+                htmlFor="select-custom-log-set-type"
+                className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
+              >
+                Set Intensity Type
+              </label>
+              <select
+                id="select-custom-log-set-type"
+                value={logExType}
+                onChange={(e: any) => setLogExType(e.target.value)}
+                className="w-full bg-white border border-[#1A1A1A]/15 px-2.5 py-1.5 text-xs"
+              >
+                <option value="Normal">Normal Set</option>
+                <option value="AMRAP">AMRAP Set</option>
+                <option value="Failure">To Failure Set</option>
+                <option value="Drop Set">Drop Set</option>
+              </select>
             </div>
 
-            {/* Form */}
-            <form onSubmit={handleLogCustomSetSubmit} className="p-4 space-y-3.5">
-              {/* Category selector */}
-              <div>
-                <label
-                  htmlFor="select-custom-log-category"
-                  className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
-                >
-                  Muscle Category
-                </label>
-                <select
-                  id="select-custom-log-category"
-                  value={logExMuscle}
-                  onChange={(e) => handleMuscleCategoryChange(e.target.value)}
-                  className="w-full bg-white border border-[#1A1A1A]/15 px-2.5 py-1.5 text-xs focus:outline-none"
-                >
-                  <option value="Chest">Chest</option>
-                  <option value="Lats">Lats</option>
-                  <option value="Mid Back">Mid Back</option>
-                  <option value="Upper Back">Upper Back</option>
-                  <option value="Quads">Quads</option>
-                  <option value="Hamstrings">Hamstrings</option>
-                  <option value="Glutes">Glutes</option>
-                  <option value="Shoulders">Shoulders</option>
-                  <option value="Biceps">Biceps</option>
-                  <option value="Triceps">Triceps</option>
-                  <option value="Core">Core</option>
-                  <option value="Cardio">Cardio</option>
-                </select>
-              </div>
-
-              {/* Exercise Selection list depending on category */}
-              <div>
-                <label
-                  htmlFor="select-custom-log-exercise-name"
-                  className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
-                >
-                  Exercise Name
-                </label>
-                <select
-                  id="select-custom-log-exercise-name"
-                  value={logExName}
-                  onChange={(e) => setLogExName(e.target.value)}
-                  className="w-full bg-white border border-[#1A1A1A]/15 px-2.5 py-1.5 text-xs focus:outline-none"
-                >
-                  {EXERCISE_DATABASE.filter(
-                    (e) =>
-                      e.targetMuscle.toLowerCase() === logExMuscle.toLowerCase() ||
-                      (logExMuscle === "Core" &&
-                        ["Core", "Lower Abs", "Obliques"].includes(e.targetMuscle)) ||
-                      (logExMuscle === "Lats" &&
-                        ["Lats", "Mid Back", "Upper Back"].includes(e.targetMuscle)) ||
-                      (logExMuscle === "Mid Back" &&
-                        ["Lats", "Mid Back", "Upper Back"].includes(e.targetMuscle)) ||
-                      (logExMuscle === "Upper Back" &&
-                        ["Lats", "Mid Back", "Upper Back"].includes(e.targetMuscle)) ||
-                      (logExMuscle === "Quads" &&
-                        ["Quads", "Hamstrings", "Glutes"].includes(e.targetMuscle)) ||
-                      (logExMuscle === "Hamstrings" &&
-                        ["Quads", "Hamstrings", "Glutes"].includes(e.targetMuscle)) ||
-                      (logExMuscle === "Glutes" &&
-                        ["Quads", "Hamstrings", "Glutes"].includes(e.targetMuscle)),
-                  ).map((e) => (
-                    <option key={e.name} value={e.name}>
-                      {e.name}
-                    </option>
-                  ))}
-                  {/* Default back up option if none filtered */}
-                  <option value={logExName}>{logExName}</option>
-                </select>
-              </div>
-
-              {/* Load weight & Reps */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label
-                    htmlFor="input-custom-log-weight"
-                    className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
-                  >
-                    Weight Load (kg)
-                  </label>
-                  <input
-                    id="input-custom-log-weight"
-                    type="number"
-                    step="0.5"
-                    value={logExWeight}
-                    onChange={(e) => setLogExWeight(e.target.value)}
-                    className="w-full bg-white border border-[#1A1A1A]/15 px-2.5 py-1.5 text-xs focus:outline-none focus:border-[#E63946]"
-                    required
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="input-custom-log-reps"
-                    className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
-                  >
-                    Repetitions
-                  </label>
-                  <input
-                    id="input-custom-log-reps"
-                    type="number"
-                    value={logExReps}
-                    onChange={(e) => setLogExReps(e.target.value)}
-                    className="w-full bg-white border border-[#1A1A1A]/15 px-2.5 py-1.5 text-xs focus:outline-none focus:border-[#E63946]"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Set category type and Warm-Up toggle */}
-              <div className="grid grid-cols-2 gap-3 items-center pt-1">
-                <div>
-                  <label
-                    htmlFor="select-custom-log-set-type"
-                    className="block text-[8px] font-bold uppercase tracking-wider text-[#1A1A1A]/50 mb-1"
-                  >
-                    Set Intensity Type
-                  </label>
-                  <select
-                    id="select-custom-log-set-type"
-                    value={logExType}
-                    onChange={(e: any) => setLogExType(e.target.value)}
-                    className="w-full bg-white border border-[#1A1A1A]/15 px-2.5 py-1.5 text-xs"
-                  >
-                    <option value="Normal">Normal Set</option>
-                    <option value="AMRAP">AMRAP Set</option>
-                    <option value="Failure">To Failure Set</option>
-                    <option value="Drop Set">Drop Set</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center gap-2 pt-4">
-                  <input
-                    id="checkbox-custom-log-warmup"
-                    type="checkbox"
-                    checked={logExIsWarmUp}
-                    onChange={(e) => setLogExIsWarmUp(e.target.checked)}
-                    className="w-4 h-4 accent-[#E63946]"
-                  />
-                  <label
-                    htmlFor="checkbox-custom-log-warmup"
-                    className="text-[10px] font-bold uppercase text-[#1A1A1A]/60"
-                  >
-                    Warm-Up Set
-                  </label>
-                </div>
-              </div>
-
-              {/* Submit / Cancel buttons */}
-              <div className="pt-4 border-t border-[#1A1A1A]/5 flex gap-2">
-                <button
-                  id="btn-cancel-custom-log"
-                  type="button"
-                  onClick={() => setIsLogFormOpen(false)}
-                  className="flex-1 py-2 text-center border border-[#1A1A1A]/15 text-[#1A1A1A]/60 font-bold uppercase tracking-wider text-[10px] font-mono bg-white"
-                >
-                  Cancel
-                </button>
-                <button
-                  id="btn-submit-custom-log"
-                  type="submit"
-                  className="flex-1 py-2 text-center bg-[#E63946] text-white font-bold uppercase tracking-wider text-[10px] font-mono hover:bg-[#d62828]"
-                >
-                  Log Set
-                </button>
-              </div>
-            </form>
+            <div className="flex items-center gap-2 pt-4">
+              <input
+                id="checkbox-custom-log-warmup"
+                type="checkbox"
+                checked={logExIsWarmUp}
+                onChange={(e) => setLogExIsWarmUp(e.target.checked)}
+                className="w-4 h-4 accent-[#E63946]"
+              />
+              <label
+                htmlFor="checkbox-custom-log-warmup"
+                className="text-[10px] font-bold uppercase text-[#1A1A1A]/60"
+              >
+                Warm-Up Set
+              </label>
+            </div>
           </div>
-        </div>
-      )}
+
+          {/* Submit button (Modal provides X + Escape + overlay-click for closing) */}
+          <div className="pt-4 border-t border-[#1A1A1A]/5">
+            <button
+              id="btn-submit-custom-log"
+              type="submit"
+              className="w-full py-2.5 text-center bg-[#E63946] text-white font-bold uppercase tracking-wider text-[10px] font-mono hover:bg-[#d62828]"
+            >
+              Log Set
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

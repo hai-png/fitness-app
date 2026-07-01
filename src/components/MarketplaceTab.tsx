@@ -323,30 +323,20 @@ export default function MarketplaceTab({
         </div>
       )}
 
-      {/* Cart Drawer */}
-      {isCartOpen && (
-        <div className="fixed inset-0 z-40 bg-[#1A1A1A]/70 flex items-end justify-center p-4">
-          {/* F-H5 fix: z-45 is not a valid Tailwind class (default scale only
-              defines z-0/10/20/30/40/50/auto). Changed to z-40 so the drawer
-              renders below modals (z-50) but above the tab bar (z-30). */}
-          <div className="bg-white border border-[#1A1A1A]/10 rounded-none max-w-sm w-full max-h-[80vh] flex flex-col justify-between overflow-hidden shadow-xl">
-            <div className="p-4 border-b border-[#1A1A1A]/10 flex justify-between items-center bg-[#F9F8F6]">
-              <div className="flex items-center gap-2">
-                <ShoppingBag className="w-5 h-5 text-[#E63946]" />
-                <h3 className="font-serif italic font-black text-[#1A1A1A] text-lg">
-                  Shopping Basket
-                </h3>
-              </div>
-              <button
-                id="btn-close-mkt-cart"
-                onClick={() => setIsCartOpen(false)}
-                className="text-[#1A1A1A]/60 hover:text-[#1A1A1A] text-xs font-bold uppercase tracking-widest"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="p-4 flex-grow overflow-y-auto space-y-3">
+      {/* Cart Drawer — F-C2: uses the accessible <Modal> component
+          (role=dialog, aria-modal, Escape-to-close, focus trap, restore focus).
+          The original was a bottom-anchored drawer (items-end); the Modal
+          centers vertically, which is more accessible. z-40 keeps it below
+          other modals (z-50) but above the tab bar (z-30). */}
+      <Modal
+        open={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        title="Shopping Basket"
+        maxWidthClass="max-w-sm"
+        zIndexClass="z-40"
+      >
+        <div className="max-h-[70vh] flex flex-col justify-between">
+          <div className="p-4 flex-grow overflow-y-auto space-y-3">
               {cartItems.length === 0 ? (
                 <div className="text-center py-10 text-[#1A1A1A]/40 text-xs font-serif italic">
                   Your gear basket is currently empty. Add products to get equipped!
@@ -431,8 +421,7 @@ export default function MarketplaceTab({
               </div>
             )}
           </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Checkout Simulator — F-C2: uses the accessible <Modal> component
           (role=dialog, aria-modal, Escape-to-close, focus trap, restore focus). */}
