@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { MEAL_PRODUCTS } from "../data/meals";
 // A-24: targeted type-only import from schemas — these are pure types.
 // Using `import type` + targeted module path lets the bundler elide this
@@ -38,12 +38,48 @@ interface MealOrderingTabProps {
   onCheckout: (order: Order) => void;
 }
 
-interface DayPlan {
+export type MealSlot = "Breakfast" | "Lunch" | "Dinner";
+
+export interface DayPlan {
   dayNumber: number;
   meals: {
-    slot: "Breakfast" | "Lunch" | "Dinner";
+    slot: MealSlot;
     meal: MealProduct;
   }[];
+}
+
+/**
+ * Pure plan generator — builds a DayPlan[] by cycling through the eligible
+ * meals in a balanced rotation. Pure (no React, no side effects) so it can
+ * be unit-tested or run outside the component if needed.
+ *
+ * The meal index uses `(d * 5 + slotIdx * 3) % eligible.length` so consecutive
+ * days pick different starting meals and consecutive slots within a day also
+ * shift — yielding visible variety even with a small eligible pool.
+ *
+ * @param numDays       Number of delivery days (1..N).
+ * @param mealsPerDay   2 (Lunch + Dinner) or 3 (Breakfast + Lunch + Dinner).
+ * @param eligibleMeals Meals already filtered by diet + allergies.
+ */
+export function generatePlan(
+  numDays: number,
+  mealsPerDay: number,
+  eligibleMeals: MealProduct[],
+): DayPlan[] {
+  if (eligibleMeals.length === 0) return [];
+
+  const slots: MealSlot[] =
+    mealsPerDay === 3 ? ["Breakfast", "Lunch", "Dinner"] : ["Lunch", "Dinner"];
+
+  const list: DayPlan[] = [];
+  for (let d = 1; d <= numDays; d++) {
+    const dayMeals: DayPlan["meals"] = slots.map((slot, slotIdx) => {
+      const idx = (d * 5 + slotIdx * 3) % eligibleMeals.length;
+      return { slot, meal: eligibleMeals[idx] };
+    });
+    list.push({ dayNumber: d, meals: dayMeals });
+  }
+  return list;
 }
 
 export default function MealOrderingTab({
@@ -126,77 +162,69 @@ export default function MealOrderingTab({
     // allergies mid-flow would keep suggesting meals containing the new allergen.
   }, [assessment.dietType, assessment.allergies]);
 
-  // Base plan derived from inputs (replaces the old generatePlanSuggestions
-  // useCallback + useEffect pair). Pure function of numDays/mealsPerDay/
-  // eligibleMeals, so useMemo is the React-recommended shape.
-  const basePlan: DayPlan[] = useMemo(() => {
-    const list: DayPlan[] = [];
-    const mealSlots: ("Breakfast" | "Lunch" | "Dinner")[] =
-      mealsPerDay === 3 ? ["Breakfast", "Lunch", "Dinner"] : ["Lunch", "Dinner"];
-
-    for (let d = 1; d <= numDays; d++) {
-      const dayMeals: DayPlan["meals"] = [];
-      mealSlots.forEach((slot, slotIdx) => {
-        // Pick cyclically from eligible meals to ensure balanced variety over the week
-        const mealIndex = (d * 5 + slotIdx * 3) % eligibleMeals.length;
-        dayMeals.push({
-          slot,
-          meal: eligibleMeals[mealIndex],
-        });
-      });
-      list.push({
-        dayNumber: d,
-        meals: dayMeals,
-      });
-    }
-    return list;
-  }, [numDays, mealsPerDay, eligibleMeals]);
-
-  // Manual per-slot swaps keyed by `${dayIndex}-${mealIndex}`. These persist
-  // across renders but are RESET when basePlan changes (preserving the
-  // original "regenerate-from-scratch on input change" behavior).
-  const [manualSwaps, setManualSwaps] = useState<Record<string, MealProduct>>({});
-  const [prevBasePlan, setPrevBasePlan] = useState(basePlan);
-  if (basePlan !== prevBasePlan) {
-    // React-recommended "adjust state during render" pattern (replaces the
-    // previous useEffect + setState, which triggered the
-    // react-hooks/set-state-in-effect warning). React re-renders synchronously
-    // with the new state — no cascading render from an effect.
-    setPrevBasePlan(basePlan);
-    setManualSwaps({});
+  // mealPlan IS the single source of truth for the plan. Swaps mutate it
+  // directly via handleSwap; handleRegenerate replaces it wholesale. There is
+  // no separate `manualSwaps` map layered on top of a base plan — the previous
+  // `basePlan` + `manualSwaps` + `customPlan` triple-state pattern was tangled
+  // and made it easy for the three to drift out of sync.
+  //
+  // The plan is regenerated when the structural inputs change (numDays,
+  // mealsPerDay, or eligibleMeals identity). We use the React-recommended
+  // "adjust state during render" pattern (compare to a previous-renders
+  // snapshot, then call setState during render) instead of useEffect +
+  // setState, which would trip the react-hooks/set-state-in-effect rule.
+  // React re-renders synchronously with the new state — no cascading render
+  // from an effect. See:
+  // https://react.dev/reference/react/useState#storing-information-from-previous-renders
+  const regenKey = `${numDays}|${mealsPerDay}`;
+  const [mealPlan, setMealPlan] = useState<DayPlan[]>(() =>
+    generatePlan(numDays, mealsPerDay, eligibleMeals),
+  );
+  const [prevRegenKey, setPrevRegenKey] = useState(regenKey);
+  const [prevEligible, setPrevEligible] = useState(eligibleMeals);
+  if (regenKey !== prevRegenKey || eligibleMeals !== prevEligible) {
+    setPrevRegenKey(regenKey);
+    setPrevEligible(eligibleMeals);
+    setMealPlan(generatePlan(numDays, mealsPerDay, eligibleMeals));
   }
 
-  const customPlan: DayPlan[] = useMemo(() => {
-    if (Object.keys(manualSwaps).length === 0) return basePlan;
-    return basePlan.map((day, dayIndex) => ({
-      ...day,
-      meals: day.meals.map((m, mealIndex) => {
-        const swap = manualSwaps[`${dayIndex}-${mealIndex}`];
-        return swap ? { ...m, meal: swap } : m;
-      }),
-    }));
-  }, [basePlan, manualSwaps]);
+  // handleSwap — directly updates the mealPlan state at the target position.
+  // No separate swaps map; mealPlan is the single source of truth.
+  const handleSwap = useCallback(
+    (dayIndex: number, mealIndex: number, newMeal: MealProduct) => {
+      setMealPlan((prev) =>
+        prev.map((day, dIdx) =>
+          dIdx !== dayIndex
+            ? day
+            : {
+                ...day,
+                meals: day.meals.map((slot, mIdx) =>
+                  mIdx !== mealIndex ? slot : { ...slot, meal: newMeal },
+                ),
+              },
+        ),
+      );
+      setSwapTarget(null);
+    },
+    [],
+  );
 
-  // Handle single meal swap
-  const executeMealSwap = (replacementMeal: MealProduct) => {
-    if (swapTarget === null) return;
-    const { dayIndex, mealIndex } = swapTarget;
-
-    setManualSwaps((prev) => ({
-      ...prev,
-      [`${dayIndex}-${mealIndex}`]: replacementMeal,
-    }));
-    setSwapTarget(null);
-  };
+  // handleRegenerate — re-runs generatePlan to get a fresh plan, clearing any
+  // manual swaps the user made. (Cycling is deterministic given the same
+  // inputs, so this is effectively a "reset to baseline" today; a future
+  // revision could seed it with randomness if true shuffle is desired.)
+  const handleRegenerate = useCallback(() => {
+    setMealPlan(generatePlan(numDays, mealsPerDay, eligibleMeals));
+  }, [numDays, mealsPerDay, eligibleMeals]);
 
   // Nutrition plan totals calculations
-  const totalMealsCount = customPlan.reduce((sum, d) => sum + d.meals.length, 0);
-  const totalPlanCalories = customPlan.reduce(
+  const totalMealsCount = mealPlan.reduce((sum, d) => sum + d.meals.length, 0);
+  const totalPlanCalories = mealPlan.reduce(
     (sum, d) => sum + d.meals.reduce((s, m) => s + m.meal.calories, 0),
     0,
   );
 
-  const avgDailyCalories = Math.round(totalPlanCalories / numDays) || 0;
+  const avgDailyCalories = numDays > 0 ? Math.round(totalPlanCalories / numDays) : 0;
 
   // Pricing calculations
   const basePricePerMeal = 13.49; // Flat plan optimized price
@@ -238,7 +266,7 @@ export default function MealOrderingTab({
         name: `${numDays}-Day Delivered Meal Plan (${totalMealsCount} preps - ${assessment.dietType.toUpperCase()})`,
         price: finalPlanPrice,
         image:
-          customPlan[0]?.meals[0]?.meal?.image ||
+          mealPlan[0]?.meals[0]?.meal?.image ||
           "https://images.unsplash.com/photo-1544025162-d76694265947?w=500&auto=format&fit=crop&q=80",
         quantity: 1,
         type: "meal",
@@ -406,14 +434,15 @@ export default function MealOrderingTab({
           <span>Daily Menu Timeline</span>
           <button
             type="button"
-            onClick={() => setManualSwaps({})}
+            id="btn-regenerate-plan"
+            onClick={handleRegenerate}
             className="flex items-center gap-1 text-[9px] hover:text-[#E63946] transition-all font-mono normal-case"
           >
             <RefreshCw className="w-3 h-3" /> Auto-Shuffle
           </button>
         </h3>
 
-        {customPlan.map((dayPlan, dayIdx) => {
+        {mealPlan.map((dayPlan, dayIdx) => {
           const isExpanded = expandedDay === dayPlan.dayNumber;
           const dayCals = dayPlan.meals.reduce((sum, m) => sum + m.meal.calories, 0);
           const dayPro = dayPlan.meals.reduce((sum, m) => sum + m.meal.protein, 0);
@@ -569,14 +598,18 @@ export default function MealOrderingTab({
           </p>
           {eligibleMeals.map((meal) => {
             const isCurrentlySelected =
-              customPlan[swapTarget?.dayIndex ?? -1]?.meals[swapTarget?.mealIndex ?? -1]?.meal.id === meal.id;
+              mealPlan[swapTarget?.dayIndex ?? -1]?.meals[swapTarget?.mealIndex ?? -1]?.meal.id === meal.id;
 
             return (
               <button
                 key={meal.id}
                 type="button"
                 id={`btn-select-swap-meal-${meal.id}`}
-                onClick={() => executeMealSwap(meal)}
+                onClick={() => {
+                  if (swapTarget) {
+                    handleSwap(swapTarget.dayIndex, swapTarget.mealIndex, meal);
+                  }
+                }}
                 className={`w-full text-left p-2.5 border transition-all flex gap-3 ${
                   isCurrentlySelected
                     ? "bg-[#1A1A1A]/5 border-[#1A1A1A]"

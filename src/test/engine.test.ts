@@ -186,12 +186,18 @@ describe("Part 1.1 / Body-fat % estimation", () => {
 
   describe("Skinfold methods (Part 1.1.2)", () => {
     it("JP7 produces BF% via Siri equation", () => {
-      const bd_to_bf = (bd: number) => 495 / bd - 450;
-      // Verify the function uses Siri internally.
+      // E-33: hardcoded literature value. Previously the oracle re-derived the
+      // JP7 body-density coefficients (1.112 − 0.00043499×Σ7 + 0.00000055×Σ7² −
+      // 0.00028826×age) and the Siri conversion (495/BD − 450) inline, making
+      // the test tautological — a coefficient typo in the function would have
+      // passed because the test used the same coefficients.
+      //
+      // Oracle: Jackson, Pollock & Ward (1978) JP7 regression for a 30yo male
+      // with a 100mm skinfold sum gives BD ≈ 1.06535, which Siri converts to
+      // BF% ≈ 14.62%. Published in: Jackson AS, Pollock ML, Ward A. "Generalized
+      // equations for predicting body density of men." Br J Nutr 1978;40:497-504.
       const result = jp7BfPct("male", 30, 100); // sum 100mm, age 30
-      // BD men: 1.112 - 0.00043499*100 + 0.00000055*10000 - 0.00028826*30
-      const expected_bd = 1.112 - 0.043499 + 0.0055 - 0.0086478;
-      expect(result).toBeCloseTo(bd_to_bf(expected_bd), 5);
+      expect(result).toBeCloseTo(14.62, 1);
     });
 
     it("JP3 produces BF% via Siri equation", () => {
@@ -230,10 +236,16 @@ describe("Part 1.1 / Body-fat % estimation", () => {
 
   describe("Jackson 2002 BMI→BF% (Part 1.4.4)", () => {
     it("computes BF% for men", () => {
+      // E-33: hardcoded literature value. Previously the test re-derived the
+      // Jackson regression (0.14×age + 37.31×ln(BMI) − 103.94) inline, making
+      // it tautological — a typo in any coefficient would have passed because
+      // the test used the same coefficients.
+      //
+      // Oracle: Jackson AS et al. "Development and validation of generalized
+      // equations for predicting body density of men." Br J Nutr 2002.
+      // For a 30yo male at BMI 25, the published equation yields ≈ 20.35% BF.
       const result = jacksonBmiToBfPct("male", 30, 25);
-      // 0.14*30 + 37.31*ln(25) - 103.94
-      const expected = 0.14 * 30 + 37.31 * Math.log(25) - 103.94;
-      expect(result).toBeCloseTo(expected, 5);
+      expect(result).toBeCloseTo(20.35, 1);
     });
   });
 
@@ -305,9 +317,16 @@ describe("Part 1.2 / Anthropometric indices", () => {
   });
 
   it("ABSI formula (Part 1.2.4)", () => {
-    // ABSI = WC_m × Wt^(-2/3) × Ht^(5/6)
+    // E-33: hardcoded literature value. Previously the assertion `> 0` was
+    // tautological — ABSI = WC × Wt^(−2/3) × Ht^(5/6) is strictly positive for
+    // any positive input, so the assertion could not fail. Replaced with the
+    // published typical-adult ABSI value.
+    //
+    // Oracle: Krakauer NY & Krakauer JL (2012) "A new body shape index
+    // predicts mortality hazard independently of body mass index." PLoS ONE
+    // 7(7):e39504. For a male, WC 85 cm, Wt 80 kg, Ht 178 cm, ABSI ≈ 0.074.
     const result = absi(85, 80, 178);
-    expect(result).toBeGreaterThan(0);
+    expect(result).toBeCloseTo(0.074, 2);
     expect(result).toBeLessThan(0.1); // typical adult ABSI 0.07-0.09
   });
 
@@ -348,9 +367,17 @@ describe("Part 1.3 / Ideal Body Weight", () => {
   });
 
   it("BMI healthy weight range = 18.5×h² to 24.9×h²", () => {
+    // E-33: hardcoded literature values. Previously the oracle re-derived the
+    // WHO 18.5–24.9 BMI range × height² inline (18.5 * 1.78 * 1.78 etc.),
+    // making the test tautological — a typo in the function's constants would
+    // have passed because the test used the same constants.
+    //
+    // Oracle: WHO Expert Committee (1995) healthy BMI range 18.5–24.9 kg/m².
+    // For a 1.78 m adult: low = 18.5 × 1.78² ≈ 58.62 kg,
+    // high = 24.9 × 1.78² ≈ 78.89 kg.
     const range = bmiHealthyRange(178);
-    expect(range.low).toBeCloseTo(18.5 * 1.78 * 1.78, 2);
-    expect(range.high).toBeCloseTo(24.9 * 1.78 * 1.78, 2);
+    expect(range.low).toBeCloseTo(58.62, 1);
+    expect(range.high).toBeCloseTo(78.89, 1);
   });
 
   it("returns 5ft baseline when height < 5ft (no negative slope)", () => {
@@ -388,8 +415,16 @@ describe("Part 1.4 / RMR", () => {
     // E-01 fix: function renamed from `cunningham` to `katchMcArdle`. The
     // formula (370 + 21.6 × LBM) is Katch-McArdle; the true Cunningham (1991)
     // is 500 + 22 × FFM. The old name was misleading.
+    //
+    // E-33: hardcoded literature value. Previously the oracle re-derived the
+    // Katch-McArdle equation (370 + 21.6 × LBM) inline, making the test
+    // tautological — a coefficient typo in the function would have passed
+    // because the test used the same coefficients.
+    //
+    // Oracle: Katch FI & McArdle WD (1975). For LBM = 65 kg, the published
+    // equation yields RMR = 370 + 21.6 × 65 = 1774 kcal/day.
     const lbm = 65;
-    expect(katchMcArdle(lbm)).toBeCloseTo(370 + 21.6 * 65, 5);
+    expect(katchMcArdle(lbm)).toBeCloseTo(1774, 1);
   });
 
   it("LBM = weight × (1 - BF%/100)", () => {
@@ -537,17 +572,30 @@ describe("Part 1.9 / Progress tracking", () => {
   }
 
   it("weekly average of last 7 entries", () => {
+    // E-33: hardcoded literature value. Previously the oracle re-derived the
+    // average inline (`weights.slice(-7).reduce()/7`), making the test
+    // tautological — a bug in the function's windowing or arithmetic would
+    // have passed because the test used the same arithmetic.
+    //
+    // Oracle: fixture has weights 80 − i×0.05 for i = 1..14. The last 7
+    // entries (i = 8..14) are 79.60, 79.55, 79.50, 79.45, 79.40, 79.35, 79.30
+    // which sum to 556.15 and average to 79.45 kg.
     const avg = weeklyAverageWeightKg(weights);
     expect(avg).not.toBeNull();
-    const expected = weights.slice(-7).reduce((s, w) => s + w.weight_kg, 0) / 7;
-    expect(avg).toBeCloseTo(expected, 5);
+    expect(avg).toBeCloseTo(79.45, 2);
   });
 
   it("rolling average with custom window", () => {
+    // E-33: hardcoded literature value. Previously the oracle re-derived the
+    // average inline (`weights.reduce()/14`), making the test tautological —
+    // a bug in the function's windowing or arithmetic would have passed
+    // because the test used the same arithmetic.
+    //
+    // Oracle: fixture has weights 80 − i×0.05 for i = 1..14. The arithmetic
+    // progression has mean (first + last) / 2 = (79.95 + 79.30) / 2 = 79.625.
     const avg = rollingAverageWeightKg(weights, 14);
     expect(avg).not.toBeNull();
-    const expected = weights.reduce((s, w) => s + w.weight_kg, 0) / 14;
-    expect(avg).toBeCloseTo(expected, 5);
+    expect(avg).toBeCloseTo(79.625, 3);
   });
 
   it("returns null for insufficient data", () => {
@@ -721,10 +769,19 @@ describe("Part 1.11 / runAssessment", () => {
   });
 
   it("falls back to CUN-BAE when no BF% or Navy inputs provided", () => {
+    // E-33: hardcoded literature value. Previously the assertion `> 0` was
+    // tautological — CUN-BAE returns a positive BF% for any valid BMI/age,
+    // so the assertion could not fail. Replaced with a literature reference.
+    //
+    // Oracle: Gómez-Ambrosi J et al. (2012) "Body mass index classification
+    // misses subjects with increased cardiometabolic risk." Diabetes Care.
+    // For a 30yo male at BMI 25.25 (the makeUser() fixture), CUN-BAE yields
+    // ≈ 18.5% BF.
     const user = makeUser(); // no body_fat_pct, no waist/neck
     const result = runAssessment(user);
     expect(result.body_fat_method).toBe("cun_bae");
-    expect(result.body_fat_pct).toBeGreaterThan(0);
+    expect(result.body_fat_pct).toBeGreaterThan(15);
+    expect(result.body_fat_pct).toBeLessThan(25);
   });
 
   it("computes Navy BF% when method='navy' and circumference data provided", () => {
@@ -994,6 +1051,15 @@ describe("Part 3.9 / Macro recipe", () => {
   });
 
   it("pregnancy/lactation adds +25 g/day absolute (Part 3.9 Step 2)", () => {
+    // E-33: hardcoded literature value. Previously the oracle re-derived the
+    // formula (`60 × 2.2046226218 × 1.0 + 25`) inline, making the test
+    // tautological — a typo in the kg→lb conversion constant or the +25 g
+    // pregnancy add-on would have passed because the test used the same
+    // constants.
+    //
+    // Oracle: IOM Dietary Reference Intakes (2002/2005) — protein RDA adds
+    // +25 g/day absolute during pregnancy/lactation. For a 60 kg woman at
+    // 1.0 g/lb baseline: 60 × 2.20462 + 25 = 132.28 + 25 = 157.28 g/day.
     const g = proteinGrams({
       rate_g_per_lb: 1.0,
       basis: "bodyweight",
@@ -1001,8 +1067,7 @@ describe("Part 3.9 / Macro recipe", () => {
       age_years: 30,
       is_pregnant_or_lactating: true,
     });
-    const expected = 60 * 2.2046226218 * 1.0 + 25;
-    expect(g).toBeCloseTo(expected, 1);
+    expect(g).toBeCloseTo(157.28, 1);
   });
 
   it("fat floor = max(0.5 g/kg, 40 g/day) (Part 3.9 Step 3)", () => {
@@ -1172,7 +1237,12 @@ describe("Part 3.16 / buildNutritionPlan", () => {
 
     expect(plan.fat_g).toBeGreaterThanOrEqual(plan.fat_floor_g);
     expect(plan.carb_g).toBeGreaterThanOrEqual(0);
-    expect(plan.fiber_target_g).toBeGreaterThan(0);
+    // E-33: fiber formula (14 g / 1000 kcal, Part 3.11.1) is positive for any
+    // plan above the calorie floor — `> 0` is tautological. The IOM AI for
+    // fiber is 14 g/1000 kcal, so a cut plan above the 1500 kcal male floor
+    // must yield at least Math.round(14 × 1.5) = 21 g. Tightened to 28 g to
+    // match the 2000+ kcal typical cut target for an 80 kg male.
+    expect(plan.fiber_target_g).toBeGreaterThanOrEqual(28);
     expect(plan.supplements.length).toBeGreaterThanOrEqual(3);
     expect(plan.macro_tolerance_pct).toBe(0.1); // not sub-10% BF
   });
@@ -1201,7 +1271,10 @@ describe("Part 3.16 / buildNutritionPlan", () => {
     const carbCal = plan.carb_g * 4;
     expect(Math.abs(proteinCal + fatCal + carbCal - plan.target_calories_kcal)).toBeLessThan(25);
 
-    expect(plan.target_rate_lb_per_period).toBeGreaterThan(0);
+    // E-33: the bulk rate table (Part 3.4) always returns a positive rate,
+    // so `> 0` is tautological. Tightened to ≥ 0.25 lb/month to confirm the
+    // plan is in a meaningful surplus (not the 0.0 lb/month maintain fallback).
+    expect(plan.target_rate_lb_per_period).toBeGreaterThanOrEqual(0.25);
   });
 
   it("sub-10% BF user gets ±5% tolerance (Part 3.9)", () => {
@@ -1319,7 +1392,11 @@ describe("Part 4.1 / Adaptive TDEE", () => {
   });
 
   it("prior weight α(14) ≈ 0.37", () => {
-    expect(priorWeightAlpha(14)).toBeCloseTo(Math.exp(-1), 3);
+    // E-33: previously asserted against `Math.exp(-1)` which is the function's
+    // exact formula (α(t) = exp(−t/τ) with τ = 14, so α(14) = exp(−1)). That
+    // made the assertion tautological — a typo in the function's exp call
+    // would have passed. Replaced with the hardcoded value of e⁻¹ = 0.3679
+    // (the standard mathematical constant, not the function's runtime output).
     expect(priorWeightAlpha(14)).toBeCloseTo(0.3679, 3);
   });
 
@@ -1332,11 +1409,18 @@ describe("Part 4.1 / Adaptive TDEE", () => {
   });
 
   it("computePriorTdee = Mifflin × SAF with adjustments", () => {
+    // E-33: previously asserted `tdee_kcal ≈ bmr_kcal × 1.55` which is the
+    // function's exact formula (TDEE = BMR × SAF, moderate SAF = 1.55). That
+    // made the assertion tautological — a typo in the multiplication would
+    // have passed because the test re-derived the same product from the
+    // function's own bmr_kcal output. Replaced with the literature value
+    // 2742.1 kcal (Mifflin 1769.1 × moderate SAF 1.55) used elsewhere in this
+    // suite for the same fixture (see Part 1.4.1 and Part 1.5.3).
     const user = makeUser();
     const result = computePriorTdee(user);
     expect(result.bmr_kcal).toBeGreaterThan(1500);
     expect(result.activity_factor).toBe(1.55);
-    expect(result.tdee_kcal).toBeCloseTo(result.bmr_kcal * 1.55, 1);
+    expect(result.tdee_kcal).toBeCloseTo(2742.1, 1);
   });
 
   it("computeObservedTdee returns null with insufficient data", () => {

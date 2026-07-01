@@ -17,16 +17,16 @@ import { useUserStore } from "../store/useUserStore";
 import { useLogsStore } from "../store/useLogsStore";
 import { useIntakeStore } from "../store/useIntakeStore";
 import { useEngine } from "../store/useEngine";
-import { buildMealPlan } from "../engine/mealPlan";
 import {
   User,
   Heart,
   RefreshCw,
   FileText,
   ShoppingBag,
-  Compass,
+  UtensilsCrossed,
   AlertTriangle,
   Sparkles,
+  ArrowRight,
 } from "lucide-react";
 
 interface ProfileTabProps {
@@ -34,6 +34,8 @@ interface ProfileTabProps {
   nutritionPlan: NutritionPlan | null;
   orderHistory: Order[];
   onResetOnboarding: () => void;
+  /** Switches the app shell to the Meals delivery tab. */
+  onNavigateToMeals: () => void;
 }
 
 export default function ProfileTab({
@@ -41,6 +43,7 @@ export default function ProfileTab({
   nutritionPlan,
   orderHistory,
   onResetOnboarding,
+  onNavigateToMeals,
 }: ProfileTabProps) {
   const engineProfile = useUserStore((s) => s.engineProfile);
   const updateEngineProfile = useUserStore((s) => s.updateEngineProfile);
@@ -52,20 +55,6 @@ export default function ProfileTab({
   const intakeLogs = useIntakeStore((s) => s.intakeLogs);
 
   const { assessmentResult, nutritionPlan: engineNutritionPlan, applyAdjustment } = useEngine();
-
-  // A-20 fix: generate real meal plan from the recipe database instead of
-  // fake hardcoded meal suggestions. Uses the engine's NutritionPlan macros
-  // + the user's diet type + allergies to pick real recipes.
-  const mealPlan = useMemo(() => {
-    if (!nutritionPlan) return null;
-    return buildMealPlan(
-      nutritionPlan,
-      assessment.dietType,
-      assessment.allergies,
-      3, // 3-day preview
-      3, // 3 meals per day
-    );
-  }, [nutritionPlan, assessment.dietType, assessment.allergies]);
 
   // Generate guidelines from the engine nutrition plan.
   const guidelines = useMemo(() => {
@@ -251,59 +240,98 @@ export default function ProfileTab({
         </div>
       )}
 
-      {mealPlan && mealPlan.days.length > 0 && (
-        <div className="bg-white border border-[#1A1A1A]/10 rounded-none p-4 mb-6">
-          <h3 className="font-serif font-bold text-[#1A1A1A] text-sm flex items-center gap-1.5 mb-3">
-            <Compass className="w-4 h-4 text-[#E63946]" />
-            Personalized Meal Plan Preview
-          </h3>
-          <p className="text-[10px] text-[#1A1A1A]/50 font-serif italic mb-3">
-            Real recipes from a {mealPlan.days.reduce((s, d) => s + d.meals.length, 0)}-recipe database, matched to your macros ({Math.round(mealPlan.target_calories_kcal)} kcal · {mealPlan.target_protein_g}g protein), diet ({assessment.dietType}), and allergies.
-          </p>
-          <div className="space-y-4">
-            {mealPlan.days.map((day) => (
-              <div key={`day-${day.dayNumber}`}>
-                <div className="flex justify-between items-baseline mb-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#E63946] font-mono">
-                    Day {day.dayNumber}
-                  </span>
-                  <span className="text-[9px] text-[#1A1A1A]/50 font-mono">
-                    {Math.round(day.total_kcal)} kcal · {Math.round(day.total_protein_g)}g P
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {day.meals.map((meal, mIdx) => (
-                    <div
-                      key={`meal-${day.dayNumber}-${mIdx}-${meal.recipe.id}`}
-                      className="flex justify-between items-center gap-3 bg-[#F9F8F6] p-3 rounded-none border border-[#1A1A1A]/5"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <span className="text-[8px] uppercase font-bold text-[#1A1A1A]/40 tracking-wider font-mono">
-                          {meal.slot}
-                        </span>
-                        <h4 className="text-xs font-bold uppercase tracking-tight text-[#1A1A1A] mt-0.5 leading-snug truncate">
-                          {meal.recipe.name}
-                        </h4>
-                        <p className="text-[9px] text-[#1A1A1A]/50 mt-0.5 font-mono">
-                          {meal.recipe.cuisine} · {(meal.recipe.prep_time_min ?? 0) + (meal.recipe.cook_time_min ?? 0)}min
-                        </p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <span className="block text-xs font-bold text-[#1A1A1A]">
-                          {Math.round(meal.recipe.nutrition_per_serving.kcal)} kcal
-                        </span>
-                        <span className="text-[10px] text-[#E63946] font-semibold font-mono">
-                          {Math.round(meal.recipe.nutrition_per_serving.protein_g)}g Pro
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+      {/*
+        Nutrition Targets Summary + Meal Delivery Callout.
+
+        The previous block here showed raw recipe data (cuisine, prep time,
+        recipe names) pulled from the 197-recipe backend database. That data
+        is backend IP and should not be user-facing — the paid meal delivery
+        service surfaces meal PRODUCTS (with prices, images, macros) in the
+        Meals tab, not raw recipes.
+
+        This block now shows a compact target-calories + macros summary from
+        the engine NutritionPlan and a CTA that takes the user to the Meals
+        tab to order a delivery plan.
+      */}
+      <div className="bg-white border border-[#1A1A1A]/10 rounded-none p-4 mb-6">
+        <h3 className="font-serif font-bold text-[#1A1A1A] text-sm flex items-center gap-1.5 mb-3">
+          <Sparkles className="w-4 h-4 text-[#E63946]" />
+          Your Nutrition Targets
+        </h3>
+        {nutritionPlan ? (
+          <>
+            <p className="text-[10px] text-[#1A1A1A]/50 font-serif italic mb-3">
+              Daily targets computed by the engine for your{" "}
+              <span className="not-italic font-bold text-[#1A1A1A]">
+                {nutritionPlan.phase}
+              </span>{" "}
+              phase. Use these to pick a matching delivered meal plan.
+            </p>
+            <div className="grid grid-cols-4 gap-2 text-center">
+              <div className="bg-[#F9F8F6] p-2 rounded-none border border-[#1A1A1A]/5">
+                <span className="block text-[8px] uppercase font-bold text-[#1A1A1A]/40">
+                  Calories
+                </span>
+                <span className="text-xs font-bold text-[#E63946] font-mono">
+                  {nutritionPlan.target_calories_kcal}
+                </span>
               </div>
-            ))}
+              <div className="bg-[#F9F8F6] p-2 rounded-none border border-[#1A1A1A]/5">
+                <span className="block text-[8px] uppercase font-bold text-[#1A1A1A]/40">
+                  Protein
+                </span>
+                <span className="text-xs font-bold text-[#1A1A1A] font-mono">
+                  {nutritionPlan.protein_g}g
+                </span>
+              </div>
+              <div className="bg-[#F9F8F6] p-2 rounded-none border border-[#1A1A1A]/5">
+                <span className="block text-[8px] uppercase font-bold text-[#1A1A1A]/40">
+                  Carbs
+                </span>
+                <span className="text-xs font-bold text-[#1A1A1A] font-mono">
+                  {nutritionPlan.carb_g}g
+                </span>
+              </div>
+              <div className="bg-[#F9F8F6] p-2 rounded-none border border-[#1A1A1A]/5">
+                <span className="block text-[8px] uppercase font-bold text-[#1A1A1A]/40">
+                  Fat
+                </span>
+                <span className="text-xs font-bold text-[#1A1A1A] font-mono">
+                  {nutritionPlan.fat_g}g
+                </span>
+              </div>
+            </div>
+          </>
+        ) : (
+          <p className="text-[10px] text-[#1A1A1A]/50 font-serif italic">
+            Complete the onboarding flow to generate your personalized nutrition targets.
+          </p>
+        )}
+
+        {/* Meal delivery callout — routes to the Meals tab. */}
+        <div className="mt-4 pt-3 border-t border-[#1A1A1A]/5 bg-gradient-to-r from-[#E63946]/10 to-transparent -mx-4 -mb-4 px-4 pb-4 pt-3">
+          <div className="flex items-start gap-2.5">
+            <UtensilsCrossed className="w-5 h-5 text-[#E63946] flex-shrink-0 mt-0.5" />
+            <div className="flex-grow min-w-0">
+              <p className="text-xs font-bold text-[#1A1A1A]">
+                Meal delivery plans available in the Meals tab
+              </p>
+              <p className="text-[10px] text-[#1A1A1A]/60 font-serif italic mt-0.5 leading-relaxed">
+                Multi-day delivered meal plans calibrated to your target calories, diet, and allergies.
+              </p>
+            </div>
+            <button
+              type="button"
+              id="btn-goto-meals-tab"
+              onClick={onNavigateToMeals}
+              className="flex items-center gap-1 px-3 py-2 bg-[#E63946] hover:bg-[#d62828] text-white text-[10px] font-bold uppercase tracking-wider rounded-none transition-all flex-shrink-0"
+            >
+              Order
+              <ArrowRight className="w-3 h-3" />
+            </button>
           </div>
         </div>
-      )}
+      </div>
 
       <div className="bg-white border border-[#1A1A1A]/10 rounded-none p-4 mb-6">
         <h3 className="font-serif font-bold text-[#1A1A1A] text-sm flex items-center gap-1.5 mb-3">

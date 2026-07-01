@@ -166,6 +166,7 @@ export default function App() {
   const handleAddWaterLog = useCallback((amountMl: number) => addWaterLog(amountMl), [addWaterLog]);
   const handleClearWaterLogs = useCallback(() => clearTodayWaterLogs(), [clearTodayWaterLogs]);
   const handleLogWorkout = useCallback((log: WorkoutLog) => addWorkoutLog(log), [addWorkoutLog]);
+  const handleNavigateToMeals = useCallback(() => setActiveTab("meals"), []);
 
   if (!hydrated) {
     return (
@@ -273,6 +274,7 @@ export default function App() {
                   nutritionPlan={nutritionPlan}
                   orderHistory={orderHistory}
                   onResetOnboarding={handleResetOnboarding}
+                  onNavigateToMeals={handleNavigateToMeals}
                 />
               )}
             </Suspense>

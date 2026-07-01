@@ -1,4 +1,4 @@
-import type { OnboardingInput, WorkoutPlan, MealSuggestion, Exercise } from "../engine";
+import type { OnboardingInput, WorkoutPlan, Exercise } from "../engine";
 
 /**
  * Generate a workout plan from onboarding input.
@@ -952,64 +952,4 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
     currentWeek: 1,
     goalType: goal,
   };
-}
-
-/**
- * Generate meal suggestions from the engine NutritionPlan + onboarding input.
- * Used by the meal-ordering UI to display per-meal macro targets.
- */
-export function generateMealSuggestions(args: {
-  input: OnboardingInput;
-  targetCalories: number;
-  proteinG: number;
-}): MealSuggestion[] {
-  const { input, targetCalories, proteinG } = args;
-  const { dietType } = input;
-
-  return [
-    {
-      mealType: "Breakfast",
-      name:
-        dietType === "vegan"
-          ? "High-Protein Scrambled Tofu"
-          : dietType === "vegetarian"
-            ? "Avocado Toast & Egg Whites"
-            : "Savory Turkey Sausage & Egg White Scramble",
-      description: "Scrambled with baby spinach, tomatoes, and organic olive oil.",
-      calories: Math.round(targetCalories * 0.25),
-      proteinGrams: Math.round(proteinG * 0.28),
-    },
-    {
-      mealType: "Lunch",
-      name:
-        dietType === "vegan" || dietType === "vegetarian"
-          ? "Baked Sesame Tofu Bowl"
-          : "Zesty Herb Grilled Chicken Breast",
-      description: "Served with cauliflower rice, sautéed bell peppers, and fresh greens.",
-      calories: Math.round(targetCalories * 0.3),
-      proteinGrams: Math.round(proteinG * 0.32),
-    },
-    {
-      mealType: "Dinner",
-      name:
-        dietType === "vegan"
-          ? "Crispy Tempeh Buddha Quinoa Bowl"
-          : dietType === "vegetarian"
-            ? "Lentil Pasta & Herb Marinara"
-            : "Seared Atlantic Salmon Fillet",
-      description: "Accompanied by dark steamed greens and lemon herb seasoning.",
-      calories: Math.round(targetCalories * 0.35),
-      proteinGrams: Math.round(proteinG * 0.35),
-    },
-    {
-      mealType: "Snack",
-      name:
-        dietType === "vegan"
-          ? "Soy Protein & Almond Shake"
-          : "Whey Isolate Shake & Handful of Almonds",
-      description: "Blended with cold unsweetened almond milk and optional stevia.",
-      calories: Math.round(targetCalories * 0.1),
-      proteinGrams: Math.round(proteinG * 0.15),
-    },
-  ];
 }

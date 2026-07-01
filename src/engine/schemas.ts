@@ -1,19 +1,36 @@
 /**
- * Engine Schemas — the single source of truth for ALL TypeScript types in the
- * FitLife Hub application.
+ * Engine Schemas — the single source of truth for ENGINE-domain TypeScript
+ * types in the FitLife Hub application.
  *
- * This file consolidates:
- *   - Fitness types (from the Unified Reference Guide)
- *   - Log types (weight, water, workout, intake)
- *   - Onboarding input (form data)
- *   - Workout UI types (weekly schedule, exercises)
- *   - Commerce types (products, cart, orders)
+ * Scope (this file):
+ *   - Master User schema (Part 0.5)
+ *   - AssessmentResult (Part 1.11)
+ *   - Training log entry + TrainingPlan (Parts 2.7 / 2.8)
+ *   - NutritionPlan + supplement / macro-adjustment / subjective ratings
+ *     (Part 3.16)
+ *   - DailyWeightLog / DailyIntakeLog (engine progress-tracking inputs)
+ *   - EngineProfile (post-onboarding optional fields)
  *
- * There is no separate `src/types.ts`. Every component imports from here
- * or from the engine barrel (`src/engine/index.ts`).
+ * Types that used to live here but were split out by A-22 (audit 2026-08):
+ *   - OnboardingInput + Onboarding* unions  → `src/types/onboarding.ts`
+ *   - Exercise / WeeklyScheduleDay / WorkoutPlan → `src/types/workout.ts`
+ *   - MealProduct / CartItem / Order / MarketplaceProduct → `src/types/commerce.ts`
+ *   - WaterLog / WorkoutLog → `src/types/logs.ts`
+ *
+ * The split-out types are re-exported below so existing call sites like
+ *   `import { User, OnboardingInput, WorkoutPlan } from "../engine/schemas"`
+ * keep working without modification. `src/types/index.ts` is the new
+ * convenience barrel that re-exports both engine + UI types for callers
+ * that want a single import surface.
  *
  * Reference: /home/z/my-project/download/unified_fitness_systems_reference.md
  */
+
+// Backward-compatibility re-exports for the UI-domain types split out by A-22.
+export * from "../types/onboarding";
+export * from "../types/workout";
+export * from "../types/commerce";
+export * from "../types/logs";
 
 // ---------------------------------------------------------------------------
 // Part 0.5 — Master User schema
@@ -453,53 +470,6 @@ export interface NutritionPlan {
 }
 
 // ---------------------------------------------------------------------------
-// Part 3.17 — MealPlan
-// ---------------------------------------------------------------------------
-
-export interface MealItem {
-  food_name: string;
-  quantity_g: number;
-  serving_size_description?: string;
-  measured_state: "raw" | "cooked";
-  computed_macros: {
-    protein_g: number;
-    carbs_g: number;
-    fat_g: number;
-    kcal: number;
-  };
-  is_leafy_green_uncounted?: boolean;
-}
-
-export interface Meal {
-  meal_name: string;
-  meal_time?: string;
-  target_macros: {
-    protein_g: number;
-    carbs_g: number;
-    fat_g: number;
-    kcal: number;
-  };
-  items: MealItem[];
-  construction_order: number;
-}
-
-export interface MealPlan {
-  user_id: string;
-  plan_id: string;
-  nutrition_plan_id: string;
-  meals: Meal[];
-  daily_totals: {
-    protein_g: number;
-    carbs_g: number;
-    fat_g: number;
-    kcal: number;
-    fiber_g: number;
-  };
-  rotation_set_size?: number;
-  eating_out_protocol_applied?: boolean;
-}
-
-// ---------------------------------------------------------------------------
 // Weight log (used by adaptive TDEE + adjustments)
 // ---------------------------------------------------------------------------
 
@@ -538,176 +508,4 @@ export interface EngineProfile {
   activity_level?: ActivityLevel;
   sleep_hours_avg?: number;
   stress_0_5?: number;
-}
-
-// ===========================================================================
-// Onboarding input — the form data collected during onboarding.
-// Distinct from User (which includes engine-only fields like body_fat_pct,
-// waist_cm, etc. that are captured separately via EngineProfile).
-// ===========================================================================
-
-export type OnboardingGoal =
-  | "weight-loss"
-  | "muscle-gain"
-  | "strength"
-  | "endurance"
-  | "general";
-
-export type OnboardingActivityLevel =
-  | "sedentary"
-  | "light"
-  | "moderate"
-  | "active";
-
-export type OnboardingWorkoutPreference =
-  | "home"
-  | "gym"
-  | "outdoor"
-  | "hybrid";
-
-export type OnboardingDietType =
-  | "anything"
-  | "vegetarian"
-  | "vegan"
-  | "keto"
-  | "low-carb"
-  | "gluten-free"
-  | "mediterranean";
-
-export type OnboardingGender = "male" | "female" | "non-binary" | "prefer-not-to-say";
-
-export interface OnboardingInput {
-  name: string;
-  age: number;
-  // E-43/S-19 fix: tightened from `string` to a union matching the server
-  // zod schema. Previously mapSex() silently mis-gendered users via prefix
-  // matching ('transgender male' → 't' → 'male'); now the form sends one
-  // of these exact values. 'prefer-not-to-say' is mapped to 'male' as the
-  // engine default (sex-specific formulas require a binary input; a future
-  // revision should let users specify sex-for-calculations separately).
-  gender: OnboardingGender;
-  weight: number; // kg
-  height: number; // cm
-  goal: OnboardingGoal;
-  activityLevel: OnboardingActivityLevel;
-  workoutPreference: OnboardingWorkoutPreference;
-  frequency: number; // days per week
-  dietType: OnboardingDietType;
-  allergies: string;
-  selectedGymName?: string;
-  availableMachines?: string[];
-}
-
-// ===========================================================================
-// Workout UI types — the weekly schedule shape used by the workout plan
-// generator, curated exercise DB, and Training tab.
-// Distinct from TrainingPlan (which is the spec-level engine type for
-// progression, periodization, volume landmarks, etc.).
-// ===========================================================================
-
-export interface Exercise {
-  name: string;
-  sets: number;
-  reps: string;
-  restSeconds: number;
-  instruction: string;
-  targetMuscle?: string;
-  videoUrl?: string;
-  steps?: string[];
-}
-
-export interface WeeklyScheduleDay {
-  day: string;
-  activityType: string;
-  durationMinutes: number;
-  exercises: Exercise[];
-}
-
-export interface WorkoutPlan {
-  title: string;
-  description: string;
-  difficulty: string;
-  weeklySchedule: WeeklyScheduleDay[];
-  tips: string[];
-  durationWeeks?: number;
-  currentWeek?: number;
-  goalType?: string;
-}
-
-// ===========================================================================
-// Meal suggestion — used by the meal-ordering UI to display per-meal
-// macro targets. Generated from the engine NutritionPlan.
-// ===========================================================================
-
-export interface MealSuggestion {
-  mealType: string;
-  name: string;
-  description: string;
-  calories: number;
-  proteinGrams: number;
-}
-
-// ===========================================================================
-// Commerce types — marketplace + meal-prep ordering domain.
-// No engine formulas; these are pure data shapes.
-// ===========================================================================
-
-export interface MealProduct {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  image: string;
-  category: "high-protein" | "low-carb" | "keto" | "vegetarian" | "vegan" | "balanced";
-}
-
-export interface MarketplaceProduct {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  rating: number;
-  image: string;
-  category: "supplements" | "equipment" | "apparel" | "accessories";
-  badge?: string;
-}
-
-export interface CartItem {
-  id: string;
-  name: string;
-  price: number;
-  image: string;
-  quantity: number;
-  type: "meal" | "marketplace";
-}
-
-export interface Order {
-  id: string;
-  items: CartItem[];
-  total: number;
-  date: string;
-  status: "pending" | "processing" | "shipped" | "delivered";
-  deliveryAddress: string;
-  type: "meal" | "marketplace";
-}
-
-// ===========================================================================
-// App-specific log types — water and workout logs (no engine formula
-// equivalents; used purely for progress tracking UI).
-// ===========================================================================
-
-export interface WaterLog {
-  date: string; // YYYY-MM-DD
-  amountMl: number;
-}
-
-export interface WorkoutLog {
-  date: string;
-  workoutTitle: string;
-  durationMinutes: number;
-  caloriesBurned: number;
 }

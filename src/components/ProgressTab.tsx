@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from "react";
-// A-24: targeted import from the schemas module — these are pure types,
-// so the engine barrel's `export * from "./assessment"` would otherwise
-// pull the full assessment module (1000+ lines of formula code) into the
-// bundle graph for callers that only need the type definitions.
-import type { DailyWeightLog, WaterLog, WorkoutLog } from "../engine/schemas";
+// A-22: targeted imports split by domain. DailyWeightLog is engine-domain
+// (consumed by adaptiveTdee + assessment); WaterLog + WorkoutLog are pure
+// UI-domain logs. Importing from the types barrel keeps the engine barrel's
+// `export * from "./assessment"` out of this component's bundle graph.
+import type { DailyWeightLog } from "../engine/schemas";
+import type { WaterLog, WorkoutLog } from "../types/logs";
 // A-04 sub-tab extraction: the four giant render functions that used to live
 // inline in this file are now standalone components under ./progress-tab/.
 import CoreMetricsView from "./progress-tab/CoreMetricsView";
@@ -14,18 +15,14 @@ import VisualsView from "./progress-tab/VisualsView";
 // out of this file into ./progress-tab/ for further size reduction.
 import CustomSetLoggerModal from "./progress-tab/CustomSetLoggerModal";
 import LegacyHealthLogger from "./progress-tab/LegacyHealthLogger";
-import type { FlexCard, ProgressAnalytics } from "./progress-tab/types";
+import type { FlexCard } from "./progress-tab/types";
+// A-06: the 13 inline useMemo calls that computed coreMetrics, rollingTrends,
+// muscleZonesAndScores, muscleBalanceAnalysis, lifetimeVolumeTons,
+// lifetimeTierInfo, exerciseProgressions, personalRecords, activeExNames,
+// and the final analytics bundle are now consolidated in this hook.
+import { useProgressAnalytics } from "../hooks/useProgressAnalytics";
 import { Plus, Flame, Droplet, Scale, Filter, RotateCcw, Activity } from "lucide-react";
-import {
-  SetLog,
-  ExerciseLog,
-  LIFETIME_TIERS,
-  calculateCoreMetrics,
-  calculateRollingTrends,
-  analyzeExerciseProgression,
-  calculatePersonalRecords,
-  calculateMuscleVolumesAndScores,
-} from "../data/analyticsEngine";
+import { SetLog, ExerciseLog } from "../data/analyticsEngine";
 import { EXERCISE_DATABASE } from "../data/workoutTemplates";
 import { useLogsStore } from "../store/useLogsStore";
 import { toast, confirmDialog } from "./Toast";
@@ -141,99 +138,21 @@ export default function ProgressTab({
   const waterTarget = 3000;
   const waterPercent = Math.min(100, Math.round((todayWaterTotal / waterTarget) * 100));
 
-  // Training volume and sets metrics
-  const coreMetrics = useMemo(() => {
-    return calculateCoreMetrics(filteredLogs, multiplierSecondary);
-  }, [filteredLogs, multiplierSecondary]);
-
-  // Rolling periods (using all-time data internally to query historical windows)
-  const rollingTrends = useMemo(() => {
-    return calculateRollingTrends(exerciseLogs);
-  }, [exerciseLogs]);
-
-  // Muscle Volume Zones & Hypertrophy Scores
-  const muscleZonesAndScores = useMemo(() => {
-    return calculateMuscleVolumesAndScores(filteredLogs, trainingAge);
-  }, [filteredLogs, trainingAge]);
-
-  // Muscle Balance Flags (Top 3 exceed 70% of total)
-  const muscleBalanceAnalysis = useMemo(() => {
-    const sortedMuscles = [...muscleZonesAndScores].sort((a, b) => b.balancePct - a.balancePct);
-    const top3Share = sortedMuscles.slice(0, 3).reduce((sum, item) => sum + item.balancePct, 0);
-    const isImbalanced = top3Share > 70;
-    return {
-      top3Share,
-      isImbalanced,
-      sortedMuscles,
-    };
-  }, [muscleZonesAndScores]);
-
-  // Tiers / Lifetime progress (Total working mass in tons)
-  const lifetimeVolumeTons = useMemo(() => {
-    const rawVolume = exerciseLogs.reduce((sum, ex) => {
-      return sum + ex.sets.reduce((sSum, s) => sSum + (s.isWarmUp ? 0 : s.weight * s.reps), 0);
-    }, 0);
-    return Math.round((rawVolume / 1000) * 10) / 10; // kg to tons
-  }, [exerciseLogs]);
-
-  const lifetimeTierInfo = useMemo(() => {
-    const currentTierIndex = LIFETIME_TIERS.findIndex(
-      (tier) => lifetimeVolumeTons >= tier.minTons && lifetimeVolumeTons < tier.maxTons,
-    );
-    const currentTier = LIFETIME_TIERS[currentTierIndex] || LIFETIME_TIERS[0];
-    const nextTier = LIFETIME_TIERS[currentTierIndex + 1] || null;
-
-    let progressPercent = 100;
-    let tonsToNext = 0;
-    if (nextTier) {
-      const range = nextTier.minTons - currentTier.minTons;
-      const progress = lifetimeVolumeTons - currentTier.minTons;
-      progressPercent = Math.min(100, Math.round((progress / range) * 100));
-      tonsToNext = Math.round((nextTier.minTons - lifetimeVolumeTons) * 10) / 10;
-    }
-
-    // Estimate weeks to next tier based on average weekly volume
-    const recent4WeeksVolume = filteredLogs
-      .filter((l) => {
-        const d = new Date(l.date);
-        const fourWeeksAgo = new Date();
-        fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
-        return d >= fourWeeksAgo;
-      })
-      .reduce(
-        (sum, ex) =>
-          sum + ex.sets.reduce((sSum, s) => sSum + (s.isWarmUp ? 0 : s.weight * s.reps), 0),
-        0,
-      );
-
-    const avgWeeklyTons = recent4WeeksVolume / 4 / 1000; // tons/week
-    const weeksToNext =
-      avgWeeklyTons > 0 && tonsToNext > 0 ? Math.ceil(tonsToNext / avgWeeklyTons) : 100;
-
-    return {
-      current: currentTier.name,
-      next: nextTier ? nextTier.name : "Max Tier Reached",
-      progressPercent,
-      tonsToNext,
-      weeksToNext,
-      tierIndex: currentTierIndex + 1,
-    };
-  }, [lifetimeVolumeTons, filteredLogs]);
-
-  // Exercise Analysis & Progression Grouping
-  const exerciseProgressions = useMemo(() => {
-    return analyzeExerciseProgression(filteredLogs);
-  }, [filteredLogs]);
-
-  // Personal Records
-  const personalRecords = useMemo(() => {
-    return calculatePersonalRecords(filteredLogs);
-  }, [filteredLogs]);
-
-  // Active exercises unique names
-  const activeExNames = useMemo(() => {
-    return Array.from(new Set(exerciseLogs.map((e) => e.exerciseName))).sort();
-  }, [exerciseLogs]);
+  // --- ANALYTICS BUNDLE ---
+  // A-06: the 13 inline useMemo calls that computed coreMetrics,
+  // rollingTrends, muscleZonesAndScores, muscleBalanceAnalysis,
+  // lifetimeVolumeTons, lifetimeTierInfo, exerciseProgressions,
+  // personalRecords, activeExNames, and the final analytics bundle
+  // are now consolidated in the useProgressAnalytics hook.
+  const analytics = useProgressAnalytics(
+    exerciseLogs,
+    filteredLogs,
+    multiplierSecondary,
+    trainingAge,
+    todayWaterTotal,
+    weightDiff,
+  );
+  const { coreMetrics } = analytics;
 
   // --- LOG WORKOUT SET HANDLER ---
   const handleLogCustomSetSubmit = (e: React.FormEvent) => {
@@ -286,41 +205,6 @@ export default function ProgressTab({
       setLogExName(firstExInCat.name);
     }
   };
-
-  // --- SHARED ANALYTICS BUNDLE ---
-  // Bundles all the memoised analytics outputs into a single object the four
-  // sub-tab components consume. Wrapped in useMemo so the bundle identity is
-  // stable across renders unless one of its inputs actually changes.
-  const analytics: ProgressAnalytics = useMemo(
-    () => ({
-      filteredLogs,
-      coreMetrics,
-      rollingTrends,
-      muscleZonesAndScores,
-      muscleBalanceAnalysis,
-      lifetimeVolumeTons,
-      lifetimeTierInfo,
-      exerciseProgressions,
-      personalRecords,
-      activeExNames,
-      todayWaterTotal,
-      weightDiff,
-    }),
-    [
-      filteredLogs,
-      coreMetrics,
-      rollingTrends,
-      muscleZonesAndScores,
-      muscleBalanceAnalysis,
-      lifetimeVolumeTons,
-      lifetimeTierInfo,
-      exerciseProgressions,
-      personalRecords,
-      activeExNames,
-      todayWaterTotal,
-      weightDiff,
-    ],
-  );
 
   return (
     <div className="flex flex-col h-full bg-[#F9F8F6] text-[#1A1A1A] overflow-y-auto p-4 md:p-6 pb-24 select-text">
