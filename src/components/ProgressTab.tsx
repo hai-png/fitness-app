@@ -49,6 +49,9 @@ import {
   interpretWeightTrend,
 } from "../engine";
 import { WorkoutHeatmap } from "./WorkoutHeatmap";
+// A-01: extracted sub-components (feature folder: src/components/progress/)
+import { EngineTrendAnalysis } from "./progress/EngineTrendAnalysis";
+import { DailyIntakeLogger } from "./progress/DailyIntakeLogger";
 
 interface ProgressTabProps {
   weightLogs: DailyWeightLog[];
@@ -147,11 +150,14 @@ export default function ProgressTab({
   }, [exerciseLogs, dateFilterStart, dateFilterEnd]);
 
   // --- COMPUTATIONS ---
-  const todayStr = new Date().toISOString().split("T")[0];
+  // Q-07: safe — toISOString().split("T") always yields at least one element.
+  const [todayStrPart] = new Date().toISOString().split("T");
+  const todayStr = todayStrPart as string;
 
   // Weight metrics
-  const currentWeight = weightLogs.length > 0 ? weightLogs[weightLogs.length - 1].weight_kg : 75;
-  const initialWeight = weightLogs.length > 0 ? weightLogs[0].weight_kg : 75;
+  // Q-07: safe — guarded by weightLogs.length > 0.
+  const currentWeight = weightLogs.length > 0 ? (weightLogs[weightLogs.length - 1]?.weight_kg ?? 75) : 75;
+  const initialWeight = weightLogs.length > 0 ? (weightLogs[0]?.weight_kg ?? 75) : 75;
   const weightDiff = currentWeight - initialWeight;
 
   // Water metrics
@@ -200,12 +206,24 @@ export default function ProgressTab({
     const currentTierIndex = LIFETIME_TIERS.findIndex(
       (tier, idx) => lifetimeVolumeTons >= tier.minTons && lifetimeVolumeTons < tier.maxTons,
     );
-    const currentTier = LIFETIME_TIERS[currentTierIndex] || LIFETIME_TIERS[0];
-    const nextTier = LIFETIME_TIERS[currentTierIndex + 1] || null;
+    const currentTier = LIFETIME_TIERS[currentTierIndex] ?? (LIFETIME_TIERS[0] as typeof LIFETIME_TIERS[number] | undefined);
+    const nextTier = LIFETIME_TIERS[currentTierIndex + 1] ?? null;
 
     let progressPercent = 100;
     let tonsToNext = 0;
+    if (!currentTier) {
+      return {
+        current: "Unknown",
+        next: "Max Tier Reached",
+        progressPercent,
+        tonsToNext,
+        weeksToNext: 100,
+        tierIndex: currentTierIndex + 1,
+      };
+    }
+
     if (nextTier) {
+      // Q-07: safe — currentTier is non-null via fallback to LIFETIME_TIERS[0].
       const range = nextTier.minTons - currentTier.minTons;
       const progress = lifetimeVolumeTons - currentTier.minTons;
       progressPercent = Math.min(100, Math.round((progress / range) * 100));
@@ -231,6 +249,7 @@ export default function ProgressTab({
       avgWeeklyTons > 0 && tonsToNext > 0 ? Math.ceil(tonsToNext / avgWeeklyTons) : 100;
 
     return {
+      // Q-07: safe — currentTier is non-null via fallback to LIFETIME_TIERS[0].
       current: currentTier.name,
       next: nextTier ? nextTier.name : "Max Tier Reached",
       progressPercent,
@@ -286,7 +305,9 @@ export default function ProgressTab({
     );
 
     if (existingIndex !== -1) {
-      updated[existingIndex].sets.push(newSet);
+      // Q-07: safe — existingIndex !== -1 ensures the element exists.
+      const existing = updated[existingIndex];
+      if (existing) existing.sets.push(newSet);
     } else {
       updated.push(newExLog);
     }
@@ -540,8 +561,10 @@ export default function ProgressTab({
   // --- SUB TAB 2: MUSCLE BODY MAP & VOLUME ZONES ---
   const renderMuscleMapTab = () => {
     const selectedMuscleData =
-      muscleZonesAndScores.find((z) => z.muscle.toLowerCase() === selectedMuscle?.toLowerCase()) ||
-      muscleZonesAndScores[0];
+      muscleZonesAndScores.find((z) => z.muscle.toLowerCase() === selectedMuscle?.toLowerCase()) ??
+      // Q-07: safe — muscleZonesAndScores is non-empty (always populated by calculateMuscleVolumesAndScores).
+      (muscleZonesAndScores[0] as typeof muscleZonesAndScores[number] | undefined);
+    if (!selectedMuscleData) return null;
 
     return (
       <div className="space-y-5 animate-fadeIn">
@@ -908,8 +931,9 @@ export default function ProgressTab({
           </svg>
 
           <div className="flex justify-between items-center text-[7.5px] font-mono text-[#1A1A1A]/40 mt-1">
-            <span>{coords[0].date}</span>
-            <span>{coords[coords.length - 1].date}</span>
+            {/* Q-07: safe — renderTrendChart early-returns when selectedExHistory.length < 2. */}
+            <span>{coords[0]?.date}</span>
+            <span>{coords[coords.length - 1]?.date}</span>
           </div>
         </div>
       );
@@ -1141,7 +1165,9 @@ export default function ProgressTab({
     for (let i = 0; i < 365; i++) {
       const checkDateStr = new Date(today);
       checkDateStr.setDate(today.getDate() - i);
-      const formatted = checkDateStr.toISOString().split("T")[0];
+      // Q-07: safe — toISOString().split("T") always yields at least one element.
+      const [formattedPart] = checkDateStr.toISOString().split("T");
+      const formatted = formattedPart as string;
 
       if (workoutCountsByDate[formatted]) {
         tempStreak++;
@@ -1154,9 +1180,11 @@ export default function ProgressTab({
         const formattedBuffer2 = new Date(checkDateStr);
         formattedBuffer2.setDate(checkDateStr.getDate() - 2);
 
+        const [b1Part] = formattedBuffer1.toISOString().split("T");
+        const [b2Part] = formattedBuffer2.toISOString().split("T");
         if (
-          !workoutCountsByDate[formattedBuffer1.toISOString().split("T")[0]] &&
-          !workoutCountsByDate[formattedBuffer2.toISOString().split("T")[0]]
+          !workoutCountsByDate[b1Part as string] &&
+          !workoutCountsByDate[b2Part as string]
         ) {
           tempStreak = 0;
         }
@@ -1872,277 +1900,3 @@ export default function ProgressTab({
   );
 }
 
-// ===========================================================================
-// Engine Trend Analysis — uses the engine's weeklyRateLbPerWeek +
-// interpretWeightTrend functions to surface evidence-based weight-trend
-// insights in the Logs tab. Implements Step 1 of IMPLEMENTATION_REPORT.md.
-// ===========================================================================
-
-interface EngineTrendAnalysisProps {
-  weightLogs: DailyWeightLog[];
-}
-
-function EngineTrendAnalysis({ weightLogs }: EngineTrendAnalysisProps) {
-  // Pull the user's primary goal + engine profile to determine cut/bulk phase.
-  const onboardingInput = useUserStore((s) => s.onboardingInput);
-  const engineProfile = useUserStore((s) => s.engineProfile);
-  const intakeLogs = useIntakeStore((s) => s.intakeLogs);
-
-  // DailyWeightLog is an alias for engine DailyWeightLog — no mapping needed.
-  const dailyWeights = weightLogs;
-
-  // Compute weekly average + rate using the engine functions.
-  const weeklyAvg = useMemo(() => weeklyAverageWeightKg(dailyWeights), [dailyWeights]);
-  const rateLbPerWeek = useMemo(() => weeklyRateLbPerWeek(dailyWeights), [dailyWeights]);
-
-  // Determine the phase for trend interpretation.
-  const phase: "cut" | "bulk" | "recomp" | "maintain" = (() => {
-    const goal = onboardingInput?.goal;
-    if (goal === "weight-loss") return "cut";
-    if (goal === "muscle-gain" || goal === "strength") return "bulk";
-    return "maintain";
-  })();
-
-  // Days/weeks into phase — approximate from first weight log.
-  const daysIntoPhase = dailyWeights.length;
-  const weeksIntoPhase = Math.floor(daysIntoPhase / 7);
-
-  const trend = useMemo(
-    () => interpretWeightTrend(dailyWeights, phase, daysIntoPhase, weeksIntoPhase),
-    [dailyWeights, phase, daysIntoPhase, weeksIntoPhase],
-  );
-
-  // Intake logging stats (for adaptive TDEE convergence info).
-  const intakeDays = intakeLogs.length;
-  const avgIntake =
-    intakeDays > 0
-      ? Math.round(intakeLogs.reduce((s, l) => s + l.kcal, 0) / intakeDays)
-      : null;
-
-  // Show the panel only after we have at least 1 week of data.
-  if (dailyWeights.length < 7) {
-    return (
-      <div className="mt-3 bg-[#E63946]/5 border border-[#E63946]/15 p-3 rounded-none">
-        <div className="flex items-start gap-2">
-          <TrendingUp className="w-3.5 h-3.5 text-[#E63946] flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-[10px] font-bold text-[#1A1A1A]">
-              Engine trend analysis needs more data
-            </p>
-            <p className="text-[9px] text-[#1A1A1A]/60 font-serif italic mt-0.5">
-              Log weight daily for at least 7 days to unlock evidence-based trend insights
-              (weekly rate, adaptation-phase detection, cut/bulk adjustment recommendations).
-              Currently have {dailyWeights.length}/7 days.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const actionColor =
-    trend.action === "act"
-      ? "text-amber-700 bg-amber-50 border-amber-200"
-      : trend.action === "wait"
-        ? "text-blue-700 bg-blue-50 border-blue-200"
-        : trend.action === "adaptation_phase"
-          ? "text-purple-700 bg-purple-50 border-purple-200"
-          : "text-emerald-700 bg-emerald-50 border-emerald-200";
-
-  return (
-    <div className="mt-3 bg-white border border-[#1A1A1A]/10 p-3 rounded-none">
-      <div className="flex items-center gap-1.5 mb-2">
-        <TrendingUp className="w-3.5 h-3.5 text-[#E63946]" />
-        <span className="text-[10px] font-bold uppercase tracking-wider text-[#1A1A1A] font-mono">
-          Engine Trend Analysis
-        </span>
-      </div>
-
-      <div className="grid grid-cols-3 gap-1.5 mb-2">
-        <div className="bg-[#F9F8F6] p-1.5 border border-[#1A1A1A]/5 text-center">
-          <span className="block text-[8px] uppercase text-[#1A1A1A]/40">Weekly Avg</span>
-          <span className="text-[11px] font-bold text-[#1A1A1A]">
-            {weeklyAvg !== null ? `${weeklyAvg.toFixed(1)} kg` : "—"}
-          </span>
-        </div>
-        <div className="bg-[#F9F8F6] p-1.5 border border-[#1A1A1A]/5 text-center">
-          <span className="block text-[8px] uppercase text-[#1A1A1A]/40">Rate</span>
-          <span
-            className={`text-[11px] font-bold ${
-              rateLbPerWeek !== null && rateLbPerWeek < 0
-                ? "text-emerald-600"
-                : rateLbPerWeek !== null && rateLbPerWeek > 0
-                  ? "text-amber-600"
-                  : "text-[#1A1A1A]"
-            }`}
-          >
-            {rateLbPerWeek !== null ? `${rateLbPerWeek.toFixed(2)} lb/wk` : "—"}
-          </span>
-        </div>
-        <div className="bg-[#F9F8F6] p-1.5 border border-[#1A1A1A]/5 text-center">
-          <span className="block text-[8px] uppercase text-[#1A1A1A]/40">Phase</span>
-          <span className="text-[11px] font-bold text-[#E63946] uppercase">{phase}</span>
-        </div>
-      </div>
-
-      <div className={`p-2 border rounded-none ${actionColor}`}>
-        <div className="flex items-center gap-1.5">
-          <Activity className="w-3 h-3 flex-shrink-0" />
-          <span className="text-[10px] font-bold uppercase tracking-wider">
-            {trend.action.replace(/_/g, " ")}
-          </span>
-        </div>
-        <p className="text-[9px] mt-0.5 font-serif italic">{trend.reason}</p>
-      </div>
-
-      {/* Intake logging status */}
-      <div className="mt-2 flex items-center justify-between text-[9px] text-[#1A1A1A]/60 font-mono">
-        <span>
-          Intake logs: {intakeDays} day(s)
-          {avgIntake !== null && ` · avg ${avgIntake} kcal`}
-        </span>
-        <span className="text-[#E63946]">
-          {intakeDays >= 30
-            ? "Adaptive TDEE ready"
-            : `${30 - intakeDays} days to adaptive TDEE`}
-        </span>
-      </div>
-
-      {engineProfile.is_currently_in_deficit !== undefined && (
-        <p className="text-[8px] text-[#1A1A1A]/40 font-serif italic mt-1">
-          Deficit flag: {engineProfile.is_currently_in_deficit ? "active (−5% BMR)" : "inactive"}
-        </p>
-      )}
-    </div>
-  );
-}
-
-// ===========================================================================
-// Daily Intake Logger — feeds the adaptive TDEE engine with daily calorie
-// + macro intake. Required for the adaptive TDEE to converge from prior-heavy
-// (formula-based) to data-driven after ~30 days of paired intake+weight data.
-// ===========================================================================
-
-function DailyIntakeLogger() {
-  const intakeLogs = useIntakeStore((s) => s.intakeLogs);
-  const addIntakeLog = useIntakeStore((s) => s.addIntakeLog);
-  const clearTodayIntakeLog = useIntakeStore((s) => s.clearTodayIntakeLog);
-  const [kcal, setKcal] = useState("");
-  const [protein, setProtein] = useState("");
-  const [carbs, setCarbs] = useState("");
-  const [fat, setFat] = useState("");
-
-  const todayStr = new Date().toISOString().split("T")[0];
-  const todayLog = intakeLogs.find((l) => l.date === todayStr);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const k = parseFloat(kcal);
-    if (Number.isNaN(k) || k <= 0) {
-      toast.error("Invalid calories", "Enter a positive number for kcal.");
-      return;
-    }
-    addIntakeLog({
-      kcal: k,
-      protein_g: parseFloat(protein) || 0,
-      carbs_g: parseFloat(carbs) || 0,
-      fat_g: parseFloat(fat) || 0,
-    });
-    setKcal("");
-    setProtein("");
-    setCarbs("");
-    setFat("");
-    toast.success("Intake logged", `${k} kcal for today.`);
-  };
-
-  return (
-    <div className="mt-3 bg-white border border-[#1A1A1A]/10 p-3 rounded-none">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-1.5">
-          <Flame className="w-3.5 h-3.5 text-[#E63946]" />
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#1A1A1A] font-mono">
-            Daily Intake Logger
-          </span>
-        </div>
-        {todayLog && (
-          <button
-            type="button"
-            onClick={() => {
-              clearTodayIntakeLog();
-              toast.info("Today's intake cleared");
-            }}
-            className="text-[9px] text-[#1A1A1A]/50 hover:text-[#E63946] font-mono uppercase tracking-wider"
-          >
-            Clear Today
-          </button>
-        )}
-      </div>
-
-      {todayLog ? (
-        <div className="bg-emerald-50 border border-emerald-200 p-2 rounded-none mb-2">
-          <div className="flex items-center gap-1.5">
-            <Check className="w-3 h-3 text-emerald-700" />
-            <span className="text-[10px] font-bold text-emerald-700">
-              Today: {todayLog.kcal} kcal · P{todayLog.protein_g}g · C{todayLog.carbs_g}g · F{todayLog.fat_g}g
-            </span>
-          </div>
-        </div>
-      ) : (
-        <p className="text-[9px] text-[#1A1A1A]/50 font-serif italic mb-2">
-          No intake logged today. Log your daily totals to feed the adaptive TDEE engine.
-        </p>
-      )}
-
-      <form onSubmit={handleSubmit} className="grid grid-cols-4 gap-1.5">
-        <input
-          type="number"
-          step="1"
-          placeholder="kcal"
-          value={kcal}
-          onChange={(e) => setKcal(e.target.value)}
-          required
-          className="engine-input text-center"
-          aria-label="Calories"
-        />
-        <input
-          type="number"
-          step="0.1"
-          placeholder="P (g)"
-          value={protein}
-          onChange={(e) => setProtein(e.target.value)}
-          className="engine-input text-center"
-          aria-label="Protein grams"
-        />
-        <input
-          type="number"
-          step="0.1"
-          placeholder="C (g)"
-          value={carbs}
-          onChange={(e) => setCarbs(e.target.value)}
-          className="engine-input text-center"
-          aria-label="Carbs grams"
-        />
-        <input
-          type="number"
-          step="0.1"
-          placeholder="F (g)"
-          value={fat}
-          onChange={(e) => setFat(e.target.value)}
-          className="engine-input text-center"
-          aria-label="Fat grams"
-        />
-        <button
-          type="submit"
-          className="col-span-4 py-2 bg-[#1A1A1A] hover:bg-[#E63946] text-white text-[10px] font-bold uppercase tracking-wider font-mono transition-all"
-        >
-          Log Today&apos;s Intake
-        </button>
-      </form>
-
-      <p className="text-[8px] text-[#1A1A1A]/40 font-serif italic mt-1.5">
-        Macros are optional but help with future features. One entry per day — submitting
-        overwrites today&apos;s log.
-      </p>
-    </div>
-  );
-}

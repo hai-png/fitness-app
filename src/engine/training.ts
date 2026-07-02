@@ -494,6 +494,9 @@ export function isLiftPlateaued(sessions: TrainingLogExercise[]): {
     const working = sess.sets.filter((s) => s.completed).map((s) => s.load_kg);
     return working.length > 0 ? Math.max(...working) : 0;
   });
-  const plateaued = top_weights[2] <= top_weights[0];
+  // Q-07: safe — recent = sessions.slice(-3) and early return ensures sessions.length >= 3,
+  // so recent has exactly 3 elements: indices 0, 1, 2 always exist.
+  // Use ?? 0 to satisfy noUncheckedIndexedAccess without no-non-null-assertion.
+  const plateaued = (top_weights[2] ?? 0) <= (top_weights[0] ?? 0);
   return { plateaued, top_weights };
 }

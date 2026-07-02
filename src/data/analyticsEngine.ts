@@ -163,10 +163,12 @@ export function analyzeExerciseProgression(logs: ExerciseLog[]): ExerciseAnalysi
   // Group logs by exercise name
   const grouped: Record<string, ExerciseLog[]> = {};
   logs.forEach((log) => {
-    if (!grouped[log.exerciseName]) {
-      grouped[log.exerciseName] = [];
+    const existing = grouped[log.exerciseName];
+    if (existing) {
+      existing.push(log);
+    } else {
+      grouped[log.exerciseName] = [log];
     }
-    grouped[log.exerciseName].push(log);
   });
 
   const analyses: ExerciseAnalysis[] = [];
@@ -180,7 +182,10 @@ export function analyzeExerciseProgression(logs: ExerciseLog[]): ExerciseAnalysi
     if (sessionCount === 0) return;
 
     // Muscle group
-    const muscle = sorted[0].targetMuscle;
+    // Q-07: safe — sessionCount === 0 returned above.
+    const firstLog = sorted[0];
+    if (!firstLog) return;
+    const muscle = firstLog.targetMuscle;
 
     // Extract maximum weight and average working weight
     let maxWeight = 0;
@@ -200,8 +205,10 @@ export function analyzeExerciseProgression(logs: ExerciseLog[]): ExerciseAnalysi
 
     // Calculate Last 3 sessions top working weights to inspect plateaus
     const recentSessions = sorted.slice(-3);
+    // Q-07: safe — sessionCount === 0 returned above.
     const lastSession = sorted[sorted.length - 1];
     const firstSession = sorted[0];
+    if (!lastSession || !firstSession) return;
 
     // Estimate Last Session 1RM
     let lastSessionMax1RM = 0;
@@ -242,10 +249,11 @@ export function analyzeExerciseProgression(logs: ExerciseLog[]): ExerciseAnalysi
       });
 
       // If weight has been completely flat or declining across 3 sessions
-      const isFlat = topWeights[2] <= topWeights[0];
+      // Q-07: safe — guarded by recentSessions.length >= 3 above.
+      const isFlat = (topWeights[2] ?? 0) <= (topWeights[0] ?? 0);
       if (isFlat) {
         plateauDetected = true;
-        plateauRecommendation = `Stalled at ${topWeights[2]}kg. Try introducing a 10% deload week, then return with an emphasis on strict mechanical tempo, or switch to micro-load plates (+0.5kg/side).`;
+        plateauRecommendation = `Stalled at ${topWeights[2] ?? 0}kg. Try introducing a 10% deload week, then return with an emphasis on strict mechanical tempo, or switch to micro-load plates (+0.5kg/side).`;
       }
     }
 
@@ -281,8 +289,12 @@ export interface PersonalRecord {
 export function calculatePersonalRecords(logs: ExerciseLog[]): PersonalRecord[] {
   const grouped: Record<string, ExerciseLog[]> = {};
   logs.forEach((l) => {
-    if (!grouped[l.exerciseName]) grouped[l.exerciseName] = [];
-    grouped[l.exerciseName].push(l);
+    const existing = grouped[l.exerciseName];
+    if (existing) {
+      existing.push(l);
+    } else {
+      grouped[l.exerciseName] = [l];
+    }
   });
 
   const prs: PersonalRecord[] = [];
@@ -350,12 +362,17 @@ export function calculatePersonalRecords(logs: ExerciseLog[]): PersonalRecord[] 
     };
 
     for (let i = 0; i < sorted.length; i++) {
+      // Q-07: safe — i < sorted.length inside this loop.
       const sess = sorted[i];
+      if (!sess) continue;
       const maxSessWeight = maxWorkingWeight(sess);
 
       // If we have at least 1 session before and 3 sessions after
       if (i > 0 && i < sorted.length - 3) {
-        const prevSessionMax = maxWorkingWeight(sorted[i - 1]);
+        // Q-07: safe — i > 0 and i < sorted.length - 3 in this branch.
+        const prev = sorted[i - 1];
+        if (!prev) continue;
+        const prevSessionMax = maxWorkingWeight(prev);
         const followingMaxes = sorted.slice(i + 1, i + 4).map((s) => maxWorkingWeight(s));
 
         // If jump was > 25% compared to previous, AND all following 3 sessions are at least 15% lower than this jump

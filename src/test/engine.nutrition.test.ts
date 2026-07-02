@@ -155,10 +155,11 @@ describe("Part 3.4 / Cut/Bulk/Recomp decisioning", () => {
 describe("Part 3.5 / Cutting", () => {
   it("MacroFactor 5-tier rate table has 5 tiers (Part 3.5.2)", () => {
     expect(CUT_RATE_TIERS).toHaveLength(5);
-    expect(CUT_RATE_TIERS[0].label).toBe("very_conservative");
-    expect(CUT_RATE_TIERS[0].pct_body_weight_per_week).toBe(0.1);
-    expect(CUT_RATE_TIERS[4].label).toBe("aggressive");
-    expect(CUT_RATE_TIERS[4].pct_body_weight_per_week).toBe(1.5);
+    // Q-07: safe — controlled test data; CUT_RATE_TIERS has exactly 5 entries.
+    expect(CUT_RATE_TIERS[0]!.label).toBe("very_conservative");
+    expect(CUT_RATE_TIERS[0]!.pct_body_weight_per_week).toBe(0.1);
+    expect(CUT_RATE_TIERS[4]!.label).toBe("aggressive");
+    expect(CUT_RATE_TIERS[4]!.pct_body_weight_per_week).toBe(1.5);
   });
 
   it("sweet spot is 0.6-0.7% BW/week (Part 3.5.1)", () => {
@@ -567,7 +568,8 @@ describe("applyMacroAdjustment", () => {
       reason: "Stalled",
     });
     expect(adjusted.adjustment_history).toHaveLength(1);
-    expect(adjusted.adjustment_history[0].reason).toBe("Stalled");
+    // Q-07: safe — controlled test data.
+    expect(adjusted.adjustment_history[0]!.reason).toBe("Stalled");
     expect(adjusted.last_adjustment_date).toBeDefined();
   });
 });

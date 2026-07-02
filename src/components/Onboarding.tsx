@@ -217,7 +217,8 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     const interval = setInterval(() => {
       if (msgIdx < msgs.length - 1) {
         msgIdx++;
-        setLoadingMsg(msgs[msgIdx]);
+        // Q-07: safe — guarded by msgIdx < msgs.length - 1 above.
+        setLoadingMsg(msgs[msgIdx] ?? "");
       }
     }, 1200);
     loadingIntervalRef.current = interval;
@@ -355,10 +356,11 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
             </div>
 
             <h1 className="text-3xl font-serif font-black italic tracking-tight text-[#1A1A1A] flex items-center gap-2 mb-2">
-              {steps[step].title}
+              {/* Q-07: safe — `step` is bounded by steps.length via the navigation guards. */}
+              {steps[step]?.title}
             </h1>
             <p className="text-[#1A1A1A]/60 text-xs mt-1.5 mb-6 font-serif italic leading-relaxed">
-              {steps[step].subtitle}
+              {steps[step]?.subtitle}
             </p>
 
             {/* Error UI */}
@@ -603,10 +605,11 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                                 handleFieldChange("availableMachines", []);
                               } else if (!form.selectedGymName) {
                                 // Default select the first gym
-                                handleFieldChange("selectedGymName", NEARBY_GYMS[0].name);
+                                // Q-07: safe — NEARBY_GYMS is a static non-empty array (3 entries).
+                                handleFieldChange("selectedGymName", NEARBY_GYMS[0]?.name ?? "");
                                 handleFieldChange(
                                   "availableMachines",
-                                  NEARBY_GYMS[0].defaultMachines,
+                                  NEARBY_GYMS[0]?.defaultMachines ?? [],
                                 );
                               }
                             }}

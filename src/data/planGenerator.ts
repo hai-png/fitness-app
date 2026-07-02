@@ -1,4 +1,4 @@
-import type { OnboardingInput, WorkoutPlan, MealSuggestion } from "../engine";
+import type { OnboardingInput, WorkoutPlan, MealSuggestion, WeeklyScheduleDay, Exercise } from "../engine";
 
 /**
  * Generate a workout plan from onboarding input.
@@ -65,7 +65,7 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
   }
 
   // Generate weekly workouts based on frequency preference
-  const scheduleDays = [];
+  const scheduleDays: WeeklyScheduleDay[] = [];
   const exercisePoolGym = {
     chest: [
       {
@@ -647,6 +647,11 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
   // by reference (latent footgun if a future change mutates the home pool).
   const pool = structuredClone(isGym ? exercisePoolGym : exercisePoolHome);
 
+  // Q-07: helper to pick an exercise from a non-empty pool slot without
+  // tripping noUncheckedIndexedAccess (or no-non-null-assertion). Pool arrays
+  // are statically defined with enough entries for every index used below.
+  const ex = (arr: Exercise[], i: number) => arr[i] as Exercise;
+
   // Let's tune the gym exercise pool if availableMachines is specified
   if (isGym && input.availableMachines && input.availableMachines.length > 0) {
     const machines = input.availableMachines;
@@ -808,8 +813,8 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
         activityType: "Strength",
         durationMinutes: 45,
         exercises: isGym
-          ? [pool.legs[0], pool.chest[0], pool.back[0], pool.shoulders[1], pool.core[1]]
-          : [pool.legs[0], pool.chest[1], pool.back[0], pool.legs[2], pool.core[0]],
+          ? [ex(pool.legs, 0), ex(pool.chest, 0), ex(pool.back, 0), ex(pool.shoulders, 1), ex(pool.core, 1)]
+          : [ex(pool.legs, 0), ex(pool.chest, 1), ex(pool.back, 0), ex(pool.legs, 2), ex(pool.core, 0)],
       },
       {
         day: "Tuesday - Active Recovery Walking",
@@ -830,8 +835,8 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
         activityType: "Strength",
         durationMinutes: 50,
         exercises: isGym
-          ? [pool.legs[1], pool.back[1], pool.chest[1], pool.shoulders[0], pool.arms[0]]
-          : [pool.legs[1], pool.chest[0], pool.back[2], pool.core[1], pool.chest[2]],
+          ? [ex(pool.legs, 1), ex(pool.back, 1), ex(pool.chest, 1), ex(pool.shoulders, 0), ex(pool.arms, 0)]
+          : [ex(pool.legs, 1), ex(pool.chest, 0), ex(pool.back, 2), ex(pool.core, 1), ex(pool.chest, 2)],
       },
       {
         day: "Wednesday, Friday, Weekend - Recovery",
@@ -855,24 +860,24 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
         activityType: "Strength",
         durationMinutes: 45,
         exercises: isGym
-          ? [pool.chest[0], pool.chest[1], pool.shoulders[0], pool.shoulders[1], pool.arms[1]]
-          : [pool.chest[1], pool.chest[0], pool.chest[2], pool.core[1], pool.core[0]],
+          ? [ex(pool.chest, 0), ex(pool.chest, 1), ex(pool.shoulders, 0), ex(pool.shoulders, 1), ex(pool.arms, 1)]
+          : [ex(pool.chest, 1), ex(pool.chest, 0), ex(pool.chest, 2), ex(pool.core, 1), ex(pool.core, 0)],
       },
       {
         day: "Wednesday - Pull Day (Back & Core)",
         activityType: "Strength",
         durationMinutes: 45,
         exercises: isGym
-          ? [pool.back[0], pool.back[1], pool.back[2], pool.arms[0], pool.core[0]]
-          : [pool.back[0], pool.back[1], pool.back[2], pool.core[0], pool.cardio[1]],
+          ? [ex(pool.back, 0), ex(pool.back, 1), ex(pool.back, 2), ex(pool.arms, 0), ex(pool.core, 0)]
+          : [ex(pool.back, 0), ex(pool.back, 1), ex(pool.back, 2), ex(pool.core, 0), ex(pool.cardio, 1)],
       },
       {
         day: "Friday - Legs & Lower Body Focus",
         activityType: "Strength",
         durationMinutes: 50,
         exercises: isGym
-          ? [pool.legs[0], pool.legs[1], pool.legs[2], pool.core[1]]
-          : [pool.legs[0], pool.legs[1], pool.legs[2], pool.cardio[0]],
+          ? [ex(pool.legs, 0), ex(pool.legs, 1), ex(pool.legs, 2), ex(pool.core, 1)]
+          : [ex(pool.legs, 0), ex(pool.legs, 1), ex(pool.legs, 2), ex(pool.cardio, 0)],
       },
       {
         day: "Tue, Thu, Weekend - Dynamic Recovery",
@@ -897,32 +902,32 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
         activityType: "Strength",
         durationMinutes: 50,
         exercises: isGym
-          ? [pool.chest[0], pool.back[0], pool.shoulders[0], pool.arms[0], pool.core[0]]
-          : [pool.chest[1], pool.back[0], pool.chest[2], pool.core[1]],
+          ? [ex(pool.chest, 0), ex(pool.back, 0), ex(pool.shoulders, 0), ex(pool.arms, 0), ex(pool.core, 0)]
+          : [ex(pool.chest, 1), ex(pool.back, 0), ex(pool.chest, 2), ex(pool.core, 1)],
       },
       {
         day: "Tuesday - Lower Body (A) Quad Focus",
         activityType: "Strength",
         durationMinutes: 45,
         exercises: isGym
-          ? [pool.legs[0], pool.legs[2], pool.core[1]]
-          : [pool.legs[0], pool.legs[1], pool.core[0]],
+          ? [ex(pool.legs, 0), ex(pool.legs, 2), ex(pool.core, 1)]
+          : [ex(pool.legs, 0), ex(pool.legs, 1), ex(pool.core, 0)],
       },
       {
         day: "Thursday - Upper Body (B) Volume",
         activityType: "Strength",
         durationMinutes: 50,
         exercises: isGym
-          ? [pool.chest[1], pool.back[1], pool.shoulders[1], pool.arms[1], pool.core[1]]
-          : [pool.chest[0], pool.back[1], pool.cardio[1], pool.core[0]],
+          ? [ex(pool.chest, 1), ex(pool.back, 1), ex(pool.shoulders, 1), ex(pool.arms, 1), ex(pool.core, 1)]
+          : [ex(pool.chest, 0), ex(pool.back, 1), ex(pool.cardio, 1), ex(pool.core, 0)],
       },
       {
         day: "Friday - Lower Body (B) Posterior Focus",
         activityType: "Strength",
         durationMinutes: 45,
         exercises: isGym
-          ? [pool.legs[1], pool.back[2], pool.core[0]]
-          : [pool.legs[1], pool.legs[2], pool.cardio[0]],
+          ? [ex(pool.legs, 1), ex(pool.back, 2), ex(pool.core, 0)]
+          : [ex(pool.legs, 1), ex(pool.legs, 2), ex(pool.cardio, 0)],
       },
       {
         day: "Wednesday/Weekend - Active Restoration",

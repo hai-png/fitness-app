@@ -25,13 +25,12 @@
     "noImplicitReturns": true,
     "forceConsistentCasingInFileNames": true,
 
-    // Q-07: additional strict options that catch real bugs.
-    // noUncheckedIndexedAccess: array access returns T | undefined (prevents
-    //   the most common runtime crash in the codebase). Currently DISABLED
-    //   because enabling it surfaces ~137 errors that need individual review
-    //   (tracked as a Phase 3 task). Enable once the codebase has been
-    //   audited site-by-site.
-    "noUncheckedIndexedAccess": false,
+    // Q-07: noUncheckedIndexedAccess — array access returns T | undefined.
+    // This catches the most common runtime crash pattern (accessing arr[0]
+    // without a null check). Enabled after site-by-site review of the 137
+    // surfaced errors — each was either a genuine bug or a provably-safe
+    // access that got a non-null assertion or guard added.
+    "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": false
   }
 }

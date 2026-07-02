@@ -131,9 +131,12 @@ export default function MealOrderingTab({
       const dayMeals: DayPlan["meals"] = [];
       mealSlots.forEach((slot, slotIdx) => {
         const mealIndex = (d * 5 + slotIdx * 3) % eligibleMeals.length;
+        // Q-07: safe — modulo by eligibleMeals.length keeps mealIndex in-bounds.
+        const meal = eligibleMeals[mealIndex];
+        if (!meal) return;
         dayMeals.push({
           slot,
-          meal: eligibleMeals[mealIndex],
+          meal,
         });
       });
       list.push({
@@ -156,9 +159,12 @@ export default function MealOrderingTab({
 
     setCustomPlan((prev) => {
       const updated = [...prev];
+      // Q-07: safe — dayIndex/mealIndex come from the rendered list; valid by construction.
+      const target = updated[dayIndex];
+      if (!target) return prev;
       updated[dayIndex] = {
-        ...updated[dayIndex],
-        meals: updated[dayIndex].meals.map((m, idx) =>
+        ...target,
+        meals: target.meals.map((m, idx) =>
           idx === mealIndex ? { ...m, meal: replacementMeal } : m,
         ),
       };

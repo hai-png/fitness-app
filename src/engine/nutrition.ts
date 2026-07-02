@@ -1045,8 +1045,12 @@ export function recommendAdjustment(args: {
     let num = 0;
     let den = 0;
     for (let i = 0; i < n; i++) {
-      num += (xs[i] - xMean) * (ys[i] - yMean);
-      den += (xs[i] - xMean) ** 2;
+      // Q-07: safe — i < n = recent.length, and xs/ys are derived from recent.
+      // Use ?? 0 to satisfy noUncheckedIndexedAccess without no-non-null-assertion.
+      const x = xs[i] ?? 0;
+      const y = ys[i] ?? 0;
+      num += (x - xMean) * (y - yMean);
+      den += (x - xMean) ** 2;
     }
     if (den === 0) return 0;
     return (num / den) * 7 * 2.2046226218; // kg/day → lb/week

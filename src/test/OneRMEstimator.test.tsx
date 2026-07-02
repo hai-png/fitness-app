@@ -37,8 +37,9 @@ describe("OneRMEstimator", () => {
 
     const toasts = useToastStore.getState().toasts;
     expect(toasts).toHaveLength(1);
-    expect(toasts[0].variant).toBe("warning");
-    expect(toasts[0].title).toBe("Invalid input");
+    // Q-07: safe — controlled test data, toasts has exactly 1 element.
+    expect(toasts[0]!.variant).toBe("warning");
+    expect(toasts[0]!.title).toBe("Invalid input");
   });
 
   it("shows a warning toast when reps is 0", () => {
@@ -49,7 +50,8 @@ describe("OneRMEstimator", () => {
 
     const toasts = useToastStore.getState().toasts;
     expect(toasts).toHaveLength(1);
-    expect(toasts[0].variant).toBe("warning");
+    // Q-07: safe — controlled test data.
+    expect(toasts[0]!.variant).toBe("warning");
   });
 
   it("computes and shows an info toast with the Epley estimate", () => {
@@ -59,12 +61,13 @@ describe("OneRMEstimator", () => {
 
     const toasts = useToastStore.getState().toasts;
     expect(toasts).toHaveLength(1);
-    expect(toasts[0].variant).toBe("info");
-    expect(toasts[0].title).toBe("Estimated 1RM");
+    // Q-07: safe — controlled test data.
+    expect(toasts[0]!.variant).toBe("info");
+    expect(toasts[0]!.title).toBe("Estimated 1RM");
     // Message should contain the rounded 1RM value
-    expect(toasts[0].message).toMatch(/93 kg/);
-    expect(toasts[0].message).toContain("80kg");
-    expect(toasts[0].message).toContain("5 reps");
+    expect(toasts[0]!.message).toMatch(/93 kg/);
+    expect(toasts[0]!.message).toContain("80kg");
+    expect(toasts[0]!.message).toContain("5 reps");
   });
 
   it("updates the estimate when inputs change", () => {
@@ -75,6 +78,7 @@ describe("OneRMEstimator", () => {
     fireEvent.click(screen.getByText("Estimate 1RM"));
 
     const toasts = useToastStore.getState().toasts;
-    expect(toasts[0].message).toMatch(/100 kg/);
+    // Q-07: safe — controlled test data.
+    expect(toasts[0]!.message).toMatch(/100 kg/);
   });
 });

@@ -160,7 +160,8 @@ describe("Part 2.4 / Progression", () => {
     });
     const deloaded = applyDeload(plan);
     // 40% reduction → 16 × 0.6 = 9.6 → 10
-    expect(deloaded.exercises[0].sets).toBe(10);
+    // Q-07: safe — controlled test data, plan.exercises has 1 element.
+    expect(deloaded.exercises[0]!.sets).toBe(10);
     expect(deloaded.weekly_sets_per_muscle.Chest).toBe(10);
   });
 });

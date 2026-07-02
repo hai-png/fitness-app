@@ -108,9 +108,11 @@ export function computeObservedTdee(args: {
     recent_intakes.reduce((s, l) => s + l.kcal, 0) / recent_intakes.length;
 
   // Take the most recent weight and the weight `window` days prior.
+  // Q-07: safe — early return above guarantees weights.length >= 2.
   const recent_weight = weights[weights.length - 1];
   const start_idx = Math.max(0, weights.length - 1 - window);
   const start_weight = weights[start_idx];
+  if (!recent_weight || !start_weight) return null;
   const delta_weight_kg = recent_weight.weight_kg - start_weight.weight_kg;
   const delta_weight_lb = delta_weight_kg * 2.2046226218;
 
@@ -171,8 +173,9 @@ export function computeAdaptiveTdee(args: {
     if (all_dates.length === 0) {
       days_logged = 0;
     } else {
-      const earliest = new Date(all_dates[0]).getTime();
-      const latest = new Date(all_dates[all_dates.length - 1]).getTime();
+      // Q-07: safe — all_dates.length > 0 in this branch.
+      const earliest = new Date(all_dates[0] ?? "").getTime();
+      const latest = new Date(all_dates[all_dates.length - 1] ?? "").getTime();
       days_logged = Math.max(0, (latest - earliest) / (1000 * 60 * 60 * 24));
     }
   }
@@ -251,9 +254,13 @@ export function detectOutliers(args: {
   const threshold_kg = args.body_weight_kg * 0.02;
   const large_water_weight_jumps: string[] = [];
   for (let i = 1; i < weights_sorted.length; i++) {
-    const delta = Math.abs(weights_sorted[i].weight_kg - weights_sorted[i - 1].weight_kg);
+    // Q-07: safe — i and i-1 are both < weights_sorted.length in this loop.
+    const cur = weights_sorted[i];
+    const prev = weights_sorted[i - 1];
+    if (!cur || !prev) continue;
+    const delta = Math.abs(cur.weight_kg - prev.weight_kg);
     if (delta > threshold_kg) {
-      large_water_weight_jumps.push(weights_sorted[i].date);
+      large_water_weight_jumps.push(cur.date);
     }
   }
 
@@ -297,9 +304,14 @@ export function ewmaWeight(
 ): number | null {
   if (weights.length === 0) return null;
   const sorted = [...weights].sort((a, b) => a.date.localeCompare(b.date));
-  let ewma = sorted[0].weight_kg;
+  // Q-07: safe — early return guarantees sorted.length >= 1.
+  const first = sorted[0];
+  if (!first) return null;
+  let ewma = first.weight_kg;
   for (let i = 1; i < sorted.length; i++) {
-    ewma = alpha * sorted[i].weight_kg + (1 - alpha) * ewma;
+    const cur = sorted[i];
+    if (!cur) continue;
+    ewma = alpha * cur.weight_kg + (1 - alpha) * ewma;
   }
   return ewma;
 }

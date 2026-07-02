@@ -32,6 +32,7 @@ import {
   DURATION_PROGRAMS,
   ExerciseDBItem,
   ProgramPreset,
+  type SplitTemplate,
 } from "../data/workoutTemplates";
 
 interface TrainingTabProps {
@@ -75,7 +76,8 @@ export default function TrainingTab({
   const [selectedDBExerciseName, setSelectedDBExerciseName] = useState<string>("");
 
   const selectedDay: WeeklyScheduleDay =
-    workoutPlan.weeklySchedule[selectedDayIndex] || workoutPlan.weeklySchedule[0];
+    // Q-07: safe — weeklySchedule is non-empty (always populated by planGenerator).
+    workoutPlan.weeklySchedule[selectedDayIndex] ?? (workoutPlan.weeklySchedule[0] as WeeklyScheduleDay);
 
   // Initialize duration-based programs values if not set
   const planDuration = workoutPlan.durationWeeks || 8;
@@ -106,7 +108,8 @@ export default function TrainingTab({
           ["Quads", "Hamstrings", "Glutes"].includes(e.targetMuscle)),
     );
     if (filtered.length > 0) {
-      setSelectedDBExerciseName(filtered[0].name);
+      // Q-07: safe — guarded by filtered.length > 0.
+      setSelectedDBExerciseName(filtered[0]?.name ?? "");
     } else {
       setSelectedDBExerciseName("");
     }
@@ -164,7 +167,8 @@ export default function TrainingTab({
     const caloriesBurned = selectedDay.durationMinutes * burnRate;
 
     const newLog: WorkoutLog = {
-      date: new Date().toISOString().split("T")[0],
+      // Q-07: safe — toISOString().split("T") always yields at least one element.
+      date: new Date().toISOString().split("T")[0] as string,
       workoutTitle: `${selectedDay.day} (Week ${currentWeekNum})`,
       durationMinutes: selectedDay.durationMinutes,
       caloriesBurned,
@@ -209,7 +213,9 @@ export default function TrainingTab({
 
   // Apply visual split templates directly in builder
   const handleBuilderApplyTemplate = (templateIndex: number) => {
-    const temp = SPLIT_TEMPLATES[templateIndex];
+    // Q-07: safe — SPLIT_TEMPLATES has 4 entries; templateIndex is bounded by the UI dropdown.
+    const temp = SPLIT_TEMPLATES[templateIndex] as SplitTemplate | undefined;
+    if (!temp) return;
     setBuilderSchedule(structuredClone(temp.weeklySchedule));
     setBuilderTitle(temp.name);
     setBuilderDescription(temp.description);
@@ -237,8 +243,11 @@ export default function TrainingTab({
 
   const handleBuilderUpdateDayField = (field: keyof WeeklyScheduleDay, val: any) => {
     const next = [...builderSchedule];
+    // Q-07: safe — selectedBuilderDayIndex is bounded by builderSchedule.length.
+    const target = next[selectedBuilderDayIndex];
+    if (!target) return;
     next[selectedBuilderDayIndex] = {
-      ...next[selectedBuilderDayIndex],
+      ...target,
       [field]: val,
     };
     setBuilderSchedule(next);
@@ -261,13 +270,19 @@ export default function TrainingTab({
     };
 
     const next = [...builderSchedule];
-    next[selectedBuilderDayIndex].exercises.push(newEx);
+    // Q-07: safe — selectedBuilderDayIndex is bounded by builderSchedule.length.
+    const target = next[selectedBuilderDayIndex];
+    if (!target) return;
+    target.exercises.push(newEx);
     setBuilderSchedule(next);
   };
 
   const handleBuilderRemoveExerciseFromDay = (exIdx: number) => {
     const next = [...builderSchedule];
-    next[selectedBuilderDayIndex].exercises = next[selectedBuilderDayIndex].exercises.filter(
+    // Q-07: safe — selectedBuilderDayIndex is bounded by builderSchedule.length.
+    const target = next[selectedBuilderDayIndex];
+    if (!target) return;
+    target.exercises = target.exercises.filter(
       (_, i) => i !== exIdx,
     );
     setBuilderSchedule(next);
@@ -275,8 +290,13 @@ export default function TrainingTab({
 
   const handleBuilderUpdateExerciseField = (exIdx: number, field: keyof Exercise, val: any) => {
     const next = [...builderSchedule];
-    next[selectedBuilderDayIndex].exercises[exIdx] = {
-      ...next[selectedBuilderDayIndex].exercises[exIdx],
+    // Q-07: safe — selectedBuilderDayIndex is bounded by builderSchedule.length.
+    const target = next[selectedBuilderDayIndex];
+    if (!target) return;
+    const exTarget = target.exercises[exIdx];
+    if (!exTarget) return;
+    target.exercises[exIdx] = {
+      ...exTarget,
       [field]: val,
     };
     setBuilderSchedule(next);
