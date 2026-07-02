@@ -4,7 +4,6 @@ import { OnboardingInput, MealProduct, CartItem, Order, NutritionPlan } from "..
 import { toast } from "./Toast";
 import {
   ShoppingBag,
-  UtensilsCrossed,
   AlertTriangle,
   Sparkles,
   CreditCard,
@@ -16,19 +15,12 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
-  Plus,
-  TrendingUp,
-  Sliders,
   Check,
 } from "lucide-react";
 
 interface MealOrderingTabProps {
   assessment: OnboardingInput;
   nutritionPlan: NutritionPlan | null;
-  cart: CartItem[];
-  onAddToCart: (item: CartItem) => void;
-  onRemoveFromCart: (id: string) => void;
-  onUpdateCartQty: (id: string, qty: number) => void;
   onCheckout: (order: Order) => void;
 }
 
@@ -43,10 +35,6 @@ interface DayPlan {
 export default function MealOrderingTab({
   assessment,
   nutritionPlan,
-  cart,
-  onAddToCart,
-  onRemoveFromCart,
-  onUpdateCartQty,
   onCheckout,
 }: MealOrderingTabProps) {
   // Configurable Delivery Variables
@@ -70,8 +58,6 @@ export default function MealOrderingTab({
 
   const targetCalories =
     nutritionPlan?.target_calories_kcal || Math.round(assessment.weight * 26);
-  const targetProtein =
-    nutritionPlan?.protein_g || Math.round(assessment.weight * 1.8);
 
   // Filter products by dietary restriction and allergy
   const getEligibleMeals = (): MealProduct[] => {
@@ -179,13 +165,8 @@ export default function MealOrderingTab({
     (sum, d) => sum + d.meals.reduce((s, m) => s + m.meal.calories, 0),
     0,
   );
-  const totalPlanProtein = customPlan.reduce(
-    (sum, d) => sum + d.meals.reduce((s, m) => s + m.meal.protein, 0),
-    0,
-  );
 
   const avgDailyCalories = Math.round(totalPlanCalories / numDays) || 0;
-  const avgDailyProtein = Math.round(totalPlanProtein / numDays) || 0;
 
   // Pricing calculations
   const basePricePerMeal = 13.49; // Flat plan optimized price
@@ -670,10 +651,16 @@ export default function MealOrderingTab({
 
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-[9px] font-bold text-[#1A1A1A]/60 uppercase tracking-widest mb-1.5">
+                    <label
+                      htmlFor="div-checkout-plan-summary"
+                      className="block text-[9px] font-bold text-[#1A1A1A]/60 uppercase tracking-widest mb-1.5"
+                    >
                       Delivered Plan Summary
                     </label>
-                    <div className="bg-[#F9F8F6] px-3 py-2 rounded-none border border-[#1A1A1A]/5 text-xs flex justify-between font-bold">
+                    <div
+                      id="div-checkout-plan-summary"
+                      className="bg-[#F9F8F6] px-3 py-2 rounded-none border border-[#1A1A1A]/5 text-xs flex justify-between font-bold"
+                    >
                       <span className="text-[#1A1A1A]/60">
                         {numDays}-day plan ({totalMealsCount} preps)
                       </span>

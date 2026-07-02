@@ -9,13 +9,7 @@ const ProgressTab = lazy(() => import("./components/ProgressTab"));
 const MarketplaceTab = lazy(() => import("./components/MarketplaceTab"));
 const ProfileTab = lazy(() => import("./components/ProfileTab"));
 
-import type {
-  OnboardingInput,
-  WorkoutPlan,
-  CartItem,
-  Order,
-  WorkoutLog,
-} from "./engine";
+import type { OnboardingInput, WorkoutPlan } from "./engine";
 import {
   Dumbbell,
   UtensilsCrossed,
@@ -59,7 +53,6 @@ export default function App() {
 
   const weightLogs = useLogsStore((s) => s.weightLogs);
   const waterLogs = useLogsStore((s) => s.waterLogs);
-  const workoutLogs = useLogsStore((s) => s.workoutLogs);
   const addWeightLog = useLogsStore((s) => s.addWeightLog);
   const addWaterLog = useLogsStore((s) => s.addWaterLog);
   const clearTodayWaterLogs = useLogsStore((s) => s.clearTodayWaterLogs);
@@ -174,10 +167,6 @@ export default function App() {
                   <MealOrderingTab
                     assessment={onboardingInput}
                     nutritionPlan={nutritionPlan}
-                    cart={cart}
-                    onAddToCart={addToCart}
-                    onRemoveFromCart={removeFromCart}
-                    onUpdateCartQty={updateCartQty}
                     onCheckout={addOrder}
                   />
                 )}
@@ -188,7 +177,6 @@ export default function App() {
                   <ProgressTab
                     weightLogs={weightLogs}
                     waterLogs={waterLogs}
-                    workoutLogs={workoutLogs}
                     onAddWeightLog={handleAddWeightLog}
                     onAddWaterLog={addWaterLog}
                     onClearWaterLogs={clearTodayWaterLogs}

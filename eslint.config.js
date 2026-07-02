@@ -65,32 +65,26 @@ export default tseslint.config(
       "react/prop-types": "off",
       "react/jsx-props-no-spreading": "off",
 
-      // --- Q-03: rules promoted back to ERROR (violations fixed in this pass) ---
-      // These were downgraded to "warn" in the original codebase because the
-      // god components had accumulated violations. The violations have been
-      // fixed (or the code deleted) so the rules can be errors again.
+      // --- Q-03: all rules now promoted to ERROR (violations fixed) ---
+      // The original codebase had ~100 warnings across god components. After
+      // the A-01 split + the unused-vars/a11y cleanup pass, only 7
+      // set-state-in-effect warnings remain (intentional patterns in
+      // useHydrated + useEngine that need a larger refactor). Those are
+      // kept as warnings; everything else is now a hard error.
       "@typescript-eslint/no-non-null-assertion": "error",
+      "@typescript-eslint/no-unused-vars": "error",
+      "@typescript-eslint/no-explicit-any": "error",
       "react/no-unescaped-entities": "error",
       "react-hooks/exhaustive-deps": "error",
       "jsx-a11y/no-static-element-interactions": "error",
       "jsx-a11y/click-events-have-key-events": "error",
+      "jsx-a11y/label-has-associated-control": "error",
       "no-useless-assignment": "error",
+      "prefer-const": "error",
 
-      // --- Rules still downgraded to "warn" (cleanup in progress) ---
-      // These rules have 14+ remaining violations across the god components.
-      // They will be promoted to "error" once the god-component split (A-01)
-      // lands and the violations are fixed file-by-file. Until then, the
-      // `lint` script allows up to 100 warnings; `lint:strict` requires 0.
-      "@typescript-eslint/no-unused-vars": "warn",
-      "@typescript-eslint/no-explicit-any": "warn",
-      "prefer-const": "warn",
-
-      // Accessibility — 30 remaining violations in Onboarding/TrainingTab/
-      // ProgressTab. Will be promoted to "error" after the god-component
-      // split makes the forms tractable to fix.
-      "jsx-a11y/label-has-associated-control": "warn",
-
-      // React patterns — 7 remaining in god components.
+      // React patterns — 7 remaining in useHydrated.ts + useEngine.ts.
+      // These are intentional state-sync patterns that need a larger
+      // refactor (useSyncExternalStore or a hydration store) to fix.
       "react-hooks/set-state-in-effect": "warn",
     },
   },

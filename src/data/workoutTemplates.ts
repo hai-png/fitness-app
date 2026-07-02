@@ -1,4 +1,4 @@
-import { Exercise, WeeklyScheduleDay } from "../engine";
+import { WeeklyScheduleDay } from "../engine";
 
 export interface ExerciseDBItem {
   name: string;

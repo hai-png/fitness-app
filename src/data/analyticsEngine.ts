@@ -1,5 +1,3 @@
-import { EXERCISE_DATABASE } from "./workoutTemplates";
-
 export interface SetLog {
   id: string;
   weight: number; // in kg
@@ -71,11 +69,7 @@ export function calculateCoreMetrics(logs: ExerciseLog[], multiplierSecondary: n
 }
 
 // Compare current vs previous periods (Rolling Windows)
-export function calculateRollingTrends(
-  logs: ExerciseLog[],
-  dateFilterStart?: string,
-  dateFilterEnd?: string,
-) {
+export function calculateRollingTrends(logs: ExerciseLog[]) {
   const today = new Date();
 
   // Helper to filter logs in days relative to today.
@@ -309,9 +303,7 @@ export function calculatePersonalRecords(logs: ExerciseLog[]): PersonalRecord[] 
     let silverWeightDate = "";
 
     let gold1RM = 0;
-    let gold1RMDate = "";
     let silver1RM = 0;
-    let silver1RMDate = "";
 
     // Chronological logs to scan for premature PRs
     const sorted = [...exLogs].sort(
@@ -339,11 +331,9 @@ export function calculatePersonalRecords(logs: ExerciseLog[]): PersonalRecord[] 
         const estimated1RM = calculateEpley1RM(set.weight, set.reps);
         if (estimated1RM > gold1RM) {
           gold1RM = estimated1RM;
-          gold1RMDate = sess.date;
         }
         if (isRecent && estimated1RM > silver1RM) {
           silver1RM = estimated1RM;
-          silver1RMDate = sess.date;
         }
       });
     });
@@ -471,7 +461,6 @@ export function calculateMuscleVolumesAndScores(
     const totalSets = muscleSets[muscle] || 0;
     const weeklySets = Math.round((totalSets / 4) * 10) / 10; // average weekly sets
     const totalVol = muscleWeeklyVolumes[muscle] || 0;
-    const weeklyVol = totalVol / 4;
     const balancePct = totalVolumeAll > 0 ? Math.round((totalVol / totalVolumeAll) * 100) : 0;
 
     // Categorize Zone

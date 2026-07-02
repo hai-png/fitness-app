@@ -66,7 +66,18 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
 
   // Generate weekly workouts based on frequency preference
   const scheduleDays: WeeklyScheduleDay[] = [];
-  const exercisePoolGym = {
+  // Q-01: explicitly typed so .map() callbacks can use Exercise without
+  // the literal-narrowing that makes targetMuscle required (vs optional on Exercise).
+  type ExercisePool = {
+    chest: Exercise[];
+    back: Exercise[];
+    legs: Exercise[];
+    arms: Exercise[];
+    shoulders: Exercise[];
+    core: Exercise[];
+    cardio: Exercise[];
+  };
+  const exercisePoolGym: ExercisePool = {
     chest: [
       {
         name: "Incline Dumbbell Press",
@@ -353,7 +364,7 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
     ],
   };
 
-  const exercisePoolHome = {
+  const exercisePoolHome: ExercisePool = {
     chest: [
       {
         name: "Standard Push-Ups",
@@ -658,7 +669,7 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
 
     // 1. Lat Pulldown Machine
     if (!machines.includes("Lat Pulldown")) {
-      pool.back = pool.back.map((ex: any) =>
+      pool.back = pool.back.map((ex: Exercise) =>
         ex.name.includes("Lat Pulldown")
           ? {
               name: "Dumbbell Pull-Over",
@@ -682,7 +693,7 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
 
     // 2. Cable Crossover
     if (!machines.includes("Cable Crossover")) {
-      pool.chest = pool.chest.map((ex: any) =>
+      pool.chest = pool.chest.map((ex: Exercise) =>
         ex.name.includes("Cable Chest")
           ? {
               name: "Flat Dumbbell Flys",
@@ -701,7 +712,7 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
             }
           : ex,
       );
-      pool.arms = pool.arms.map((ex: any) =>
+      pool.arms = pool.arms.map((ex: Exercise) =>
         ex.name.includes("Cable")
           ? {
               name: "Dumbbell Overhead Tricep Extension",
@@ -725,7 +736,7 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
 
     // 3. Leg Extension Machine
     if (!machines.includes("Leg Extension Machine")) {
-      pool.legs = pool.legs.map((ex: any) =>
+      pool.legs = pool.legs.map((ex: Exercise) =>
         ex.name.includes("Leg Extensions")
           ? {
               name: "Dumbbell Goblet Squats",

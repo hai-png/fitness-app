@@ -11,13 +11,11 @@ import {
   Sparkles,
   ShoppingBagIcon,
   Dumbbell,
-  CreditCard,
   MapPin,
   CheckCircle,
   Truck,
   Shirt,
   Package,
-  Activity,
   SlidersHorizontal,
   AlertTriangle,
 } from "lucide-react";
