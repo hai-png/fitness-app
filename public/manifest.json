@@ -1,0 +1,24 @@
+{
+  "name": "FitLife Hub",
+  "short_name": "FitLife",
+  "description": "AI-generated training & nutrition plans, meal prep, marketplace, and progress analytics.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F9F8F6",
+  "theme_color": "#E63946",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

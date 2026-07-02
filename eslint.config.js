@@ -65,26 +65,32 @@ export default tseslint.config(
       "react/prop-types": "off",
       "react/jsx-props-no-spreading": "off",
 
-      // --- Pre-existing-codebase relaxations (Phase 4 will tighten these) ---
-      // The original codebase has ~100 unused vars and ~20 `any` types across
-      // 1,670-line god components. We surface them as warnings rather than
-      // errors so the lint gate is usable today; Phase 4 refactor + cleanup
-      // will promote these back to errors.
+      // --- Q-03: rules promoted back to ERROR (violations fixed in this pass) ---
+      // These were downgraded to "warn" in the original codebase because the
+      // god components had accumulated violations. The violations have been
+      // fixed (or the code deleted) so the rules can be errors again.
+      "@typescript-eslint/no-non-null-assertion": "error",
+      "react/no-unescaped-entities": "error",
+      "react-hooks/exhaustive-deps": "error",
+      "jsx-a11y/no-static-element-interactions": "error",
+      "jsx-a11y/click-events-have-key-events": "error",
+      "no-useless-assignment": "error",
+
+      // --- Rules still downgraded to "warn" (cleanup in progress) ---
+      // These rules have 14+ remaining violations across the god components.
+      // They will be promoted to "error" once the god-component split (A-01)
+      // lands and the violations are fixed file-by-file. Until then, the
+      // `lint` script allows up to 100 warnings; `lint:strict` requires 0.
       "@typescript-eslint/no-unused-vars": "warn",
       "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/no-non-null-assertion": "warn",
       "prefer-const": "warn",
-      "no-useless-assignment": "warn",
 
-      // Accessibility — real issues that need fixing in Phase 4 component
-      // refactor. Downgrade to warnings so the gate runs but doesn't block.
+      // Accessibility — 30 remaining violations in Onboarding/TrainingTab/
+      // ProgressTab. Will be promoted to "error" after the god-component
+      // split makes the forms tractable to fix.
       "jsx-a11y/label-has-associated-control": "warn",
-      "jsx-a11y/no-static-element-interactions": "warn",
-      "jsx-a11y/click-events-have-key-events": "warn",
 
-      // React patterns — pre-existing issues in god components.
-      "react/no-unescaped-entities": "warn",
-      "react-hooks/exhaustive-deps": "warn",
+      // React patterns — 7 remaining in god components.
       "react-hooks/set-state-in-effect": "warn",
     },
   },

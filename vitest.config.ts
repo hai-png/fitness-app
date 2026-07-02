@@ -22,12 +22,17 @@ export default defineConfig({
         "src/components/ErrorBoundary.tsx", // hard to test without elaborate setup
       ],
       thresholds: {
-        // Conservative thresholds — we're starting from zero coverage.
-        // Phase 4 refactor should raise these.
-        statements: 0,
-        branches: 0,
-        functions: 0,
-        lines: 0,
+        // Q-05: progressive coverage thresholds.
+        // Current baseline: 38% statements / 30% branches (July 2026).
+        // Phase 2 target: 50% statements / 40% branches (raise once god
+        //   component splits land — A-01 — which makes the remaining
+        //   uncovered code easier to test in isolation).
+        // Phase 3 target: 80% statements / 70% branches.
+        // These thresholds are gates: coverage BELOW these numbers fails CI.
+        statements: 38,
+        branches: 28,
+        functions: 29,
+        lines: 38,
       },
     },
   },

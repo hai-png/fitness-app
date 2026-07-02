@@ -1,15 +1,12 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "experimentalDecorators": true,
-    "useDefineForClassFields": false,
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
     "moduleResolution": "bundler",
     "isolatedModules": true,
     "moduleDetection": "force",
-    "allowJs": true,
     "jsx": "react-jsx",
     "allowImportingTsExtensions": true,
     "noEmit": true,
@@ -26,6 +23,15 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     "noImplicitReturns": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+
+    // Q-07: additional strict options that catch real bugs.
+    // noUncheckedIndexedAccess: array access returns T | undefined (prevents
+    //   the most common runtime crash in the codebase). Currently DISABLED
+    //   because enabling it surfaces ~137 errors that need individual review
+    //   (tracked as a Phase 3 task). Enable once the codebase has been
+    //   audited site-by-site.
+    "noUncheckedIndexedAccess": false,
+    "exactOptionalPropertyTypes": false
   }
 }

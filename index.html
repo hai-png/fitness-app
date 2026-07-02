@@ -9,11 +9,30 @@
       content="FitLife Hub — AI-generated training & nutrition plans, premium meal delivery, a curated fitness marketplace, and detailed progress analytics."
     />
 
-    <!-- Preconnect to Google Fonts to speed up the stylesheet fetch.
-         The actual @import in index.css still loads the font CSS, but
-         preconnect eliminates the DNS/TLS round-trip latency. -->
+    <!-- PWA: web app manifest for installability (Phase 3 P-08 scaffold). -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- P-01: Google Fonts loaded via <link> in <head> instead of CSS @import.
+         CSS @import is render-blocking; <link> with preconnect parallelizes
+         the DNS/TLS/HTTP round-trips with the HTML parse.
+         P-02: reduced from 14 to 9 font files — dropped Playfair italic
+         variants (only the regular weights are used for hero headlines)
+         and reduced JetBrains Mono to a single weight (400) since it is
+         only used for the status bar and engine form inputs. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400&family=Playfair+Display:wght@400;700;900&display=swap"
+    />
+
+    <!-- P-12: modulepreload critical chunks so the browser discovers them
+         in parallel with the HTML parse instead of waiting for the module
+         graph to resolve. The hashes are stable across builds because
+         Vite emits content-hashed filenames; for production these should
+         be generated from the build manifest, but the relative path
+         preloads the entry chunk regardless of hash. -->
+    <link rel="modulepreload" href="/src/main.tsx" />
 
     <title>FitLife Hub</title>
   </head>

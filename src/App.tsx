@@ -1,5 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from "react";
+import type { ReactNode } from "react";
 import Onboarding from "./components/Onboarding";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 const TrainingTab = lazy(() => import("./components/TrainingTab"));
 const MealOrderingTab = lazy(() => import("./components/MealOrderingTab"));
@@ -32,6 +34,17 @@ import { useEngine } from "./store/useEngine";
 import { ToastViewport, ConfirmViewport } from "./components/Toast";
 
 type TabId = "training" | "meals" | "progress" | "marketplace" | "profile";
+
+// A-10: hoisted to module level so the array identity is stable across
+// renders. The icons are static; recreating them every render caused the
+// bottom navigation to re-render on every clock tick (every 10s).
+const TABS: { id: TabId; label: string; icon: ReactNode }[] = [
+  { id: "training", label: "Training", icon: <Dumbbell className="w-5 h-5" /> },
+  { id: "meals", label: "Meals Prep", icon: <UtensilsCrossed className="w-5 h-5" /> },
+  { id: "progress", label: "Logs", icon: <Activity className="w-5 h-5" /> },
+  { id: "marketplace", label: "Store", icon: <ShoppingBag className="w-5 h-5" /> },
+  { id: "profile", label: "Profile", icon: <User className="w-5 h-5" /> },
+];
 
 export default function App() {
   const hydrated = useHydrated();
@@ -74,10 +87,18 @@ export default function App() {
       setTimeStr(`${hours}:${mins} ${ampm}`);
     };
     updateTime();
-    const interval = setInterval(updateTime, 10000);
+    // Q-15: 1-second interval so the clock is accurate to the minute.
+    // The previous 10-second interval meant the clock could be up to 10s off.
+    const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
   }, []);
 
+  // A-09: removed 8 useless wrapper handlers. The two handlers that remain
+  // do real multi-step work (handleOnboardingComplete orchestrates 3 store
+  // calls; handleAddWeightLog updates both the log store and the user store;
+  // handleResetOnboarding resets 3 stores). The other handlers were
+  // one-line forwarders that just called the store function with the same
+  // args — components now receive the store functions directly.
   const handleOnboardingComplete = (plan: WorkoutPlan, input: OnboardingInput) => {
     setBoth(input, plan);
     setActiveTab("training");
@@ -89,27 +110,11 @@ export default function App() {
     updateWeight(weight);
   };
 
-  const handleCheckout = (newOrder: Order) => {
-    addOrder(newOrder);
-  };
-
-  const handleUpdateWorkoutPlan = (updatedPlan: WorkoutPlan) => {
-    updateWorkoutPlan(updatedPlan);
-  };
-
   const handleResetOnboarding = () => {
     resetUser();
     resetLogs();
     resetCommerce();
   };
-
-  const handleAddToCart = (newItem: CartItem) => addToCart(newItem);
-  const handleRemoveFromCart = (id: string) => removeFromCart(id);
-  const handleUpdateCartQty = (id: string, qty: number) => updateCartQty(id, qty);
-
-  const handleAddWaterLog = (amountMl: number) => addWaterLog(amountMl);
-  const handleClearWaterLogs = () => clearTodayWaterLogs();
-  const handleLogWorkout = (log: WorkoutLog) => addWorkoutLog(log);
 
   if (!hydrated) {
     return (
@@ -120,14 +125,6 @@ export default function App() {
       </div>
     );
   }
-
-  const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
-    { id: "training", label: "Training", icon: <Dumbbell className="w-5 h-5" /> },
-    { id: "meals", label: "Meals Prep", icon: <UtensilsCrossed className="w-5 h-5" /> },
-    { id: "progress", label: "Logs", icon: <Activity className="w-5 h-5" /> },
-    { id: "marketplace", label: "Store", icon: <ShoppingBag className="w-5 h-5" /> },
-    { id: "profile", label: "Profile", icon: <User className="w-5 h-5" /> },
-  ];
 
   return (
     <div className="min-h-screen bg-[#EFECE6] flex items-center justify-center py-0 md:py-8 font-sans antialiased selection:bg-[#E63946]/20 select-none">
@@ -159,58 +156,75 @@ export default function App() {
                 </div>
               }
             >
-              {activeTab === "training" && (
-                <TrainingTab
-                  workoutPlan={workoutPlan}
-                  onLogWorkout={handleLogWorkout}
-                  onUpdateWorkoutPlan={handleUpdateWorkoutPlan}
-                />
-              )}
-              {activeTab === "meals" && (
-                <MealOrderingTab
-                  assessment={onboardingInput}
-                  nutritionPlan={nutritionPlan}
-                  cart={cart}
-                  onAddToCart={handleAddToCart}
-                  onRemoveFromCart={handleRemoveFromCart}
-                  onUpdateCartQty={handleUpdateCartQty}
-                  onCheckout={handleCheckout}
-                />
-              )}
-              {activeTab === "progress" && (
-                <ProgressTab
-                  weightLogs={weightLogs}
-                  waterLogs={waterLogs}
-                  workoutLogs={workoutLogs}
-                  onAddWeightLog={handleAddWeightLog}
-                  onAddWaterLog={handleAddWaterLog}
-                  onClearWaterLogs={handleClearWaterLogs}
-                />
-              )}
-              {activeTab === "marketplace" && (
-                <MarketplaceTab
-                  cart={cart}
-                  onAddToCart={handleAddToCart}
-                  onRemoveFromCart={handleRemoveFromCart}
-                  onUpdateCartQty={handleUpdateCartQty}
-                  onCheckout={handleCheckout}
-                />
-              )}
-              {activeTab === "profile" && (
-                <ProfileTab
-                  assessment={onboardingInput}
-                  nutritionPlan={nutritionPlan}
-                  orderHistory={orderHistory}
-                  onResetOnboarding={handleResetOnboarding}
-                />
-              )}
+              {/* A-04: per-tab ErrorBoundary so a crash in one tab does not
+                  take down the whole app. resetKey clears the error state
+                  when the user navigates away from the broken tab. */}
+              <ErrorBoundary label="Training" resetKey={activeTab}>
+                {activeTab === "training" && (
+                  <TrainingTab
+                    workoutPlan={workoutPlan}
+                    onLogWorkout={addWorkoutLog}
+                    onUpdateWorkoutPlan={updateWorkoutPlan}
+                  />
+                )}
+              </ErrorBoundary>
+
+              <ErrorBoundary label="Meal Prep" resetKey={activeTab}>
+                {activeTab === "meals" && (
+                  <MealOrderingTab
+                    assessment={onboardingInput}
+                    nutritionPlan={nutritionPlan}
+                    cart={cart}
+                    onAddToCart={addToCart}
+                    onRemoveFromCart={removeFromCart}
+                    onUpdateCartQty={updateCartQty}
+                    onCheckout={addOrder}
+                  />
+                )}
+              </ErrorBoundary>
+
+              <ErrorBoundary label="Logs" resetKey={activeTab}>
+                {activeTab === "progress" && (
+                  <ProgressTab
+                    weightLogs={weightLogs}
+                    waterLogs={waterLogs}
+                    workoutLogs={workoutLogs}
+                    onAddWeightLog={handleAddWeightLog}
+                    onAddWaterLog={addWaterLog}
+                    onClearWaterLogs={clearTodayWaterLogs}
+                  />
+                )}
+              </ErrorBoundary>
+
+              <ErrorBoundary label="Store" resetKey={activeTab}>
+                {activeTab === "marketplace" && (
+                  <MarketplaceTab
+                    cart={cart}
+                    onAddToCart={addToCart}
+                    onRemoveFromCart={removeFromCart}
+                    onUpdateCartQty={updateCartQty}
+                    onCheckout={addOrder}
+                  />
+                )}
+              </ErrorBoundary>
+
+              <ErrorBoundary label="Profile" resetKey={activeTab}>
+                {activeTab === "profile" && (
+                  <ProfileTab
+                    assessment={onboardingInput}
+                    nutritionPlan={nutritionPlan}
+                    orderHistory={orderHistory}
+                    onResetOnboarding={handleResetOnboarding}
+                  />
+                )}
+              </ErrorBoundary>
             </Suspense>
           )}
         </div>
 
         {onboardingInput && workoutPlan && (
           <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-[#1A1A1A]/10 py-2.5 px-4 flex justify-between items-center z-30 flex-shrink-0 pb-5 md:pb-3.5">
-            {tabs.map((tab) => {
+            {TABS.map((tab) => {
               const isActive = activeTab === tab.id;
               return (
                 <button

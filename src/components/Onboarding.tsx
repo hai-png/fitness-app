@@ -879,6 +879,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
                                     <div className="w-12 h-12 flex-shrink-0 bg-gray-200 overflow-hidden relative border border-[#1A1A1A]/10">
                                       <img
                                         loading="lazy"
+                                        decoding="async"
                                         src={g.image}
                                         alt={g.name}
                                         className="w-full h-full object-cover"

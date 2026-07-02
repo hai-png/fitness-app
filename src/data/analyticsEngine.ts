@@ -458,8 +458,10 @@ export function calculateMuscleVolumesAndScores(
     const balancePct = totalVolumeAll > 0 ? Math.round((totalVol / totalVolumeAll) * 100) : 0;
 
     // Categorize Zone
-    let zone: MuscleVolumeZone["zone"] = "Active Recovery";
-    let colorClass = "bg-emerald-100 text-emerald-800 border-emerald-200";
+    // no-useless-assignment: declare without initial value since every
+    // branch in the if/else below reassigns.
+    let zone: MuscleVolumeZone["zone"];
+    let colorClass: string;
 
     const mvCut = 5 + thresholdOffset * 0.5;
     const mevCut = 9 + thresholdOffset;

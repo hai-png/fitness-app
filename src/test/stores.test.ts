@@ -124,7 +124,10 @@ describe("useLogsStore", () => {
     expect(logs[0].amountMl).toBe(999);
   });
 
-  it("addWorkoutLog prepends new logs (most recent first)", () => {
+  it("addWorkoutLog appends new logs (chronological order — A-07 fix)", () => {
+    // A-07: all stores now use chronological order (oldest first) for
+    // consistency. Previously workoutLogs prepended (newest first) which
+    // was inconsistent with weightLogs and waterLogs.
     useLogsStore.getState().addWorkoutLog({
       date: "2026-01-01",
       workoutTitle: "Old",
@@ -139,7 +142,8 @@ describe("useLogsStore", () => {
     });
     const logs = useLogsStore.getState().workoutLogs;
     expect(logs).toHaveLength(2);
-    expect(logs[0].workoutTitle).toBe("New");
+    expect(logs[0].workoutTitle).toBe("Old");
+    expect(logs[1].workoutTitle).toBe("New");
   });
 });
 

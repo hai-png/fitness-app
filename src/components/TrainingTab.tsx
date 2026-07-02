@@ -668,8 +668,16 @@ export default function TrainingTab({
               {DURATION_PROGRAMS.map((prog) => (
                 <div
                   key={prog.id}
+                  role="button"
+                  tabIndex={0}
                   className="bg-white border border-[#1A1A1A]/10 p-4 relative overflow-hidden group hover:border-[#1A1A1A]/30 transition-all cursor-pointer"
                   onClick={() => handleApplyPresetProgram(prog)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleApplyPresetProgram(prog);
+                    }
+                  }}
                 >
                   <div className="absolute right-3 top-3 bg-[#E63946] text-white text-[8px] font-bold px-2 py-0.5 uppercase tracking-widest font-mono">
                     {prog.durationWeeks} Weeks

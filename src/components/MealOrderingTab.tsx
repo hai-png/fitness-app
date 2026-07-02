@@ -119,8 +119,10 @@ export default function MealOrderingTab({
 
   const eligibleMeals = getEligibleMeals();
 
-  // Suggest/generate plan based on options selected
-  const generatePlanSuggestions = () => {
+  // Suggest/generate plan based on options selected.
+  // Wrapped in useCallback so the effect below can depend on it without
+  // re-running on every render (Q-03 exhaustive-deps fix).
+  const generatePlanSuggestions = React.useCallback(() => {
     const list: DayPlan[] = [];
     const mealSlots: ("Breakfast" | "Lunch" | "Dinner")[] =
       mealsPerDay === 3 ? ["Breakfast", "Lunch", "Dinner"] : ["Lunch", "Dinner"];
@@ -128,7 +130,6 @@ export default function MealOrderingTab({
     for (let d = 1; d <= numDays; d++) {
       const dayMeals: DayPlan["meals"] = [];
       mealSlots.forEach((slot, slotIdx) => {
-        // Pick cyclically from eligible meals to ensure balanced variety over the week
         const mealIndex = (d * 5 + slotIdx * 3) % eligibleMeals.length;
         dayMeals.push({
           slot,
@@ -141,12 +142,12 @@ export default function MealOrderingTab({
       });
     }
     setCustomPlan(list);
-  };
+  }, [numDays, mealsPerDay, eligibleMeals]);
 
-  // Re-generate suggestions whenever days or meals per day change
+  // Re-generate suggestions whenever days, meals per day, or eligible meals change
   useEffect(() => {
     generatePlanSuggestions();
-  }, [numDays, mealsPerDay, assessment.dietType]);
+  }, [generatePlanSuggestions]);
 
   // Handle single meal swap
   const executeMealSwap = (replacementMeal: MealProduct) => {
@@ -439,6 +440,7 @@ export default function MealOrderingTab({
                       {/* Thumbnail Image */}
                       <img
                         loading="lazy"
+                        decoding="async"
                         referrerPolicy="no-referrer"
                         src={slotMeal.meal.image}
                         alt={slotMeal.meal.name}
@@ -580,6 +582,7 @@ export default function MealOrderingTab({
                   >
                     <img
                       loading="lazy"
+                      decoding="async"
                       referrerPolicy="no-referrer"
                       src={meal.image}
                       alt={meal.name}

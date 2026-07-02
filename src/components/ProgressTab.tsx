@@ -238,7 +238,7 @@ export default function ProgressTab({
       weeksToNext,
       tierIndex: currentTierIndex + 1,
     };
-  }, [lifetimeVolumeTons, exerciseLogs, filteredLogs]);
+  }, [lifetimeVolumeTons, filteredLogs]);
 
   // Exercise Analysis & Progression Grouping
   const exerciseProgressions = useMemo(() => {
@@ -1324,7 +1324,15 @@ export default function ProgressTab({
           {flexCardsData.map((card) => (
             <div
               key={card.id}
+              role="button"
+              tabIndex={0}
               onClick={() => handleOpenShare(card)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleOpenShare(card);
+                }
+              }}
               className="bg-white border border-[#1A1A1A]/10 p-4 rounded-none hover:border-[#1A1A1A]/35 transition-all relative flex flex-col justify-between cursor-pointer group shadow-sm overflow-hidden"
             >
               {/* Background watermark badge icon */}
@@ -2127,13 +2135,13 @@ function DailyIntakeLogger() {
           type="submit"
           className="col-span-4 py-2 bg-[#1A1A1A] hover:bg-[#E63946] text-white text-[10px] font-bold uppercase tracking-wider font-mono transition-all"
         >
-          Log Today's Intake
+          Log Today&apos;s Intake
         </button>
       </form>
 
       <p className="text-[8px] text-[#1A1A1A]/40 font-serif italic mt-1.5">
         Macros are optional but help with future features. One entry per day — submitting
-        overwrites today's log.
+        overwrites today&apos;s log.
       </p>
     </div>
   );

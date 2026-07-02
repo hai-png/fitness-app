@@ -2,9 +2,19 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { DailyWeightLog, WaterLog, WorkoutLog } from "../engine";
 import type { ExerciseLog } from "../data/analyticsEngine";
+import { todayStr } from "../lib/date";
 
 /**
  * Logs store — holds all user-entered progress data.
+ *
+ * A-07: all logs are stored in chronological order (oldest first). The
+ * `addWorkoutLog` action previously prepended (newest first) which was
+ * inconsistent with the other actions; it now appends for uniformity.
+ * Consumers that need newest-first should `[...logs].reverse()` at the
+ * call site.
+ *
+ * A-08: weight logs dedupe by date (one entry per day). Water and workout
+ * logs do NOT dedupe (multiple entries per day are valid).
  */
 interface LogsState {
   weightLogs: DailyWeightLog[];
@@ -20,14 +30,6 @@ interface LogsState {
   setExerciseLogs: (logs: ExerciseLog[]) => void;
   addExerciseLog: (log: ExerciseLog) => void;
   reset: () => void;
-}
-
-function todayStr(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
 }
 
 export const useLogsStore = create<LogsState>()(
@@ -57,9 +59,9 @@ export const useLogsStore = create<LogsState>()(
           return { waterLogs: s.waterLogs.filter((l) => l.date !== today) };
         }),
 
-      addWorkoutLog: (log) => set((s) => ({ workoutLogs: [log, ...s.workoutLogs] })),
+      addWorkoutLog: (log) => set((s) => ({ workoutLogs: [...s.workoutLogs, log] })),
       setExerciseLogs: (logs) => set({ exerciseLogs: logs }),
-      addExerciseLog: (log) => set((s) => ({ exerciseLogs: [log, ...s.exerciseLogs] })),
+      addExerciseLog: (log) => set((s) => ({ exerciseLogs: [...s.exerciseLogs, log] })),
 
       reset: () => set({ weightLogs: [], waterLogs: [], workoutLogs: [], exerciseLogs: [] }),
     }),

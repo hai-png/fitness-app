@@ -7,12 +7,15 @@ import type { OnboardingInput, WorkoutPlan, MealSuggestion } from "../engine";
  * (runAssessment + buildNutritionPlan) via the useEngine hook.
  */
 export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
-  const { name, goal, workoutPreference, dietType, frequency } = input;
-  // Decide difficulty and description based on goal
-  let title = "";
-  let description = "";
-  let difficulty = "Intermediate";
-  let tips: string[] = [];
+  const { name, goal, workoutPreference, frequency } = input;
+  // Decide difficulty and description based on goal.
+  // Q-01/no-useless-assignment: the initial values are never read because
+  // every branch in the if/else below reassigns them. Declaring without
+  // an initial value makes the "definitely assigned" semantics explicit.
+  let title: string;
+  let description: string;
+  let difficulty: string;
+  let tips: string[];
 
   if (goal === "weight-loss") {
     title = `Fat Shred & Cardio Burn for ${name}`;
