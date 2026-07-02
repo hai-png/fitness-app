@@ -1,4 +1,4 @@
-import { Exercise, WeeklyScheduleDay } from "../engine";
+import { WeeklyScheduleDay } from "../engine";
 
 export interface ExerciseDBItem {
   name: string;
@@ -639,7 +639,8 @@ export const DURATION_PROGRAMS: ProgramPreset[] = [
       "Walk 10,000 steps daily outside of formal sessions to maximize thermal output.",
       "Perform interval sessions in a fasted state if preferred, but prioritize absolute consistency.",
     ],
-    splitTemplate: SPLIT_TEMPLATES[3], // Cardio & Core
+    // Q-07: safe — SPLIT_TEMPLATES has 4 entries (indices 0-3); index 3 always exists.
+    splitTemplate: SPLIT_TEMPLATES[3] as SplitTemplate, // Cardio & Core
   },
   {
     id: "8w-hypertrophy",
@@ -653,7 +654,8 @@ export const DURATION_PROGRAMS: ProgramPreset[] = [
       "Get 8+ hours of deep, uninterrupted sleep; muscle repair occurs exclusively in deep REM.",
       "Consume a post-workout high-protein meal within 2 hours of completion.",
     ],
-    splitTemplate: SPLIT_TEMPLATES[0], // Push/Pull/Legs
+    // Q-07: safe — SPLIT_TEMPLATES has 4 entries (indices 0-3); index 0 always exists.
+    splitTemplate: SPLIT_TEMPLATES[0] as SplitTemplate, // Push/Pull/Legs
   },
   {
     id: "12w-strength",
@@ -667,7 +669,8 @@ export const DURATION_PROGRAMS: ProgramPreset[] = [
       "Incorporate spinal bracing techniques (valsalva) with strict athletic focus.",
       "Avoid training to failure on every set; manage mechanical exhaustion carefully.",
     ],
-    splitTemplate: SPLIT_TEMPLATES[1], // Upper/Lower
+    // Q-07: safe — SPLIT_TEMPLATES has 4 entries (indices 0-3); index 1 always exists.
+    splitTemplate: SPLIT_TEMPLATES[1] as SplitTemplate, // Upper/Lower
   },
   {
     id: "8w-wellness",
@@ -681,6 +684,7 @@ export const DURATION_PROGRAMS: ProgramPreset[] = [
       "Incorporate dynamic stretching for 5 minutes before every session.",
       "Listen to physical signs of joint inflammation and substitute with isometric holds if sore.",
     ],
-    splitTemplate: SPLIT_TEMPLATES[2], // Full Body Focus
+    // Q-07: safe — SPLIT_TEMPLATES has 4 entries (indices 0-3); index 2 always exists.
+    splitTemplate: SPLIT_TEMPLATES[2] as SplitTemplate, // Full Body Focus
   },
 ];

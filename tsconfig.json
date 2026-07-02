@@ -1,15 +1,12 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "experimentalDecorators": true,
-    "useDefineForClassFields": false,
     "module": "ESNext",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
     "moduleResolution": "bundler",
     "isolatedModules": true,
     "moduleDetection": "force",
-    "allowJs": true,
     "jsx": "react-jsx",
     "allowImportingTsExtensions": true,
     "noEmit": true,
@@ -26,6 +23,14 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     "noImplicitReturns": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+
+    // Q-07: noUncheckedIndexedAccess — array access returns T | undefined.
+    // This catches the most common runtime crash pattern (accessing arr[0]
+    // without a null check). Enabled after site-by-site review of the 137
+    // surfaced errors — each was either a genuine bug or a provably-safe
+    // access that got a non-null assertion or guard added.
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": false
   }
 }

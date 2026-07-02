@@ -89,6 +89,38 @@ export const useUserStore = create<UserState>()(
       name: "fitlife:user",
       storage: createJSONStorage(() => localStorage),
       version: 3, // bumped from 2 — renamed assessment→onboardingInput, personalPlan→workoutPlan
+      // Migrate legacy persisted state across schema versions so existing users
+      // do not lose their onboarding data on upgrade. Each version step receives
+      // the previous version's state and must return the next version's shape.
+      migrate: (persisted: unknown, fromVersion: number) => {
+        let s = (persisted ?? {}) as Record<string, unknown>;
+        // v0 → v1: initial schema (no-op; v0 had no version field)
+        // v1 → v2: added engineProfile + cachedAssessmentResult + cachedNutritionPlan
+        if (fromVersion < 2) {
+          s = {
+            ...s,
+            engineProfile: s.engineProfile ?? {},
+            cachedAssessmentResult: s.cachedAssessmentResult ?? null,
+            cachedNutritionPlan: s.cachedNutritionPlan ?? null,
+          };
+        }
+        // v2 → v3: renamed assessment→onboardingInput, personalPlan→workoutPlan
+        if (fromVersion < 3) {
+          s = {
+            ...s,
+            onboardingInput:
+              s.onboardingInput ?? (s.assessment as OnboardingInput | undefined) ?? null,
+            workoutPlan:
+              s.workoutPlan ?? (s.personalPlan as WorkoutPlan | undefined) ?? null,
+            engineProfile: s.engineProfile ?? {},
+            cachedAssessmentResult: s.cachedAssessmentResult ?? null,
+            cachedNutritionPlan: s.cachedNutritionPlan ?? null,
+          };
+          delete s.assessment;
+          delete s.personalPlan;
+        }
+        return s as unknown as UserState;
+      },
     },
   ),
 );

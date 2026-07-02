@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from "react";
-import { MEAL_PRODUCTS } from "../data/meals";
+import React, { useState, useEffect, useMemo } from "react";
 import { OnboardingInput, MealProduct, CartItem, Order, NutritionPlan } from "../engine";
+import {
+  getEligibleMealsForUser,
+  suggestMealPlan as suggestMealPlanFromAdapter,
+  type DayPlan as AdapterDayPlan,
+} from "../data/mealAdapter";
 import { toast } from "./Toast";
 import {
   ShoppingBag,
-  UtensilsCrossed,
   AlertTriangle,
   Sparkles,
   CreditCard,
@@ -16,19 +19,12 @@ import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
-  Plus,
-  TrendingUp,
-  Sliders,
   Check,
 } from "lucide-react";
 
 interface MealOrderingTabProps {
   assessment: OnboardingInput;
   nutritionPlan: NutritionPlan | null;
-  cart: CartItem[];
-  onAddToCart: (item: CartItem) => void;
-  onRemoveFromCart: (id: string) => void;
-  onUpdateCartQty: (id: string, qty: number) => void;
   onCheckout: (order: Order) => void;
 }
 
@@ -43,10 +39,6 @@ interface DayPlan {
 export default function MealOrderingTab({
   assessment,
   nutritionPlan,
-  cart,
-  onAddToCart,
-  onRemoveFromCart,
-  onUpdateCartQty,
   onCheckout,
 }: MealOrderingTabProps) {
   // Configurable Delivery Variables
@@ -70,83 +62,31 @@ export default function MealOrderingTab({
 
   const targetCalories =
     nutritionPlan?.target_calories_kcal || Math.round(assessment.weight * 26);
-  const targetProtein =
-    nutritionPlan?.protein_g || Math.round(assessment.weight * 1.8);
 
-  // Filter products by dietary restriction and allergy
-  const getEligibleMeals = (): MealProduct[] => {
-    let filtered = MEAL_PRODUCTS.filter((meal) => {
-      // Diet preference alignment
-      const diet = assessment.dietType;
-      if (diet === "vegan") {
-        return meal.category === "vegan";
-      } else if (diet === "vegetarian") {
-        return meal.category === "vegetarian" || meal.category === "vegan";
-      } else if (diet === "keto") {
-        return meal.category === "keto" || meal.category === "low-carb";
-      } else if (diet === "low-carb") {
-        return meal.category === "low-carb" || meal.category === "keto";
-      }
-      return true; // anything, mediterranean, gluten-free
+  // Filter products by dietary restriction, allergy, and nutrition-phase
+  // targets using the curated meal database (profile-aware selection).
+  const eligibleMeals = useMemo(
+    () => getEligibleMealsForUser(assessment, nutritionPlan),
+    [assessment, nutritionPlan],
+  );
+
+  // Suggest/generate plan based on options selected.
+  // Uses the adapter's suggestMealPlan() which picks meals matching the
+  // user's diet × phase × meal_type profile with maximum variety (no
+  // repeats within a week).
+  const generatePlanSuggestions = React.useCallback(() => {
+    const plan = suggestMealPlanFromAdapter(assessment, nutritionPlan, {
+      numDays,
+      mealsPerDay: mealsPerDay as 2 | 3,
     });
+    // The adapter returns DayPlan[] with the same shape we use locally.
+    setCustomPlan(plan as AdapterDayPlan[]);
+  }, [numDays, mealsPerDay, assessment, nutritionPlan]);
 
-    // Allergy strict filters
-    if (assessment.allergies && filtered.length > 0) {
-      const allergyList = assessment.allergies
-        .toLowerCase()
-        .split(",")
-        .map((a) => a.trim())
-        .filter(Boolean);
-      const safe = filtered.filter((meal) => {
-        return !allergyList.some(
-          (allergen) =>
-            meal.name.toLowerCase().includes(allergen) ||
-            meal.description.toLowerCase().includes(allergen),
-        );
-      });
-      // Avoid failing if ALL meals are filtered out due to overlapping labels
-      if (safe.length > 0) {
-        filtered = safe;
-      }
-    }
-
-    // Fallback if list ends up completely empty
-    if (filtered.length === 0) {
-      return MEAL_PRODUCTS;
-    }
-    return filtered;
-  };
-
-  const eligibleMeals = getEligibleMeals();
-
-  // Suggest/generate plan based on options selected
-  const generatePlanSuggestions = () => {
-    const list: DayPlan[] = [];
-    const mealSlots: ("Breakfast" | "Lunch" | "Dinner")[] =
-      mealsPerDay === 3 ? ["Breakfast", "Lunch", "Dinner"] : ["Lunch", "Dinner"];
-
-    for (let d = 1; d <= numDays; d++) {
-      const dayMeals: DayPlan["meals"] = [];
-      mealSlots.forEach((slot, slotIdx) => {
-        // Pick cyclically from eligible meals to ensure balanced variety over the week
-        const mealIndex = (d * 5 + slotIdx * 3) % eligibleMeals.length;
-        dayMeals.push({
-          slot,
-          meal: eligibleMeals[mealIndex],
-        });
-      });
-      list.push({
-        dayNumber: d,
-        meals: dayMeals,
-      });
-    }
-    setCustomPlan(list);
-  };
-
-  // Re-generate suggestions whenever days or meals per day change
+  // Re-generate suggestions whenever days, meals per day, or eligible meals change
   useEffect(() => {
     generatePlanSuggestions();
-  }, [numDays, mealsPerDay, assessment.dietType]);
+  }, [generatePlanSuggestions]);
 
   // Handle single meal swap
   const executeMealSwap = (replacementMeal: MealProduct) => {
@@ -155,9 +95,12 @@ export default function MealOrderingTab({
 
     setCustomPlan((prev) => {
       const updated = [...prev];
+      // Q-07: safe — dayIndex/mealIndex come from the rendered list; valid by construction.
+      const target = updated[dayIndex];
+      if (!target) return prev;
       updated[dayIndex] = {
-        ...updated[dayIndex],
-        meals: updated[dayIndex].meals.map((m, idx) =>
+        ...target,
+        meals: target.meals.map((m, idx) =>
           idx === mealIndex ? { ...m, meal: replacementMeal } : m,
         ),
       };
@@ -172,13 +115,8 @@ export default function MealOrderingTab({
     (sum, d) => sum + d.meals.reduce((s, m) => s + m.meal.calories, 0),
     0,
   );
-  const totalPlanProtein = customPlan.reduce(
-    (sum, d) => sum + d.meals.reduce((s, m) => s + m.meal.protein, 0),
-    0,
-  );
 
   const avgDailyCalories = Math.round(totalPlanCalories / numDays) || 0;
-  const avgDailyProtein = Math.round(totalPlanProtein / numDays) || 0;
 
   // Pricing calculations
   const basePricePerMeal = 13.49; // Flat plan optimized price
@@ -439,6 +377,7 @@ export default function MealOrderingTab({
                       {/* Thumbnail Image */}
                       <img
                         loading="lazy"
+                        decoding="async"
                         referrerPolicy="no-referrer"
                         src={slotMeal.meal.image}
                         alt={slotMeal.meal.name}
@@ -580,6 +519,7 @@ export default function MealOrderingTab({
                   >
                     <img
                       loading="lazy"
+                      decoding="async"
                       referrerPolicy="no-referrer"
                       src={meal.image}
                       alt={meal.name}
@@ -661,10 +601,16 @@ export default function MealOrderingTab({
 
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-[9px] font-bold text-[#1A1A1A]/60 uppercase tracking-widest mb-1.5">
+                    <label
+                      htmlFor="div-checkout-plan-summary"
+                      className="block text-[9px] font-bold text-[#1A1A1A]/60 uppercase tracking-widest mb-1.5"
+                    >
                       Delivered Plan Summary
                     </label>
-                    <div className="bg-[#F9F8F6] px-3 py-2 rounded-none border border-[#1A1A1A]/5 text-xs flex justify-between font-bold">
+                    <div
+                      id="div-checkout-plan-summary"
+                      className="bg-[#F9F8F6] px-3 py-2 rounded-none border border-[#1A1A1A]/5 text-xs flex justify-between font-bold"
+                    >
                       <span className="text-[#1A1A1A]/60">
                         {numDays}-day plan ({totalMealsCount} preps)
                       </span>

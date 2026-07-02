@@ -102,7 +102,8 @@ describe("useLogsStore", () => {
     useLogsStore.getState().addWeightLog(81.5);
     const logs = useLogsStore.getState().weightLogs;
     expect(logs).toHaveLength(1);
-    expect(logs[0].weight_kg).toBe(81.5);
+    // Q-07: safe — controlled test data, logs has exactly 1 element.
+    expect(logs[0]!.weight_kg).toBe(81.5);
   });
 
   it("addWaterLog appends (multiple per day allowed)", () => {
@@ -115,16 +116,21 @@ describe("useLogsStore", () => {
     useLogsStore.setState({
       waterLogs: [
         { date: "2020-01-01", amountMl: 999 },
-        { date: new Date().toISOString().split("T")[0], amountMl: 250 },
+        // Q-07: safe — toISOString().split("T") always yields at least one element.
+        { date: new Date().toISOString().split("T")[0]!, amountMl: 250 },
       ],
     });
     useLogsStore.getState().clearTodayWaterLogs();
     const logs = useLogsStore.getState().waterLogs;
     expect(logs).toHaveLength(1);
-    expect(logs[0].amountMl).toBe(999);
+    // Q-07: safe — controlled test data, logs has exactly 1 element after clear.
+    expect(logs[0]!.amountMl).toBe(999);
   });
 
-  it("addWorkoutLog prepends new logs (most recent first)", () => {
+  it("addWorkoutLog appends new logs (chronological order — A-07 fix)", () => {
+    // A-07: all stores now use chronological order (oldest first) for
+    // consistency. Previously workoutLogs prepended (newest first) which
+    // was inconsistent with weightLogs and waterLogs.
     useLogsStore.getState().addWorkoutLog({
       date: "2026-01-01",
       workoutTitle: "Old",
@@ -139,7 +145,9 @@ describe("useLogsStore", () => {
     });
     const logs = useLogsStore.getState().workoutLogs;
     expect(logs).toHaveLength(2);
-    expect(logs[0].workoutTitle).toBe("New");
+    // Q-07: safe — controlled test data, logs has exactly 2 elements.
+    expect(logs[0]!.workoutTitle).toBe("Old");
+    expect(logs[1]!.workoutTitle).toBe("New");
   });
 });
 
@@ -154,7 +162,8 @@ describe("useCommerceStore", () => {
     useCommerceStore.getState().addToCart(SAMPLE_CART_ITEM);
     const cart = useCommerceStore.getState().cart;
     expect(cart).toHaveLength(1);
-    expect(cart[0].quantity).toBe(2);
+    // Q-07: safe — controlled test data, cart has exactly 1 element.
+    expect(cart[0]!.quantity).toBe(2);
   });
 
   it("addToCart treats different types as separate line items", () => {
@@ -175,7 +184,8 @@ describe("useCommerceStore", () => {
     useCommerceStore.getState().clearCartByType("marketplace");
     const cart = useCommerceStore.getState().cart;
     expect(cart).toHaveLength(1);
-    expect(cart[0].type).toBe("meal");
+    // Q-07: safe — controlled test data, cart has exactly 1 element.
+    expect(cart[0]!.type).toBe("meal");
   });
 
   it("addOrder prepends to history AND clears cart items of the same type", () => {
@@ -184,8 +194,9 @@ describe("useCommerceStore", () => {
     useCommerceStore.getState().addOrder(SAMPLE_ORDER);
     const s = useCommerceStore.getState();
     expect(s.orderHistory).toHaveLength(1);
-    expect(s.orderHistory[0].id).toBe("ord-1");
+    // Q-07: safe — controlled test data.
+    expect(s.orderHistory[0]!.id).toBe("ord-1");
     expect(s.cart).toHaveLength(1);
-    expect(s.cart[0].type).toBe("meal");
+    expect(s.cart[0]!.type).toBe("meal");
   });
 });

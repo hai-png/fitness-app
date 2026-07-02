@@ -17,7 +17,8 @@ function makeLog(date: string): ExerciseLog {
 function daysAgo(n: number): string {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  return d.toISOString().split("T")[0];
+  // Q-07: safe — toISOString().split("T") always yields at least one element.
+  return d.toISOString().split("T")[0]!;
 }
 
 describe("WorkoutHeatmap", () => {

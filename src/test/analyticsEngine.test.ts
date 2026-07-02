@@ -33,7 +33,8 @@ function makeExerciseLog(
     id: `exlog-${Math.random().toString(36).slice(2, 8)}`,
     exerciseName: "Flat Barbell Bench Press",
     targetMuscle: "Chest",
-    date: new Date().toISOString().split("T")[0],
+    // Q-07: safe — toISOString().split("T") always yields at least one element.
+    date: new Date().toISOString().split("T")[0]!,
     sets: [makeSet()],
     durationMinutes: 10,
     ...overrides,
@@ -44,7 +45,8 @@ function makeExerciseLog(
 function daysAgo(n: number): string {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  return d.toISOString().split("T")[0];
+  // Q-07: safe — toISOString().split("T") always yields at least one element.
+  return d.toISOString().split("T")[0]!;
 }
 
 // ---------------------------------------------------------------------------
@@ -257,8 +259,9 @@ describe("analyzeExerciseProgression", () => {
     ];
     const result = analyzeExerciseProgression(plateaued);
     expect(result).toHaveLength(1);
-    expect(result[0].plateauDetected).toBe(true);
-    expect(result[0].plateauRecommendation).toContain("100kg");
+    // Q-07: safe — controlled test data, result has exactly 1 element.
+    expect(result[0]!.plateauDetected).toBe(true);
+    expect(result[0]!.plateauRecommendation).toContain("100kg");
   });
 
   it("does NOT flag a plateau when weights are progressing", () => {
@@ -283,7 +286,8 @@ describe("analyzeExerciseProgression", () => {
       }),
     ];
     const result = analyzeExerciseProgression(progressing);
-    expect(result[0].plateauDetected).toBe(false);
+    // Q-07: safe — controlled test data.
+    expect(result[0]!.plateauDetected).toBe(false);
   });
 
   it("labels status as 'Accelerating' when 1RM grew by more than 3kg", () => {
@@ -300,7 +304,8 @@ describe("analyzeExerciseProgression", () => {
       }),
     ];
     const result = analyzeExerciseProgression(accelerated);
-    expect(result[0].statusLabel).toBe("Accelerating");
+    // Q-07: safe — controlled test data.
+    expect(result[0]!.statusLabel).toBe("Accelerating");
   });
 
   it("assigns confidence 'Low' for sessions < 4", () => {
@@ -309,7 +314,8 @@ describe("analyzeExerciseProgression", () => {
       makeExerciseLog({ exerciseName: "Bench", date: daysAgo(5) }),
     ];
     const result = analyzeExerciseProgression(few);
-    expect(result[0].confidence).toBe("Low");
+    // Q-07: safe — controlled test data.
+    expect(result[0]!.confidence).toBe("Low");
   });
 
   it("assigns confidence 'High' for sessions >= 10", () => {
@@ -321,7 +327,8 @@ describe("analyzeExerciseProgression", () => {
       }),
     );
     const result = analyzeExerciseProgression(many);
-    expect(result[0].confidence).toBe("High");
+    // Q-07: safe — controlled test data.
+    expect(result[0]!.confidence).toBe("High");
   });
 });
 
@@ -357,8 +364,9 @@ describe("calculatePersonalRecords", () => {
     ];
     const prs = calculatePersonalRecords(logs);
     expect(prs).toHaveLength(1);
-    expect(prs[0].goldValue).toBe(100);
-    expect(prs[0].silverValue).toBe(100); // 100 was within last 60 days
+    // Q-07: safe — controlled test data, prs has exactly 1 element.
+    expect(prs[0]!.goldValue).toBe(100);
+    expect(prs[0]!.silverValue).toBe(100); // 100 was within last 60 days
   });
 
   it("flags a premature PR when a >25% jump is not sustained in the next 3 sessions", () => {
@@ -396,8 +404,9 @@ describe("calculatePersonalRecords", () => {
       }),
     ];
     const prs = calculatePersonalRecords(logs);
-    expect(prs[0].prematureFlagged).toBe(true);
-    expect(prs[0].prematureDetails).toContain("110kg");
+    // Q-07: safe — controlled test data.
+    expect(prs[0]!.prematureFlagged).toBe(true);
+    expect(prs[0]!.prematureDetails).toContain("110kg");
   });
 
   it("does NOT flag a premature PR when the jump is sustained", () => {
@@ -434,7 +443,8 @@ describe("calculatePersonalRecords", () => {
       }),
     ];
     const prs = calculatePersonalRecords(logs);
-    expect(prs[0].prematureFlagged).toBe(false);
+    // Q-07: safe — controlled test data.
+    expect(prs[0]!.prematureFlagged).toBe(false);
   });
 });
 
@@ -516,7 +526,8 @@ describe("calculateMuscleVolumesAndScores", () => {
     const lats = zones.find((z) => z.muscle === "Lats");
     expect(chest?.weeklySets).toBeGreaterThan(lats?.weeklySets ?? 0);
     // The first entry should be the muscle with the most weekly sets
-    expect(zones[0].weeklySets).toBeGreaterThanOrEqual(zones[zones.length - 1].weeklySets);
+    // Q-07: safe — zones is non-empty (always populated by calculateMuscleVolumesAndScores).
+    expect(zones[0]!.weeklySets).toBeGreaterThanOrEqual(zones[zones.length - 1]!.weeklySets);
   });
 });
 
@@ -528,13 +539,15 @@ describe("LIFETIME_TIERS", () => {
   it("contains 9 tiers in ascending order", () => {
     expect(LIFETIME_TIERS).toHaveLength(9);
     for (let i = 1; i < LIFETIME_TIERS.length; i++) {
-      expect(LIFETIME_TIERS[i].minTons).toBe(LIFETIME_TIERS[i - 1].maxTons);
-      expect(LIFETIME_TIERS[i].maxTons).toBeGreaterThan(LIFETIME_TIERS[i].minTons);
+      // Q-07: safe — i and i-1 both < LIFETIME_TIERS.length in this loop.
+      expect(LIFETIME_TIERS[i]!.minTons).toBe(LIFETIME_TIERS[i - 1]!.maxTons);
+      expect(LIFETIME_TIERS[i]!.maxTons).toBeGreaterThan(LIFETIME_TIERS[i]!.minTons);
     }
   });
 
   it("starts at 0 and ends at Infinity", () => {
-    expect(LIFETIME_TIERS[0].minTons).toBe(0);
-    expect(LIFETIME_TIERS[LIFETIME_TIERS.length - 1].maxTons).toBe(Infinity);
+    // Q-07: safe — controlled test data; LIFETIME_TIERS has 9 entries.
+    expect(LIFETIME_TIERS[0]!.minTons).toBe(0);
+    expect(LIFETIME_TIERS[LIFETIME_TIERS.length - 1]!.maxTons).toBe(Infinity);
   });
 });

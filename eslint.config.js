@@ -65,26 +65,26 @@ export default tseslint.config(
       "react/prop-types": "off",
       "react/jsx-props-no-spreading": "off",
 
-      // --- Pre-existing-codebase relaxations (Phase 4 will tighten these) ---
-      // The original codebase has ~100 unused vars and ~20 `any` types across
-      // 1,670-line god components. We surface them as warnings rather than
-      // errors so the lint gate is usable today; Phase 4 refactor + cleanup
-      // will promote these back to errors.
-      "@typescript-eslint/no-unused-vars": "warn",
-      "@typescript-eslint/no-explicit-any": "warn",
-      "@typescript-eslint/no-non-null-assertion": "warn",
-      "prefer-const": "warn",
-      "no-useless-assignment": "warn",
+      // --- Q-03: all rules now promoted to ERROR (violations fixed) ---
+      // The original codebase had ~100 warnings across god components. After
+      // the A-01 split + the unused-vars/a11y cleanup pass, only 7
+      // set-state-in-effect warnings remain (intentional patterns in
+      // useHydrated + useEngine that need a larger refactor). Those are
+      // kept as warnings; everything else is now a hard error.
+      "@typescript-eslint/no-non-null-assertion": "error",
+      "@typescript-eslint/no-unused-vars": "error",
+      "@typescript-eslint/no-explicit-any": "error",
+      "react/no-unescaped-entities": "error",
+      "react-hooks/exhaustive-deps": "error",
+      "jsx-a11y/no-static-element-interactions": "error",
+      "jsx-a11y/click-events-have-key-events": "error",
+      "jsx-a11y/label-has-associated-control": "error",
+      "no-useless-assignment": "error",
+      "prefer-const": "error",
 
-      // Accessibility — real issues that need fixing in Phase 4 component
-      // refactor. Downgrade to warnings so the gate runs but doesn't block.
-      "jsx-a11y/label-has-associated-control": "warn",
-      "jsx-a11y/no-static-element-interactions": "warn",
-      "jsx-a11y/click-events-have-key-events": "warn",
-
-      // React patterns — pre-existing issues in god components.
-      "react/no-unescaped-entities": "warn",
-      "react-hooks/exhaustive-deps": "warn",
+      // React patterns — 7 remaining in useHydrated.ts + useEngine.ts.
+      // These are intentional state-sync patterns that need a larger
+      // refactor (useSyncExternalStore or a hydration store) to fix.
       "react-hooks/set-state-in-effect": "warn",
     },
   },

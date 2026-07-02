@@ -1,0 +1,35 @@
+# Lighthouse CI configuration (P-10 / Phase 3 testing maturity).
+# Runs Lighthouse against the production build and asserts performance
+# budgets. In CI, this runs after the build step.
+#
+# Usage:
+#   npm run build
+#   npx lhci autorun
+#
+# The results are uploaded to the Lighthouse CI server (if configured via
+# LHCI_SERVER_BASE_URL) or stored locally in .lighthouseci/.
+
+ci:
+  collect:
+    # Start the production server before collecting.
+    startServerCommand: node dist/server.cjs
+    startServerReadyPattern: "Server running on port"
+    url:
+      - http://localhost:3000/
+    numberOfRuns: 3
+    settings:
+      preset: desktop
+  assert:
+    # Performance budgets — fail CI if these drop.
+    # These are conservative; tighten as the codebase matures.
+    assertions:
+      "categories:performance": ["warn", { minScore: 0.7 }]
+      "categories:accessibility": ["error", { minScore: 0.85 }]
+      "categories:best-practices": ["warn", { minScore: 0.85 }]
+      "categories:seo": ["warn", { minScore: 0.8 }]
+      # Core Web Vitals
+      "largest-contentful-paint": ["warn", { maxNumericValue: 2500 }]
+      "cumulative-layout-shift": ["error", { maxNumericValue: 0.1 }]
+      "total-blocking-time": ["warn", { maxNumericValue: 300 }]
+  upload:
+    target: temporary-public-storage

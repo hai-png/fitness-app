@@ -1,4 +1,4 @@
-import type { OnboardingInput, WorkoutPlan, MealSuggestion } from "../engine";
+import type { OnboardingInput, WorkoutPlan, MealSuggestion, WeeklyScheduleDay, Exercise } from "../engine";
 
 /**
  * Generate a workout plan from onboarding input.
@@ -7,12 +7,15 @@ import type { OnboardingInput, WorkoutPlan, MealSuggestion } from "../engine";
  * (runAssessment + buildNutritionPlan) via the useEngine hook.
  */
 export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
-  const { name, goal, workoutPreference, dietType, frequency } = input;
-  // Decide difficulty and description based on goal
-  let title = "";
-  let description = "";
-  let difficulty = "Intermediate";
-  let tips: string[] = [];
+  const { name, goal, workoutPreference, frequency } = input;
+  // Decide difficulty and description based on goal.
+  // Q-01/no-useless-assignment: the initial values are never read because
+  // every branch in the if/else below reassigns them. Declaring without
+  // an initial value makes the "definitely assigned" semantics explicit.
+  let title: string;
+  let description: string;
+  let difficulty: string;
+  let tips: string[];
 
   if (goal === "weight-loss") {
     title = `Fat Shred & Cardio Burn for ${name}`;
@@ -62,8 +65,19 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
   }
 
   // Generate weekly workouts based on frequency preference
-  const scheduleDays = [];
-  const exercisePoolGym = {
+  const scheduleDays: WeeklyScheduleDay[] = [];
+  // Q-01: explicitly typed so .map() callbacks can use Exercise without
+  // the literal-narrowing that makes targetMuscle required (vs optional on Exercise).
+  type ExercisePool = {
+    chest: Exercise[];
+    back: Exercise[];
+    legs: Exercise[];
+    arms: Exercise[];
+    shoulders: Exercise[];
+    core: Exercise[];
+    cardio: Exercise[];
+  };
+  const exercisePoolGym: ExercisePool = {
     chest: [
       {
         name: "Incline Dumbbell Press",
@@ -350,7 +364,7 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
     ],
   };
 
-  const exercisePoolHome = {
+  const exercisePoolHome: ExercisePool = {
     chest: [
       {
         name: "Standard Push-Ups",
@@ -644,13 +658,18 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
   // by reference (latent footgun if a future change mutates the home pool).
   const pool = structuredClone(isGym ? exercisePoolGym : exercisePoolHome);
 
+  // Q-07: helper to pick an exercise from a non-empty pool slot without
+  // tripping noUncheckedIndexedAccess (or no-non-null-assertion). Pool arrays
+  // are statically defined with enough entries for every index used below.
+  const ex = (arr: Exercise[], i: number) => arr[i] as Exercise;
+
   // Let's tune the gym exercise pool if availableMachines is specified
   if (isGym && input.availableMachines && input.availableMachines.length > 0) {
     const machines = input.availableMachines;
 
     // 1. Lat Pulldown Machine
     if (!machines.includes("Lat Pulldown")) {
-      pool.back = pool.back.map((ex: any) =>
+      pool.back = pool.back.map((ex: Exercise) =>
         ex.name.includes("Lat Pulldown")
           ? {
               name: "Dumbbell Pull-Over",
@@ -674,7 +693,7 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
 
     // 2. Cable Crossover
     if (!machines.includes("Cable Crossover")) {
-      pool.chest = pool.chest.map((ex: any) =>
+      pool.chest = pool.chest.map((ex: Exercise) =>
         ex.name.includes("Cable Chest")
           ? {
               name: "Flat Dumbbell Flys",
@@ -693,7 +712,7 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
             }
           : ex,
       );
-      pool.arms = pool.arms.map((ex: any) =>
+      pool.arms = pool.arms.map((ex: Exercise) =>
         ex.name.includes("Cable")
           ? {
               name: "Dumbbell Overhead Tricep Extension",
@@ -717,7 +736,7 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
 
     // 3. Leg Extension Machine
     if (!machines.includes("Leg Extension Machine")) {
-      pool.legs = pool.legs.map((ex: any) =>
+      pool.legs = pool.legs.map((ex: Exercise) =>
         ex.name.includes("Leg Extensions")
           ? {
               name: "Dumbbell Goblet Squats",
@@ -805,8 +824,8 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
         activityType: "Strength",
         durationMinutes: 45,
         exercises: isGym
-          ? [pool.legs[0], pool.chest[0], pool.back[0], pool.shoulders[1], pool.core[1]]
-          : [pool.legs[0], pool.chest[1], pool.back[0], pool.legs[2], pool.core[0]],
+          ? [ex(pool.legs, 0), ex(pool.chest, 0), ex(pool.back, 0), ex(pool.shoulders, 1), ex(pool.core, 1)]
+          : [ex(pool.legs, 0), ex(pool.chest, 1), ex(pool.back, 0), ex(pool.legs, 2), ex(pool.core, 0)],
       },
       {
         day: "Tuesday - Active Recovery Walking",
@@ -827,8 +846,8 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
         activityType: "Strength",
         durationMinutes: 50,
         exercises: isGym
-          ? [pool.legs[1], pool.back[1], pool.chest[1], pool.shoulders[0], pool.arms[0]]
-          : [pool.legs[1], pool.chest[0], pool.back[2], pool.core[1], pool.chest[2]],
+          ? [ex(pool.legs, 1), ex(pool.back, 1), ex(pool.chest, 1), ex(pool.shoulders, 0), ex(pool.arms, 0)]
+          : [ex(pool.legs, 1), ex(pool.chest, 0), ex(pool.back, 2), ex(pool.core, 1), ex(pool.chest, 2)],
       },
       {
         day: "Wednesday, Friday, Weekend - Recovery",
@@ -852,24 +871,24 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
         activityType: "Strength",
         durationMinutes: 45,
         exercises: isGym
-          ? [pool.chest[0], pool.chest[1], pool.shoulders[0], pool.shoulders[1], pool.arms[1]]
-          : [pool.chest[1], pool.chest[0], pool.chest[2], pool.core[1], pool.core[0]],
+          ? [ex(pool.chest, 0), ex(pool.chest, 1), ex(pool.shoulders, 0), ex(pool.shoulders, 1), ex(pool.arms, 1)]
+          : [ex(pool.chest, 1), ex(pool.chest, 0), ex(pool.chest, 2), ex(pool.core, 1), ex(pool.core, 0)],
       },
       {
         day: "Wednesday - Pull Day (Back & Core)",
         activityType: "Strength",
         durationMinutes: 45,
         exercises: isGym
-          ? [pool.back[0], pool.back[1], pool.back[2], pool.arms[0], pool.core[0]]
-          : [pool.back[0], pool.back[1], pool.back[2], pool.core[0], pool.cardio[1]],
+          ? [ex(pool.back, 0), ex(pool.back, 1), ex(pool.back, 2), ex(pool.arms, 0), ex(pool.core, 0)]
+          : [ex(pool.back, 0), ex(pool.back, 1), ex(pool.back, 2), ex(pool.core, 0), ex(pool.cardio, 1)],
       },
       {
         day: "Friday - Legs & Lower Body Focus",
         activityType: "Strength",
         durationMinutes: 50,
         exercises: isGym
-          ? [pool.legs[0], pool.legs[1], pool.legs[2], pool.core[1]]
-          : [pool.legs[0], pool.legs[1], pool.legs[2], pool.cardio[0]],
+          ? [ex(pool.legs, 0), ex(pool.legs, 1), ex(pool.legs, 2), ex(pool.core, 1)]
+          : [ex(pool.legs, 0), ex(pool.legs, 1), ex(pool.legs, 2), ex(pool.cardio, 0)],
       },
       {
         day: "Tue, Thu, Weekend - Dynamic Recovery",
@@ -894,32 +913,32 @@ export function generateWorkoutPlan(input: OnboardingInput): WorkoutPlan {
         activityType: "Strength",
         durationMinutes: 50,
         exercises: isGym
-          ? [pool.chest[0], pool.back[0], pool.shoulders[0], pool.arms[0], pool.core[0]]
-          : [pool.chest[1], pool.back[0], pool.chest[2], pool.core[1]],
+          ? [ex(pool.chest, 0), ex(pool.back, 0), ex(pool.shoulders, 0), ex(pool.arms, 0), ex(pool.core, 0)]
+          : [ex(pool.chest, 1), ex(pool.back, 0), ex(pool.chest, 2), ex(pool.core, 1)],
       },
       {
         day: "Tuesday - Lower Body (A) Quad Focus",
         activityType: "Strength",
         durationMinutes: 45,
         exercises: isGym
-          ? [pool.legs[0], pool.legs[2], pool.core[1]]
-          : [pool.legs[0], pool.legs[1], pool.core[0]],
+          ? [ex(pool.legs, 0), ex(pool.legs, 2), ex(pool.core, 1)]
+          : [ex(pool.legs, 0), ex(pool.legs, 1), ex(pool.core, 0)],
       },
       {
         day: "Thursday - Upper Body (B) Volume",
         activityType: "Strength",
         durationMinutes: 50,
         exercises: isGym
-          ? [pool.chest[1], pool.back[1], pool.shoulders[1], pool.arms[1], pool.core[1]]
-          : [pool.chest[0], pool.back[1], pool.cardio[1], pool.core[0]],
+          ? [ex(pool.chest, 1), ex(pool.back, 1), ex(pool.shoulders, 1), ex(pool.arms, 1), ex(pool.core, 1)]
+          : [ex(pool.chest, 0), ex(pool.back, 1), ex(pool.cardio, 1), ex(pool.core, 0)],
       },
       {
         day: "Friday - Lower Body (B) Posterior Focus",
         activityType: "Strength",
         durationMinutes: 45,
         exercises: isGym
-          ? [pool.legs[1], pool.back[2], pool.core[0]]
-          : [pool.legs[1], pool.legs[2], pool.cardio[0]],
+          ? [ex(pool.legs, 1), ex(pool.back, 2), ex(pool.core, 0)]
+          : [ex(pool.legs, 1), ex(pool.legs, 2), ex(pool.cardio, 0)],
       },
       {
         day: "Wednesday/Weekend - Active Restoration",

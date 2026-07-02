@@ -11,13 +11,11 @@ import {
   Sparkles,
   ShoppingBagIcon,
   Dumbbell,
-  CreditCard,
   MapPin,
   CheckCircle,
   Truck,
   Shirt,
   Package,
-  Activity,
   SlidersHorizontal,
   AlertTriangle,
 } from "lucide-react";
@@ -264,6 +262,7 @@ export default function MarketplaceTab({
               <div className="relative h-28 bg-[#F9F8F6] overflow-hidden">
                 <img
                   loading="lazy"
+                  decoding="async"
                   referrerPolicy="no-referrer"
                   src={prod.image}
                   alt={prod.name}
@@ -348,6 +347,7 @@ export default function MarketplaceTab({
                   >
                     <img
                       loading="lazy"
+                      decoding="async"
                       referrerPolicy="no-referrer"
                       src={item.image}
                       alt={item.name}

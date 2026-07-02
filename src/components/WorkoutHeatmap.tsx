@@ -26,7 +26,9 @@ export function WorkoutHeatmap({ exerciseLogs }: WorkoutHeatmapProps) {
     for (let i = 365; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
-      dates.push(d.toISOString().split("T")[0]);
+      // Q-07: safe — toISOString().split("T") always yields at least one element.
+      const [datePart] = d.toISOString().split("T");
+      dates.push(datePart as string);
     }
 
     const workoutCountsByDate: Record<string, number> = {};
@@ -41,9 +43,11 @@ export function WorkoutHeatmap({ exerciseLogs }: WorkoutHeatmapProps) {
     for (let i = 0; i < 365; i++) {
       const checkDateStr = new Date(today);
       checkDateStr.setDate(today.getDate() - i);
-      const formatted = checkDateStr.toISOString().split("T")[0];
+      // Q-07: safe — toISOString().split("T") always yields at least one element.
+      const [formatted] = checkDateStr.toISOString().split("T");
+      const formattedDate = formatted as string;
 
-      if (workoutCountsByDate[formatted]) {
+      if (workoutCountsByDate[formattedDate]) {
         tempStreak++;
         if (tempStreak > maxStreak) maxStreak = tempStreak;
         if (i <= tempStreak) currentStreak = tempStreak;
@@ -54,9 +58,11 @@ export function WorkoutHeatmap({ exerciseLogs }: WorkoutHeatmapProps) {
         const b2 = new Date(checkDateStr);
         b2.setDate(checkDateStr.getDate() - 2);
 
+        const [b1Part] = b1.toISOString().split("T");
+        const [b2Part] = b2.toISOString().split("T");
         if (
-          !workoutCountsByDate[b1.toISOString().split("T")[0]] &&
-          !workoutCountsByDate[b2.toISOString().split("T")[0]]
+          !workoutCountsByDate[b1Part as string] &&
+          !workoutCountsByDate[b2Part as string]
         ) {
           tempStreak = 0;
         }

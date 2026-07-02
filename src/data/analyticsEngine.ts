@@ -1,5 +1,3 @@
-import { EXERCISE_DATABASE } from "./workoutTemplates";
-
 export interface SetLog {
   id: string;
   weight: number; // in kg
@@ -71,11 +69,7 @@ export function calculateCoreMetrics(logs: ExerciseLog[], multiplierSecondary: n
 }
 
 // Compare current vs previous periods (Rolling Windows)
-export function calculateRollingTrends(
-  logs: ExerciseLog[],
-  dateFilterStart?: string,
-  dateFilterEnd?: string,
-) {
+export function calculateRollingTrends(logs: ExerciseLog[]) {
   const today = new Date();
 
   // Helper to filter logs in days relative to today.
@@ -163,10 +157,12 @@ export function analyzeExerciseProgression(logs: ExerciseLog[]): ExerciseAnalysi
   // Group logs by exercise name
   const grouped: Record<string, ExerciseLog[]> = {};
   logs.forEach((log) => {
-    if (!grouped[log.exerciseName]) {
-      grouped[log.exerciseName] = [];
+    const existing = grouped[log.exerciseName];
+    if (existing) {
+      existing.push(log);
+    } else {
+      grouped[log.exerciseName] = [log];
     }
-    grouped[log.exerciseName].push(log);
   });
 
   const analyses: ExerciseAnalysis[] = [];
@@ -180,7 +176,10 @@ export function analyzeExerciseProgression(logs: ExerciseLog[]): ExerciseAnalysi
     if (sessionCount === 0) return;
 
     // Muscle group
-    const muscle = sorted[0].targetMuscle;
+    // Q-07: safe — sessionCount === 0 returned above.
+    const firstLog = sorted[0];
+    if (!firstLog) return;
+    const muscle = firstLog.targetMuscle;
 
     // Extract maximum weight and average working weight
     let maxWeight = 0;
@@ -200,8 +199,10 @@ export function analyzeExerciseProgression(logs: ExerciseLog[]): ExerciseAnalysi
 
     // Calculate Last 3 sessions top working weights to inspect plateaus
     const recentSessions = sorted.slice(-3);
+    // Q-07: safe — sessionCount === 0 returned above.
     const lastSession = sorted[sorted.length - 1];
     const firstSession = sorted[0];
+    if (!lastSession || !firstSession) return;
 
     // Estimate Last Session 1RM
     let lastSessionMax1RM = 0;
@@ -242,10 +243,11 @@ export function analyzeExerciseProgression(logs: ExerciseLog[]): ExerciseAnalysi
       });
 
       // If weight has been completely flat or declining across 3 sessions
-      const isFlat = topWeights[2] <= topWeights[0];
+      // Q-07: safe — guarded by recentSessions.length >= 3 above.
+      const isFlat = (topWeights[2] ?? 0) <= (topWeights[0] ?? 0);
       if (isFlat) {
         plateauDetected = true;
-        plateauRecommendation = `Stalled at ${topWeights[2]}kg. Try introducing a 10% deload week, then return with an emphasis on strict mechanical tempo, or switch to micro-load plates (+0.5kg/side).`;
+        plateauRecommendation = `Stalled at ${topWeights[2] ?? 0}kg. Try introducing a 10% deload week, then return with an emphasis on strict mechanical tempo, or switch to micro-load plates (+0.5kg/side).`;
       }
     }
 
@@ -281,8 +283,12 @@ export interface PersonalRecord {
 export function calculatePersonalRecords(logs: ExerciseLog[]): PersonalRecord[] {
   const grouped: Record<string, ExerciseLog[]> = {};
   logs.forEach((l) => {
-    if (!grouped[l.exerciseName]) grouped[l.exerciseName] = [];
-    grouped[l.exerciseName].push(l);
+    const existing = grouped[l.exerciseName];
+    if (existing) {
+      existing.push(l);
+    } else {
+      grouped[l.exerciseName] = [l];
+    }
   });
 
   const prs: PersonalRecord[] = [];
@@ -297,9 +303,7 @@ export function calculatePersonalRecords(logs: ExerciseLog[]): PersonalRecord[] 
     let silverWeightDate = "";
 
     let gold1RM = 0;
-    let gold1RMDate = "";
     let silver1RM = 0;
-    let silver1RMDate = "";
 
     // Chronological logs to scan for premature PRs
     const sorted = [...exLogs].sort(
@@ -327,11 +331,9 @@ export function calculatePersonalRecords(logs: ExerciseLog[]): PersonalRecord[] 
         const estimated1RM = calculateEpley1RM(set.weight, set.reps);
         if (estimated1RM > gold1RM) {
           gold1RM = estimated1RM;
-          gold1RMDate = sess.date;
         }
         if (isRecent && estimated1RM > silver1RM) {
           silver1RM = estimated1RM;
-          silver1RMDate = sess.date;
         }
       });
     });
@@ -350,12 +352,17 @@ export function calculatePersonalRecords(logs: ExerciseLog[]): PersonalRecord[] 
     };
 
     for (let i = 0; i < sorted.length; i++) {
+      // Q-07: safe — i < sorted.length inside this loop.
       const sess = sorted[i];
+      if (!sess) continue;
       const maxSessWeight = maxWorkingWeight(sess);
 
       // If we have at least 1 session before and 3 sessions after
       if (i > 0 && i < sorted.length - 3) {
-        const prevSessionMax = maxWorkingWeight(sorted[i - 1]);
+        // Q-07: safe — i > 0 and i < sorted.length - 3 in this branch.
+        const prev = sorted[i - 1];
+        if (!prev) continue;
+        const prevSessionMax = maxWorkingWeight(prev);
         const followingMaxes = sorted.slice(i + 1, i + 4).map((s) => maxWorkingWeight(s));
 
         // If jump was > 25% compared to previous, AND all following 3 sessions are at least 15% lower than this jump
@@ -454,12 +461,13 @@ export function calculateMuscleVolumesAndScores(
     const totalSets = muscleSets[muscle] || 0;
     const weeklySets = Math.round((totalSets / 4) * 10) / 10; // average weekly sets
     const totalVol = muscleWeeklyVolumes[muscle] || 0;
-    const weeklyVol = totalVol / 4;
     const balancePct = totalVolumeAll > 0 ? Math.round((totalVol / totalVolumeAll) * 100) : 0;
 
     // Categorize Zone
-    let zone: MuscleVolumeZone["zone"] = "Active Recovery";
-    let colorClass = "bg-emerald-100 text-emerald-800 border-emerald-200";
+    // no-useless-assignment: declare without initial value since every
+    // branch in the if/else below reassigns.
+    let zone: MuscleVolumeZone["zone"];
+    let colorClass: string;
 
     const mvCut = 5 + thresholdOffset * 0.5;
     const mevCut = 9 + thresholdOffset;

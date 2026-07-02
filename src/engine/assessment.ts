@@ -358,7 +358,15 @@ export interface IbwResult {
   hamwi_kg: number;
 }
 
-const IBW_COEFFICIENTS = {
+const IBW_COEFFICIENTS: Record<
+  Sex,
+  {
+    devine: [number, number];
+    robinson: [number, number];
+    miller: [number, number];
+    hamwi: [number, number];
+  }
+> = {
   male: { devine: [50.0, 2.3], robinson: [52.0, 1.9], miller: [56.2, 1.41], hamwi: [48.0, 2.7] },
   female: { devine: [45.5, 2.3], robinson: [49.0, 1.7], miller: [53.1, 1.36], hamwi: [45.4, 2.2] },
 };
@@ -368,6 +376,7 @@ export function idealBodyWeight(sex: Sex, height_cm: number): IbwResult {
   const inchesOver5ft = Math.max(0, height_in - 60);
   const c = IBW_COEFFICIENTS[sex];
 
+  // Q-07: typed as tuples so indices 0 and 1 are statically safe.
   return {
     devine_kg: c.devine[0] + c.devine[1] * inchesOver5ft,
     robinson_kg: c.robinson[0] + c.robinson[1] * inchesOver5ft,
@@ -620,8 +629,12 @@ export function weeklyRateLbPerWeek(
   let num = 0;
   let den = 0;
   for (let i = 0; i < n; i++) {
-    num += (xs[i] - xMean) * (ys[i] - yMean);
-    den += (xs[i] - xMean) ** 2;
+    // Q-07: safe — xs[i] and ys[i] exist because i < n = sorted.length (and xs/ys are derived from sorted).
+    // Use ?? 0 to satisfy noUncheckedIndexedAccess without no-non-null-assertion.
+    const x = xs[i] ?? 0;
+    const y = ys[i] ?? 0;
+    num += (x - xMean) * (y - yMean);
+    den += (x - xMean) ** 2;
   }
   if (den === 0) return 0;
   const slope_kg_per_day = num / den;

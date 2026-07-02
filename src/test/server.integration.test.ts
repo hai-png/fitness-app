@@ -47,7 +47,13 @@ async function startServer(env: Record<string, string> = {}): Promise<void> {
 
     const onReady = (data: Buffer) => {
       const msg = data.toString();
-      if (msg.includes(`Server running on port ${SERVER_PORT}`)) {
+      // S-16: server now uses pino structured logging. The startup log line
+      // is JSON with msg: "server_started" and port: <PORT>. Match either
+      // the new pino format or the old console.log format for robustness.
+      if (
+        msg.includes(`"msg":"server_started"`) ||
+        msg.includes(`Server running on port ${SERVER_PORT}`)
+      ) {
         serverProc.stdout?.off("data", onReady);
         resolve();
       }

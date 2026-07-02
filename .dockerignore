@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.github
+dist
+coverage
+playwright-report
+test-results
+*.md
+.env*
+!.env.example

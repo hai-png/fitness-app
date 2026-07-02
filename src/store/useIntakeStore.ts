@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { DailyIntakeLog } from "../engine";
+import { todayStr } from "../lib/date";
 
 /**
  * Intake store — holds daily calorie + macro intake logs.
@@ -12,6 +13,9 @@ import type { DailyIntakeLog } from "../engine";
  *
  * Schema matches the engine's `DailyIntakeLog` interface exactly so the
  * adaptive TDEE module can consume the logs directly.
+ *
+ * A-07: stored in chronological order (oldest first), matching useLogsStore.
+ * A-08: dedupes by date (one entry per day) — re-logging today overwrites.
  */
 interface IntakeState {
   intakeLogs: DailyIntakeLog[];
@@ -24,15 +28,6 @@ interface IntakeState {
   clearTodayIntakeLog: () => void;
   /** Clear all intake logs. */
   reset: () => void;
-}
-
-/** Returns YYYY-MM-DD in the local timezone (not UTC). */
-function todayStr(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
 }
 
 export const useIntakeStore = create<IntakeState>()(

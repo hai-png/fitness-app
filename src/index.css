@@ -1,9 +1,6 @@
-/* Load only the font weights actually used by the app.
-   Original @import loaded 15 weights (Inter 7 + JetBrains 4 + Playfair 7 incl. italic);
-   this version loads 9 (Inter 5 + JetBrains 3 + Playfair 6 incl. italic), cutting
-   ~40% of the font payload. display=swap avoids FOUT.
-   Preconnect hints in index.html eliminate the DNS/TLS round-trip. */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&display=swap");
+/* P-01: Google Fonts are now loaded via <link> in index.html <head>.
+   The previous CSS @import was render-blocking; the <link> approach
+   parallelises font loading with HTML parse. */
 @import "tailwindcss";
 
 @theme {
