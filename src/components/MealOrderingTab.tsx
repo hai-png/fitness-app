@@ -1,6 +1,10 @@
-import React, { useState, useEffect } from "react";
-import { MEAL_PRODUCTS } from "../data/meals";
+import React, { useState, useEffect, useMemo } from "react";
 import { OnboardingInput, MealProduct, CartItem, Order, NutritionPlan } from "../engine";
+import {
+  getEligibleMealsForUser,
+  suggestMealPlan as suggestMealPlanFromAdapter,
+  type DayPlan as AdapterDayPlan,
+} from "../data/mealAdapter";
 import { toast } from "./Toast";
 import {
   ShoppingBag,
@@ -59,79 +63,25 @@ export default function MealOrderingTab({
   const targetCalories =
     nutritionPlan?.target_calories_kcal || Math.round(assessment.weight * 26);
 
-  // Filter products by dietary restriction and allergy
-  const getEligibleMeals = (): MealProduct[] => {
-    let filtered = MEAL_PRODUCTS.filter((meal) => {
-      // Diet preference alignment
-      const diet = assessment.dietType;
-      if (diet === "vegan") {
-        return meal.category === "vegan";
-      } else if (diet === "vegetarian") {
-        return meal.category === "vegetarian" || meal.category === "vegan";
-      } else if (diet === "keto") {
-        return meal.category === "keto" || meal.category === "low-carb";
-      } else if (diet === "low-carb") {
-        return meal.category === "low-carb" || meal.category === "keto";
-      }
-      return true; // anything, mediterranean, gluten-free
-    });
-
-    // Allergy strict filters
-    if (assessment.allergies && filtered.length > 0) {
-      const allergyList = assessment.allergies
-        .toLowerCase()
-        .split(",")
-        .map((a) => a.trim())
-        .filter(Boolean);
-      const safe = filtered.filter((meal) => {
-        return !allergyList.some(
-          (allergen) =>
-            meal.name.toLowerCase().includes(allergen) ||
-            meal.description.toLowerCase().includes(allergen),
-        );
-      });
-      // Avoid failing if ALL meals are filtered out due to overlapping labels
-      if (safe.length > 0) {
-        filtered = safe;
-      }
-    }
-
-    // Fallback if list ends up completely empty
-    if (filtered.length === 0) {
-      return MEAL_PRODUCTS;
-    }
-    return filtered;
-  };
-
-  const eligibleMeals = getEligibleMeals();
+  // Filter products by dietary restriction, allergy, and nutrition-phase
+  // targets using the curated meal database (profile-aware selection).
+  const eligibleMeals = useMemo(
+    () => getEligibleMealsForUser(assessment, nutritionPlan),
+    [assessment, nutritionPlan],
+  );
 
   // Suggest/generate plan based on options selected.
-  // Wrapped in useCallback so the effect below can depend on it without
-  // re-running on every render (Q-03 exhaustive-deps fix).
+  // Uses the adapter's suggestMealPlan() which picks meals matching the
+  // user's diet × phase × meal_type profile with maximum variety (no
+  // repeats within a week).
   const generatePlanSuggestions = React.useCallback(() => {
-    const list: DayPlan[] = [];
-    const mealSlots: ("Breakfast" | "Lunch" | "Dinner")[] =
-      mealsPerDay === 3 ? ["Breakfast", "Lunch", "Dinner"] : ["Lunch", "Dinner"];
-
-    for (let d = 1; d <= numDays; d++) {
-      const dayMeals: DayPlan["meals"] = [];
-      mealSlots.forEach((slot, slotIdx) => {
-        const mealIndex = (d * 5 + slotIdx * 3) % eligibleMeals.length;
-        // Q-07: safe — modulo by eligibleMeals.length keeps mealIndex in-bounds.
-        const meal = eligibleMeals[mealIndex];
-        if (!meal) return;
-        dayMeals.push({
-          slot,
-          meal,
-        });
-      });
-      list.push({
-        dayNumber: d,
-        meals: dayMeals,
-      });
-    }
-    setCustomPlan(list);
-  }, [numDays, mealsPerDay, eligibleMeals]);
+    const plan = suggestMealPlanFromAdapter(assessment, nutritionPlan, {
+      numDays,
+      mealsPerDay: mealsPerDay as 2 | 3,
+    });
+    // The adapter returns DayPlan[] with the same shape we use locally.
+    setCustomPlan(plan as AdapterDayPlan[]);
+  }, [numDays, mealsPerDay, assessment, nutritionPlan]);
 
   // Re-generate suggestions whenever days, meals per day, or eligible meals change
   useEffect(() => {
